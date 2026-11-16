@@ -158,7 +158,7 @@ io.on('connection', (socket) => {
     const room = rooms.get(String(code || '').toUpperCase());
     if (!room) throw new Error("Cette partie n'existe plus.");
     const p = room.byToken(token);
-    if (!p || p.kicked) throw new Error('Session expirée : rejoins la partie avec le code.');
+    if (!p || p.kicked) throw new Error('Session expirée.');
     attach(socket, room, p);
     return { code: room.code };
   }));

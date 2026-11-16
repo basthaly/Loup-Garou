@@ -178,24 +178,22 @@
       const info = home.info;
       const away = info.players.filter((p) => !p.connected);
       const here = info.players.filter((p) => p.connected);
-      const reclaim = away.length ? `<div class="label">Reprendre ta place</div>
-        <p class="muted small">Onglet fermé, bug, changement d'appareil : choisis ton nom pour revenir dans la partie.</p>
+      const reclaim = away.length ? `<div class="label">Reconnexion</div>
         <div class="opts">${away.map((p) => `<button class="opt" data-act="reclaim" data-id="${p.id}">${esc(p.name)}</button>`).join('')}</div>` : '';
-      const join = info.canJoin ? `<div class="label">Nouveau joueur</div>${nameField}<button class="primary" data-act="join">Rejoindre le salon</button>`
-        : away.length ? '' : '<div class="note">La partie a commencé et tous les joueurs sont connectés.</div>';
+      const join = info.canJoin ? `${nameField}<button class="primary" data-act="join">Rejoindre</button>`
+        : away.length ? '' : '<div class="note">Partie en cours, complète.</div>';
       body = `${back}<h1 class="h">Salon <span class="code">${esc(info.code)}</span></h1>
-        <p class="muted small">${info.canJoin ? 'En attente du lancement' : 'Partie en cours'} · ${here.length} connecté${here.length > 1 ? 's' : ''}${here.length ? ' : ' + here.map((p) => esc(p.name)).join(', ') : ''}</p>
+        <p class="muted small">${info.canJoin ? 'Salon' : 'Partie en cours'} · ${here.length} connecté${here.length > 1 ? 's' : ''}</p>
         ${join}${reclaim}`;
     } else {
       const resume = last ? `<button class="resume" data-act="resume">
-          <span class="resume-t">Reprendre ma partie</span><span class="muted small">${esc(last.name || '')} · salon ${esc(last.code)}</span></button>` : '';
+          <span class="resume-t">Reprendre ma partie</span><span class="muted small">${esc(last.name || '')} · ${esc(last.code)}</span></button>` : '';
       body = `${resume}
         <button class="big primary" data-act="home-create">${icon('moon', 20)} Créer un salon</button>
         <button class="big" data-act="home-join">${icon('village', 20)} Rejoindre avec un code</button>`;
     }
     return `<main class="home">
       <div class="brand big">${icon('moon', 44)}<span>Loup-Garou</span></div>
-      <p class="muted" style="text-align:center;margin:0">Le Loup-Garou entre amis, avec caméra et micro.</p>
       <div class="zone"><div class="zb">${body}</div></div></main>`;
   }
 
@@ -241,7 +239,7 @@
 
   function mediaControlsHTML() {
     const L = Media.local, me = view.me;
-    const deadNote = !me.alive && !me.isMJ && view.room.phase !== 'end' ? '<div class="note">Seuls les autres morts t\'entendent.</div>' : '';
+    const deadNote = !me.alive && !me.isMJ && view.room.phase !== 'end' ? '<div class="note">Seuls les morts t\'entendent.</div>' : '';
     return `<div class="row media-row">${mediaButtons(false)}</div>${L.error ? `<div class="warn">${esc(L.error)}</div>` : ''}${deadNote}`;
   }
 
@@ -258,16 +256,16 @@
     const nGame = view.players.filter((p) => !p.isMJ).length;
     const radio = (name, val, title, desc) => `
       <label class="choice ${s[name] === val ? 'on' : ''}"><input type="radio" name="${name}" value="${val}" data-set="${name}" ${s[name] === val ? 'checked' : ''} ${dis}>
-      <span><span style="display:block;font-weight:600">${title}</span><span class="muted" style="font-size:14px">${desc}</span></span></label>`;
+      <span><span style="display:block;font-weight:600">${title}</span>${desc ? `<span class="muted" style="font-size:14px">${desc}</span>` : ''}</span></label>`;
     const check = (label, val, path) => `<label class="check"><input type="checkbox" data-set="${path}" ${val ? 'checked' : ''} ${dis}> ${label}</label>`;
     const mjSelect = s.mjMode === 'joueur' ? `<label for="f-mj" class="muted" style="font-size:14px">Qui est le MJ ?</label>
       <select id="f-mj" data-set="mjId" ${dis}><option value="">— choisir —</option>${view.players.map((p) => `<option value="${p.id}" ${s.mjId === p.id ? 'selected' : ''}>${esc(p.name)}</option>`).join('')}</select>` : '';
     const warn = [];
-    if (nGame < r.minPlayers) warn.push(`Il faut au moins ${r.minPlayers} joueurs (hors MJ).`);
-    else if (nGame < r.recommended) warn.push(`${r.recommended} joueurs ou plus recommandés pour une vraie partie.`);
+    if (nGame < r.minPlayers) warn.push(`Minimum ${r.minPlayers} joueurs.`);
+    else if (nGame < r.recommended) warn.push(`${r.recommended} joueurs ou plus conseillés.`);
     const csize = Object.values(view.compo).reduce((a, b) => a + b, 0);
-    if (s.distribution === 'auto' && csize !== nGame) warn.push(`La composition compte ${csize} cartes pour ${nGame} joueurs.`);
-    if (s.mjMode === 'joueur' && !s.mjId) warn.push('Choisis le joueur qui sera MJ.');
+    if (s.distribution === 'auto' && csize !== nGame) warn.push(`${csize} cartes pour ${nGame} joueurs.`);
+    if (s.mjMode === 'joueur' && !s.mjId) warn.push('Choisis le MJ.');
     const link = `${location.origin}/?code=${r.code}`;
     const head = `<header class="band"><div class="in">${brand()}
         <div class="phase"><span class="ph-title">Salon</span><span class="ph-sub">${nGame} joueur${nGame > 1 ? 's' : ''}${s.mjMode === 'joueur' && s.mjId ? ' + MJ' : ''}</span></div>
@@ -275,18 +273,17 @@
         <div class="row"><span class="ph-sub">Code</span><span class="code">${r.code}</span>
           <button data-act="copy" data-link="${esc(link)}">Copier le lien</button><button data-act="leave">Quitter</button></div>
       </div></header>`;
-    const moi = zone('person', 'Moi', `${tileHTML(P(me.id), { slot: 'me' })}${mediaControlsHTML()}
-      <p class="muted" style="margin:0;font-size:14px">La caméra est facultative. Le micro sert à débattre.</p>`, 'z-moi');
+    const moi = zone('person', 'Moi', `${tileHTML(P(me.id), { slot: 'me' })}${mediaControlsHTML()}`, 'z-moi');
     const others = view.players.filter((p) => p.id !== me.id);
-    const players = zone('village', 'Joueurs', `<div class="grid">${others.map((p) => tileHTML(p)).join('') || '<p class="muted" style="margin:0">En attente d\'autres joueurs… Partage le lien, ou ouvre d\'autres onglets pour tester seul.</p>'}</div>`, 'z-village', `${view.players.length} connecté${view.players.length > 1 ? 's' : ''}`);
+    const players = zone('village', 'Joueurs', `<div class="grid">${others.map((p) => tileHTML(p)).join('') || '<p class="muted" style="margin:0">En attente de joueurs…</p>'}</div>`, 'z-village', `${view.players.length} connecté${view.players.length > 1 ? 's' : ''}`);
     const settings = `
       <div class="label">Maître du jeu</div>
-      ${radio('mjMode', 'site', 'Le site (automatique)', 'Annonce les phases, réveille les rôles et compte les votes.')}
-      ${radio('mjMode', 'joueur', 'Un joueur', 'Il voit tous les rôles, fait avancer la partie et ne joue pas.')}
+      ${radio('mjMode', 'site', 'Le site', '')}
+      ${radio('mjMode', 'joueur', 'Un joueur', 'Ne joue pas, voit tout')}
       ${mjSelect}
       <div class="label">Distribution des rôles</div>
-      ${radio('distribution', 'auto', 'Automatique selon le nombre', "Composition proposée, modifiable par l'hôte.")}
-      ${radio('distribution', 'vote', 'Choisie par les joueurs', 'Chacun vote ; résultat révélé à tous en même temps.')}
+      ${radio('distribution', 'auto', 'Automatique', '')}
+      ${radio('distribution', 'vote', 'Vote des joueurs', '')}
       <div class="label">Extensions</div>
       <label class="check"><input type="checkbox" checked disabled> Jeu de base</label>
       ${check('Nouvelle Lune', s.extensions.nouvelleLune, 'ext.nouvelleLune')}
@@ -299,7 +296,7 @@
           ${[[60, '1 min'], [120, '2 min'], [180, '3 min'], [300, '5 min'], [600, '10 min']].map(([v, l]) => `<option value="${v}" ${s.debateSeconds === v ? 'selected' : ''}>${l}</option>`).join('')}
         </select></div>
       ${warn.map((w) => `<div class="warn">${w}</div>`).join('')}
-      ${host ? '<button class="primary" data-act="start">Lancer la partie</button>' : '<div class="note">L\'hôte lancera la partie.</div>'}`;
+      ${host ? '<button class="primary" data-act="start">Lancer la partie</button>' : '<div class="note">En attente de l\'hôte.</div>'}`;
     return head + `<main class="zones lobby">
         <div class="z-col-left">${moi}</div>
         <div class="z-col-mid">${players}${zone('cards', 'Composition des rôles', compoHTML(nGame))}</div>
@@ -328,7 +325,7 @@
       return `<div class="label">${title}</div><div class="roles">${list}</div>`;
     }).join('');
     const summary = s.distribution === 'vote'
-      ? '<p class="note" style="margin:0">Au lancement, chaque joueur coche les rôles qu\'il veut. Un rôle est retenu s\'il obtient au moins la moitié des voix. Les loups sont ajoutés automatiquement.</p>'
+      ? '<p class="note" style="margin:0">Rôle retenu à la majorité. Loups ajoutés automatiquement.</p>'
       : `<div class="row"><strong>${size} cartes pour ${n} joueurs</strong>
           <span class="pill t-loups">${counts.loups} Loups</span><span class="pill t-village">${counts.village} Village</span>
           ${counts.solitaire ? `<span class="pill t-solitaire">${counts.solitaire} Solitaire</span>` : ''}
@@ -352,7 +349,7 @@
       narr = `<span class="label">${me.isMJ ? 'Toi (MJ)' : 'Le MJ'}</span><p>${esc(txt)}</p>`;
     } else narr = '<span class="label">Le MJ</span><p>…</p>';
     const spectator = document.body.dataset.dead === '1'
-      ? `<div class="spect"><div class="in">${icon('ear', 18)} Mode spectateur : tu vois et entends tout, les vivants ne t'entendent plus.</div></div>` : '';
+      ? `<div class="spect"><div class="in">${icon('ear', 18)} Spectateur</div></div>` : '';
     const head = `<header class="band"><div class="in">${brand()}
         <div class="phase"><span class="ph-title">${title}</span><span class="ph-sub">Partie ${r.code}</span></div>
         ${steps}<span class="grow"></span>${timer}</div>
@@ -369,7 +366,7 @@
     let role = '';
     if (me.isMJ) {
       role = `<div><div class="label">Ton rôle</div><div class="bigrole">Maître du jeu</div>
-        <p class="muted" style="margin:0;font-size:14px">Tu vois tous les rôles et toutes les actions. Les votes restent secrets jusqu'à la révélation.</p></div>`;
+</div>`;
     } else if (me.role) {
       const d = ROLES[me.role];
       const extra = [];
@@ -402,14 +399,14 @@
     if (st && !st.resolved && ['vote', 'captain_vote', 'debate'].includes(st.type) && st.actorsCount != null) {
       hint = `${st.done.length} sur ${st.actorsCount} ${st.type === 'debate' ? 'prêts' : 'ont voté'}`;
     } else if (night && me.alive && !me.isMJ) {
-      hint = st && st.isActor ? 'Tu es réveillé : tu vois tout le village' : 'Le village dort : tu ne vois personne';
+      hint = st && st.isActor ? '' : 'Le village dort';
     }
     const tiles = (mj ? tileHTML(mj) : '') + alive.map((p) => tileHTML(p, {
       wolfMate: me.role === 'loup' && p.role === 'loup' && p.id !== me.id && night,
       target: myTargeting.includes(p.id)
     })).join('');
     const cemetery = dead.length ? `<div class="cemetery">
-        <div class="sub"><h3>${icon('grave', 16)} Cimetière · ${dead.length}</h3><span class="muted" style="font-size:13px">Ils écoutent, mais ne parlent plus aux vivants</span></div>
+        <div class="sub"><h3>${icon('grave', 16)} Cimetière · ${dead.length}</h3></div>
         <div class="dgrid">${dead.map(deadRowHTML).join('')}</div></div>` : '';
     const body = `<div class="sub"><h3><span class="dot"></span>Vivants · ${alive.length}</h3><span class="muted" style="font-size:14px">${esc(hint)}</span></div>
       <div class="grid">${tiles}</div>${cemetery}`;
@@ -452,7 +449,7 @@
     const st = view.step, me = view.me, r = view.room;
     if (r.phase === 'end') {
       const body = `<div class="bigrole">${esc(r.winner ? r.winner.text : '')}</div>
-        ${me.isHost ? '<button class="primary" data-act="restart">Nouvelle partie</button>' : '<div class="note">L\'hôte peut relancer une partie.</div>'}`;
+        ${me.isHost ? '<button class="primary" data-act="restart">Nouvelle partie</button>' : ''}`;
       return zone('target', 'Fin de partie', body, 'z-action v-accent');
     }
     if (!st) return zone('target', 'Patiente', '<p class="muted" style="margin:0">…</p>', 'z-action v-muted');
@@ -477,11 +474,11 @@
       } else if (!me.alive) {
         title = 'Tu observes';
         variant = 'v-muted';
-        body = `<div class="q">Aucune action pour toi</div><p class="muted" style="margin:0">Tu ne joues plus.${['vote', 'captain_vote'].includes(st.type) ? ' Les votes des vivants seront révélés en même temps.' : ''}</p>`;
+        body = `<p class="muted" style="margin:0">Tu ne joues plus.</p>`;
       } else {
         title = 'Patiente';
         variant = 'v-muted';
-        body = `<p class="muted" style="margin:0">${night ? 'Le village dort… ferme les yeux et attends ton tour.' : 'Tu ne participes pas à cette étape.'}</p>`;
+        body = `<p class="muted" style="margin:0">${night ? 'Le village dort…' : 'Rien à faire.'}</p>`;
       }
       body += progressHTML(st, st.type === 'debate' ? 'Prêts à voter' : night ? 'Ont agi' : 'Votes reçus');
     }
@@ -490,12 +487,12 @@
 
   function actorHTML(st) {
     const r = view.room;
-    const sent = st.submitted ? `<div class="note">${icon('check', 14)} Choix envoyé. Tu peux encore le changer avant la fin.</div>` : '';
+    const sent = st.submitted ? `<div class="note">${icon('check', 14)} Envoyé (modifiable)</div>` : '';
     const sel = ui.sel.length ? ui.sel : st.myInput && typeof st.myInput === 'string' ? [st.myInput] : [];
     switch (st.type) {
       case 'roles_reveal':
         const d = ROLES[view.me.role] || {};
-        return `<div class="label">Ton rôle · garde-le secret</div><div class="bigrole t-${d.team}">${esc(d.name || '')}</div><p style="margin:0">${esc(d.desc || '')}</p>
+        return `<div class="label">Ton rôle</div><div class="bigrole t-${d.team}">${esc(d.name || '')}</div><p style="margin:0">${esc(d.desc || '')}</p>
           ${st.submitted ? sent : '<button class="primary" data-act="ready">J\'ai vu mon rôle</button>'}${progressHTML(st, 'Prêts')}`;
       case 'compoVote': {
         const opts = Object.entries(ROLES).filter(([k, d]) => d.impl && k !== 'loup' && k !== 'villageois' && (d.ext === 'base' || r.settings.extensions[d.ext]));
@@ -505,7 +502,7 @@
           <button class="primary" data-act="submit">Envoyer mon choix</button>${sent}${progressHTML(st, 'Votes reçus')}`;
       }
       case 'debate':
-        return `<div class="q">Débat</div><p class="muted" style="margin:0">Discutez ! Le vote s'ouvre à la fin du temps, ou quand tout le monde est prêt.</p>
+        return `<div class="q">Débat</div>
           ${st.submitted ? sent : '<button class="primary" data-act="ready">Je suis prêt à voter</button>'}${progressHTML(st, 'Prêts à voter')}`;
       case 'cupidon': {
         const cur = ui.sel.length ? ui.sel : Array.isArray(st.myInput) ? st.myInput : [];
@@ -523,14 +520,13 @@
         const titles = { salvateur: 'Qui protéger cette nuit ?', voyante: 'Qui veux-tu sonder ?', loups: 'Choisis la victime', captain_vote: 'Qui élire Capitaine ?', vote: 'Qui veux-tu éliminer ?', hunter: 'Qui emporter avec toi ?', successor: 'Qui sera le nouveau Capitaine ?' };
         let extra = '';
         if (st.type === 'loups') {
-          extra += `<div class="note">${icon('lock', 14)} Les choix des loups sont révélés ensemble. En cas de désaccord, vous revotez une fois.</div>`;
           if (st.rounds && st.rounds.length) {
             extra += `<div class="note">Tour précédent : ${st.rounds[st.rounds.length - 1].map((c) => `${nm(c.voter)} → ${c.target ? nm(c.target) : 'personne'}`).join(', ')}</div>`;
           }
         }
         if (st.type === 'vote' || st.type === 'captain_vote') {
-          const cap = st.type === 'vote' && r.captainId ? ` Le vote de ${nm(r.captainId)} (Capitaine) compte double.` : '';
-          extra += `<div class="note">${icon('lock', 14)} Votes cachés, révélés tous en même temps.${cap}</div>`;
+          const cap = st.type === 'vote' && r.captainId ? ` · ${nm(r.captainId)} compte double` : '';
+          extra += `<div class="note">${icon('lock', 14)} Vote secret${cap}</div>`;
         }
         const btnClass = st.type === 'loups' ? 'wolf' : 'primary';
         const abst = st.type === 'vote' || st.type === 'captain_vote' ? '<button data-act="abstain">S\'abstenir</button>' : '';
@@ -624,7 +620,7 @@
       }
       case 'kick': {
         const p = P(el.dataset.id);
-        if (p && confirm(`Exclure ${p.name} de la partie ?${view.room.phase === 'lobby' ? '' : ' Il sera compté comme mort.'}`)) send('kick', { id: p.id });
+        if (p && confirm(`Exclure ${p.name} ?`)) send('kick', { id: p.id });
         break;
       }
       case 'copy': {
