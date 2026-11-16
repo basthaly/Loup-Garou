@@ -168,7 +168,7 @@ io.on('connection', (socket) => {
     sockets.delete(socket.id);
     socket.leave(room.code);
     if (room.phase === 'lobby') room.removePlayer(id);
-    else { const p = room.players.get(id); if (p) p.connected = false; broadcast(room); }
+    else { const p = room.players.get(id); if (p) p.connected = false; if (!room.ensureHost()) broadcast(room); }
   }));
 
   socket.on('settings', handle((patch) => { const { room, id } = current(socket); room.updateSettings(id, patch); }));
@@ -202,7 +202,12 @@ io.on('connection', (socket) => {
     if (!room) return;
     const stillHere = [...sockets.values()].some((s) => s.code === info.code && s.playerId === info.playerId);
     const p = room.players.get(info.playerId);
-    if (p && !stillHere) { p.connected = false; broadcast(room); }
+    if (p && !stillHere) {
+      p.connected = false;
+      broadcast(room);
+      // Hôte ou MJ déconnecté : on lui laisse 15 s pour revenir (rechargement de page), puis on passe la main.
+      setTimeout(() => { if (rooms.get(info.code) === room && !p.connected) room.ensureHost(); }, 15000);
+    }
   });
 });
 

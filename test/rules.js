@@ -143,5 +143,22 @@ const wait = (ms) => new Promise((r) => setTimeout(r, ms));
     assert.ok(ps.every((p) => p.alive && !p.role), 'joueurs remis à zéro');
     console.log('OK  arrêt de la partie par l\'hôte');
   }
+  // 9. L'hôte quitte : un autre joueur connecté devient hôte ; le MJ joueur parti → le site reprend.
+  {
+    const room = new Room('TEST', () => {});
+    const a = room.addPlayer('A'); const b = room.addPlayer('B'); const c = room.addPlayer('C');
+    a.connected = false;
+    room.ensureHost();
+    assert.strictEqual(room.hostId, b.id, 'B devient hôte');
+    room.removePlayer(b.id);
+    assert.strictEqual(room.hostId, c.id, 'C devient hôte (A toujours déconnecté)');
+    const { room: r2, ps } = setup(4, ['loup', 'villageois', 'villageois', 'villageois']);
+    r2.settings.mjMode = 'joueur'; r2.settings.mjId = ps[3].id;
+    ps[3].connected = false;
+    r2.ensureHost();
+    assert.strictEqual(r2.settings.mjMode, 'site', 'le site reprend le rôle de MJ');
+    clearTimeout(r2.timer);
+    console.log('OK  départ de l\'hôte / du MJ : la main passe');
+  }
   process.exit(0);
 })().catch((e) => { console.error('ÉCHEC :', e.message); process.exit(1); });

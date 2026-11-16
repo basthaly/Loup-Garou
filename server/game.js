@@ -120,8 +120,38 @@ class Room {
     this.players.delete(id);
     this.order = this.order.filter((x) => x !== id);
     if (this.settings.mjId === id) this.settings.mjId = null;
-    if (this.hostId === id) this.hostId = this.order[0] || null;
+    if (this.hostId === id) this.hostId = null;
+    this.ensureHost(true);
     this.changed();
+  }
+
+  // Si l'hôte (ou le MJ joueur) est parti, on passe la main pour que personne ne reste bloqué.
+  ensureHost(silent) {
+    let changed = false;
+    const host = this.players.get(this.hostId);
+    if (!host || !host.connected || host.kicked) {
+      const next = this.order.map((id) => this.players.get(id)).find((p) => p && p.connected && !p.kicked);
+      if (next && next.id !== this.hostId) {
+        this.hostId = next.id;
+        this.addLog(`${next.name} devient l'hôte.`, true);
+        changed = true;
+      }
+    }
+    if (this.settings.mjMode === 'joueur') {
+      const mj = this.players.get(this.settings.mjId);
+      if (!mj || !mj.connected) {
+        if (this.phase === 'lobby') this.settings.mjId = null;
+        else {
+          this.settings.mjMode = 'site';
+          this.settings.mjId = null;
+          this.addLog('Le MJ est parti : le site reprend la main.', true);
+          if (this.waitingMJ) { this.waitingMJ = false; this.next(); return true; }
+        }
+        changed = true;
+      }
+    }
+    if (changed && !silent) this.changed();
+    return changed;
   }
 
   byToken(token) {
