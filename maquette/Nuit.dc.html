@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>Nuit — vue d'un Loup-Garou</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@600;700&amp;family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#E8A75D}a:hover{color:#F5C58C}
+</style>
+</helmet>
+<div style="min-height: 100vh; background: #0C0E14; color: #EEEAE2; font-family: Inter, system-ui, sans-serif; font-size: 15px; line-height: 1.5">
+  <header style="border-bottom: 1px solid #262A3A">
+    <div style="max-width: 1320px; margin: 0 auto; padding: 16px 24px; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 16px">
+      <div style="display: flex; align-items: center; gap: 10px">
+        <svg aria-hidden="true" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#E8A75D" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"></path></svg>
+        <span style="font-family: 'Cormorant Garamond', serif; font-size: 28px; font-weight: 700">Loup-Garou</span>
+      </div>
+      <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap">
+        <span style="display: flex; align-items: center; gap: 8px; background: #1A1D27; border: 1px solid #30354A; border-radius: 999px; padding: 6px 14px; font-weight: 600">
+          <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#E8A75D" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"></path></svg>
+          Nuit 2
+        </span>
+        <span style="font-variant-numeric: tabular-nums; font-weight: 700; font-size: 18px">0:42</span>
+      </div>
+    </div>
+  </header>
+  <main style="max-width: 1320px; margin: 0 auto; padding: 24px 24px 48px; display: flex; flex-direction: column; gap: 24px">
+    <div style="display: flex; gap: 14px; align-items: center; background: #1A1D27; border: 1px solid #30354A; border-radius: 14px; padding: 16px 20px">
+      <span style="font-size: 12px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; color: #E8A75D; flex: none">Le MJ</span>
+      <p style="margin: 0; font-family: 'Cormorant Garamond', serif; font-size: 24px; font-weight: 600; line-height: 1.25">Les Loups-Garous se réveillent, se reconnaissent et désignent leur victime.</p>
+    </div>
+    <div style="display: flex; flex-wrap: wrap; gap: 24px; align-items: flex-start">
+      <section style="flex: 999 1 560px; min-width: 0; display: flex; flex-direction: column; gap: 24px">
+        <div style="background: #1A1D27; border: 1px solid #F08A6C; border-radius: 16px; padding: 20px; display: flex; flex-direction: column; gap: 14px">
+          <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 10px; justify-content: space-between">
+            <h2 style="margin: 0; font-size: 18px; font-weight: 600">Salon des loups</h2>
+            <span style="display: flex; align-items: center; gap: 6px; color: #F08A6C; font-size: 14px; font-weight: 600">
+              <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#F08A6C" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="10" rx="2"></rect><path d="M8 11V7a4 4 0 0 1 8 0v4"></path></svg>
+              Visible et audible uniquement par les loups
+            </span>
+          </div>
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 14px">
+            <sc-for list="{{ wolves }}" as="w" hint-placeholder-count="2">
+              <div style="aspect-ratio: 4 / 3; background: #2E3446; border-radius: 12px; position: relative; overflow: hidden">
+                <svg aria-hidden="true" viewBox="0 0 120 90" width="100%" height="100%"><circle cx="60" cy="38" r="16" fill="#4A5270"></circle><path d="M28 90c0-20 14-32 32-32s32 12 32 32z" fill="#4A5270"></path></svg>
+                <span style="position: absolute; left: 10px; bottom: 10px; display: flex; align-items: center; gap: 6px; background: rgba(12,14,20,0.85); border-radius: 6px; padding: 3px 8px; font-size: 13px; font-weight: 600">
+                  <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#7FC8A9" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="3" width="6" height="11" rx="3"></rect><path d="M5 11a7 7 0 0 0 14 0M12 18v3"></path></svg>
+                  {{w.name}}
+                </span>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+        <div style="background: #1A1D27; border: 1px solid #30354A; border-radius: 16px; padding: 20px; display: flex; flex-direction: column; gap: 14px">
+          <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 10px; justify-content: space-between">
+            <h2 style="margin: 0; font-size: 18px; font-weight: 600">Le village dort</h2>
+            <span style="color: #A9A69F; font-size: 14px">Caméras et micros coupés pour tous les autres</span>
+          </div>
+          <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 10px">
+            <sc-for list="{{ sleepers }}" as="s" hint-placeholder-count="8">
+              <div style="aspect-ratio: 4 / 3; background: #161925; border: 1px solid #262A3A; border-radius: 10px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px">
+                <svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#6E7591" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"></path></svg>
+                <span style="font-size: 14px; font-weight: 600; color: #A9A69F">{{s.name}}</span>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+      </section>
+      <aside style="flex: 1 1 360px; min-width: 0; display: flex; flex-direction: column; gap: 16px">
+        <div style="background: #1A1D27; border: 1px solid #30354A; border-radius: 16px; padding: 20px">
+          <div style="font-size: 12px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; color: #A9A69F">Ton rôle</div>
+          <div style="font-family: 'Cormorant Garamond', serif; font-size: 32px; font-weight: 700; color: #F08A6C; line-height: 1.2">Loup-Garou</div>
+          <div style="color: #A9A69F; font-size: 14px">Équipe des Loups · avec Inès</div>
+        </div>
+        <div style="background: #1A1D27; border: 1px solid #30354A; border-radius: 16px; padding: 20px; display: flex; flex-direction: column; gap: 12px">
+          <h2 style="margin: 0; font-size: 18px; font-weight: 600">Choisis la victime</h2>
+          <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px">
+            <sc-for list="{{ targets }}" as="t" hint-placeholder-count="8">
+              <button type="button" aria-pressed="{{t.pressed}}" style="background: {{t.bg}}; color: {{t.fg}}; border: 1px solid {{t.border}}; border-radius: 10px; padding: 10px 12px; font: 600 14px Inter, sans-serif; min-height: 44px; cursor: pointer; text-align: left">{{t.name}}</button>
+            </sc-for>
+          </div>
+          <div style="display: flex; align-items: center; gap: 8px; background: #232736; border-radius: 10px; padding: 10px 12px; font-size: 14px">
+            <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#7FC8A9" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5 9-10"></path></svg>
+            <span>Inès a choisi <span style="color: #A9A69F">(cible cachée)</span></span>
+          </div>
+          <p style="margin: 0; color: #A9A69F; font-size: 14px">Les choix des loups sont révélés en même temps. En cas de désaccord, vous revotez.</p>
+          <button type="button" style="background: #F08A6C; color: #1A0E09; border: none; border-radius: 12px; padding: 14px 20px; font: 700 16px Inter, sans-serif; min-height: 48px; cursor: pointer">Valider : Hugo</button>
+        </div>
+      </aside>
+    </div>
+  </main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1000}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const wolves = [{ name: 'Bastien (vous)' }, { name: 'Inès' }];
+    const others = ['Alice', 'Chloé', 'David', 'Emma', 'Hugo', 'Julien', 'Léa', 'Marc'];
+    const sleepers = others.map((n) => ({ name: n }));
+    const targets = others.map((n) => {
+      const sel = n === 'Hugo';
+      return {
+        name: n, pressed: sel ? 'true' : 'false',
+        bg: sel ? '#3A2420' : '#232736', fg: '#EEEAE2', border: sel ? '#F08A6C' : '#30354A'
+      };
+    });
+    return { wolves, sleepers, targets };
+  }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>Composition des rôles</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@600;700&amp;family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#E8A75D}a:hover{color:#F5C58C}
+</style>
+</helmet>
+<div style="min-height: 100vh; background: #11131A; color: #EEEAE2; font-family: Inter, system-ui, sans-serif; font-size: 15px; line-height: 1.5">
+  <header style="border-bottom: 1px solid #30354A">
+    <div style="max-width: 1320px; margin: 0 auto; padding: 16px 24px; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 16px">
+      <div style="display: flex; align-items: center; gap: 10px">
+        <svg aria-hidden="true" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#E8A75D" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"></path></svg>
+        <span style="font-family: 'Cormorant Garamond', serif; font-size: 28px; font-weight: 700">Loup-Garou</span>
+      </div>
+      <a href="Main.dc.html" style="font-weight: 600; padding: 10px 4px">Retour au salon</a>
+    </div>
+  </header>
+  <main style="max-width: 1320px; margin: 0 auto; padding: 32px 24px 48px; display: flex; flex-direction: column; gap: 28px">
+    <div style="display: flex; flex-wrap: wrap; gap: 20px; align-items: flex-end; justify-content: space-between">
+      <div>
+        <h1 style="font-family: 'Cormorant Garamond', serif; font-size: 44px; line-height: 1.1; margin: 0 0 6px; font-weight: 700">Composition des rôles</h1>
+        <p style="margin: 0; color: #A9A69F; max-width: 640px">Proposition automatique pour 10 joueurs. L'hôte peut l'ajuster avant de lancer ; les cartes sont distribuées au hasard et en secret.</p>
+      </div>
+      <div role="group" aria-label="Mode de distribution" style="display: flex; background: #1A1D27; border: 1px solid #30354A; border-radius: 12px; padding: 4px; gap: 4px">
+        <button type="button" aria-pressed="true" style="background: #E8A75D; color: #1A1408; border: none; border-radius: 9px; padding: 10px 18px; font: 600 14px Inter, sans-serif; min-height: 44px; cursor: pointer">Automatique</button>
+        <button type="button" aria-pressed="false" style="background: transparent; color: #EEEAE2; border: none; border-radius: 9px; padding: 10px 18px; font: 600 14px Inter, sans-serif; min-height: 44px; cursor: pointer">Vote des joueurs</button>
+      </div>
+    </div>
+    <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 12px; background: #1A1D27; border: 1px solid #30354A; border-radius: 14px; padding: 16px 20px">
+      <span style="font-weight: 700; font-size: 18px; margin-right: 8px">10 cartes pour 10 joueurs</span>
+      <span style="border: 1px solid #F08A6C; color: #F08A6C; border-radius: 999px; padding: 4px 12px; font-size: 14px; font-weight: 600">2 Loups</span>
+      <span style="border: 1px solid #8DB4F0; color: #8DB4F0; border-radius: 999px; padding: 4px 12px; font-size: 14px; font-weight: 600">8 Village</span>
+      <span style="border: 1px solid #C7A6E8; color: #C7A6E8; border-radius: 999px; padding: 4px 12px; font-size: 14px; font-weight: 600">0 Solitaire</span>
+      <span style="flex: 1"></span>
+      <button type="button" style="background: #232736; color: #EEEAE2; border: 1px solid #30354A; border-radius: 10px; padding: 10px 16px; font: 600 14px Inter, sans-serif; min-height: 44px; cursor: pointer">Proposer une autre composition</button>
+    </div>
+    <sc-for list="{{ groups }}" as="g" hint-placeholder-count="3">
+      <section style="display: flex; flex-direction: column; gap: 14px">
+        <h2 style="margin: 0; font-size: 13px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; color: #A9A69F">{{g.title}}</h2>
+        <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 12px">
+          <sc-for list="{{ g.roles }}" as="r" hint-placeholder-count="6">
+            <div style="background: #1A1D27; border: 1px solid {{r.border}}; border-radius: 14px; padding: 16px; display: flex; flex-direction: column; gap: 10px">
+              <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 8px">
+                <span style="font-weight: 700; font-size: 16px">{{r.name}}</span>
+                <span style="font-size: 12px; font-weight: 700; color: {{r.teamColor}}; white-space: nowrap">{{r.team}}</span>
+              </div>
+              <p style="margin: 0; color: #A9A69F; font-size: 14px; flex: 1">{{r.desc}}</p>
+              <div style="display: flex; align-items: center; gap: 8px">
+                <button type="button" aria-label="{{r.minusLabel}}" style="width: 44px; height: 44px; background: #232736; color: #EEEAE2; border: 1px solid #30354A; border-radius: 10px; font: 700 20px Inter, sans-serif; cursor: pointer">−</button>
+                <span style="min-width: 32px; text-align: center; font-weight: 700; font-size: 18px">{{r.count}}</span>
+                <button type="button" aria-label="{{r.plusLabel}}" style="width: 44px; height: 44px; background: #232736; color: #EEEAE2; border: 1px solid #30354A; border-radius: 10px; font: 700 20px Inter, sans-serif; cursor: pointer">+</button>
+              </div>
+            </div>
+          </sc-for>
+        </div>
+      </section>
+    </sc-for>
+    <div style="display: flex; flex-wrap: wrap; gap: 12px; justify-content: flex-end">
+      <a href="Main.dc.html" style="display: inline-flex; align-items: center; justify-content: center; background: #E8A75D; color: #1A1408; border-radius: 12px; padding: 14px 24px; font-weight: 700; text-decoration: none; min-height: 48px; box-sizing: border-box">Valider la composition</a>
+    </div>
+  </main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1250}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const T = {
+      L: ['Loups', '#F08A6C'],
+      V: ['Village', '#8DB4F0'],
+      S: ['Solitaire', '#C7A6E8']
+    };
+    const mk = (name, t, desc, count) => ({
+      name, desc, count, team: T[t][0], teamColor: T[t][1],
+      border: count > 0 ? '#E8A75D' : '#30354A',
+      minusLabel: 'Retirer : ' + name, plusLabel: 'Ajouter : ' + name
+    });
+    const groups = [
+      { title: 'Jeu de base', roles: [
+        mk('Loup-Garou', 'L', 'Dévore un villageois chaque nuit avec sa meute.', 2),
+        mk('Simple Villageois', 'V', 'Aucun pouvoir, seulement son vote et sa parole.', 3),
+        mk('Voyante', 'V', 'Découvre le rôle d’un joueur chaque nuit.', 1),
+        mk('Sorcière', 'V', 'Une potion de vie et une potion de mort.', 1),
+        mk('Chasseur', 'V', 'En mourant, emporte un joueur avec lui.', 1),
+        mk('Cupidon', 'V', 'Désigne deux amoureux la première nuit.', 1),
+        mk('Petite Fille', 'V', 'Peut espionner les loups pendant la nuit.', 1),
+        mk('Voleur', 'V', 'Peut échanger sa carte la première nuit.', 0)
+      ]},
+      { title: 'Nouvelle Lune', roles: [
+        mk('Ancien', 'V', 'Survit à la première attaque des loups.', 0),
+        mk('Salvateur', 'V', 'Protège un joueur chaque nuit.', 0),
+        mk('Idiot du village', 'V', 'Gracié au premier vote, mais ne vote plus.', 0),
+        mk('Bouc émissaire', 'V', 'Éliminé en cas d’égalité au vote.', 0),
+        mk('Joueur de flûte', 'S', 'Charme deux joueurs par nuit pour gagner seul.', 0)
+      ]},
+      { title: 'Personnages', roles: [
+        mk('Loup-Garou Blanc', 'S', 'Loup qui cherche à gagner seul.', 0),
+        mk('Grand Méchant Loup', 'L', 'Dévore une victime de plus tant qu’aucun loup n’est mort.', 0),
+        mk('Infect Père des Loups', 'L', 'Peut transformer la victime en loup, une fois.', 0),
+        mk('Enfant Sauvage', 'V', 'Devient loup si son modèle meurt.', 0),
+        mk('Renard', 'V', 'Flaire la présence de loups parmi trois voisins.', 0),
+        mk('Deux Sœurs', 'V', 'Se reconnaissent et peuvent se concerter.', 0),
+        mk('Chevalier à l’épée rouillée', 'V', 'À sa mort, infecte un loup qui meurt à son tour.', 0),
+        mk('Ange', 'S', 'Gagne s’il est éliminé au premier vote.', 0)
+      ]}
+    ];
+    return { groups };
+  }
+}
+</script>
+</body>
+</html>
