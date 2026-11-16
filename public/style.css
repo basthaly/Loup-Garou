@@ -360,11 +360,15 @@ button.ghost { background: transparent; }
 .sent { display: inline-flex; align-items: center; gap: 4px; color: var(--ok); font-weight: 600; font-size: 14px; }
 .dock-error { text-align: center; font-size: 13px; color: var(--wolf); padding: 0 12px 8px; }
 
-.drawer { position: fixed; top: 0; right: 0; bottom: 0; width: min(380px, 92vw); z-index: 8; background: var(--zone); border-left: 1px solid var(--border); transform: translateX(100%); overflow-y: auto; padding: calc(16px + env(safe-area-inset-top)) 20px 24px; display: flex; flex-direction: column; gap: 22px; visibility: hidden; }
+.drawer { position: fixed; top: 0; right: 0; bottom: 0; width: min(460px, 92vw); z-index: 8; background: var(--zone); border-left: 1px solid var(--border); transform: translateX(100%); overflow-y: auto; overscroll-behavior: contain; padding: 0 24px calc(24px + env(safe-area-inset-bottom)); display: flex; flex-direction: column; gap: 22px; visibility: hidden; box-shadow: -20px 0 50px rgba(0,0,0,.25); }
+/* Salon : réglages et composition côte à côte, plus de place pour gérer la partie. */
+.drawer.wide { width: min(820px, 94vw); }
 .drawer.open { transform: none; visibility: visible; }
 .drawer.open.slide { animation: slidein .35s cubic-bezier(.2,.8,.2,1); }
 @keyframes slidein { from { transform: translateX(100%); } to { transform: none; } }
-.drawer-head { display: flex; justify-content: space-between; align-items: center; }
+@keyframes slideup { from { transform: translateY(100%); } to { transform: none; } }
+.drawer-head { position: sticky; top: 0; z-index: 2; display: flex; justify-content: space-between; align-items: center; margin: 0 -24px; padding: calc(14px + env(safe-area-inset-top)) 24px 12px; background: color-mix(in srgb, var(--zone) 88%, transparent); -webkit-backdrop-filter: blur(16px); backdrop-filter: blur(16px); border-bottom: 1px solid var(--border); }
+.drawer.wide .roles { grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); }
 .drawer h2 { font-size: 22px; }
 .drawer h3 { font-size: 15px; color: var(--muted); font-weight: 600; }
 .drawer section { display: flex; flex-direction: column; gap: 8px; }
@@ -373,7 +377,47 @@ button.ghost { background: transparent; }
 button.small-btn { min-height: 36px; padding: 4px 12px; font-size: 13px; }
 .scrim { position: fixed; inset: 0; background: rgba(0,0,0,.35); z-index: 7; }
 
+/* Téléphone : le panneau prend tout l'écran et monte depuis la barre du bas. */
 @media (max-width: 700px) {
+  .drawer, .drawer.wide { width: 100%; left: 0; border-left: none; box-shadow: none; transform: translateY(100%); padding: 0 16px calc(24px + env(safe-area-inset-bottom)); }
+  .drawer-head { margin: 0 -16px; padding: calc(12px + env(safe-area-inset-top)) 16px 10px; }
+  .drawer.open, .drawer.wide.open { transform: none; }
+  .drawer.open.slide { animation-name: slideup; }
+  .drawer .roles { grid-template-columns: 1fr; }
+}
+@media (prefers-reduced-motion: reduce) { .drawer.open.slide { animation: fade .2s ease; } }
+@keyframes fade { from { opacity: 0; } to { opacity: 1; } }
+
+/* ---------- Sorcière : potions sur les visages ---------- */
+.tile-tools { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); z-index: 3; display: flex; gap: 8px; }
+button.potion { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; padding: 0 16px; border-radius: 999px; font-weight: 700; font-size: 15px; white-space: nowrap; background: rgba(15,17,23,.72); color: #EEEAE2; border: 1.5px solid rgba(255,255,255,.35); -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); transition: transform .12s ease-out, background-color .2s ease; }
+button.potion:active { transform: scale(.96); }
+button.potion.life { border-color: #7FC8A9; color: #BFF0DA; }
+button.potion.life.on { background: #7FC8A9; color: #0E2219; border-color: #7FC8A9; }
+button.potion.life.on svg { stroke: #0E2219; }
+button.potion.death { border-color: rgba(199,166,232,.7); color: #E4D2F7; }
+button.potion.death.on { background: #9A6FD0; color: #fff; border-color: #9A6FD0; }
+.tile.danger { border-color: var(--wolf) !important; animation: danger 1.8s ease-in-out infinite; }
+@keyframes danger { 0%, 100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--wolf) 50%, transparent); } 50% { box-shadow: 0 0 0 6px color-mix(in srgb, var(--wolf) 0%, transparent); } }
+.tile.danger.saved { border-color: #7FC8A9 !important; animation: none; }
+.tile.poisoned { border-color: #9A6FD0 !important; }
+.chip.danger { background: var(--wolf); color: var(--wolf-text); display: inline-flex; align-items: center; gap: 4px; }
+.chip.danger svg { stroke: var(--wolf-text); }
+.chip.charm { background: #6B3FA0; color: #fff; }
+.tile.has-tools .avatar { opacity: .5; }
+
+/* ---------- Voleur : les deux cartes du centre ---------- */
+.cards { display: flex; flex-wrap: wrap; gap: 12px; }
+button.card-pick { display: flex; flex-direction: column; align-items: flex-start; justify-content: flex-end; gap: 2px; width: 170px; min-height: 104px; padding: 14px; border-radius: 16px; background: var(--surface2); text-align: left; transition: transform .12s ease-out, border-color .2s ease; }
+button.card-pick b { font-family: 'Cormorant Garamond', serif; font-size: 24px; line-height: 1.1; }
+button.card-pick small { font-size: 12px; font-weight: 600; }
+button.card-pick.on { border-color: var(--accent); border-width: 2px; box-shadow: 0 10px 30px rgba(0,0,0,.25); }
+button.card-pick:active { transform: scale(.97); }
+@media (prefers-reduced-motion: reduce) { .tile.danger { animation: none; } }
+
+@media (max-width: 700px) {
+  button.potion { min-height: 40px; padding: 0 12px; font-size: 14px; }
+  button.card-pick { width: calc(50% - 6px); }
   .stage { padding: 14px 14px calc(150px + env(safe-area-inset-bottom)); gap: 14px; }
   .stage-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
   .stage-grid .tile .avatar { width: 48px; height: 48px; font-size: 20px; }

@@ -169,5 +169,139 @@ const wait = (ms) => new Promise((r) => setTimeout(r, ms));
     assert.strictEqual(room.hostId, b.id);
     console.log('OK  passer la main à un autre joueur');
   }
+
+  // 11. Voleur : prend une carte du centre ; deux loups au centre, il doit en prendre un.
+  {
+    const room = new Room('TEST', () => {});
+    const ps = [0, 1, 2, 3].map((i) => room.addPlayer('J' + i));
+    room.customCompo = { voleur: 1, loup: 2, villageois: 2, voyante: 1 };
+    room.start(ps[0].id);
+    clearTimeout(room.timer);
+    ['voleur', 'loup', 'villageois', 'villageois'].forEach((r, i) => { ps[i].role = r; });
+    room.extraCards = ['loup', 'voyante'];
+    room.phase = 'night'; room.night = 1; room.queue = [];
+    room.startStep({ type: 'voleur', actors: [], roleStep: true });
+    assert.deepStrictEqual(room.step.actors, [ps[0].id]);
+    room.act(ps[0].id, { take: 1 });
+    assert.strictEqual(ps[0].role, 'voyante', 'le Voleur devient Voyante');
+    clearTimeout(room.timer);
+    room.extraCards = ['loup', 'grandloup'];
+    ps[0].role = 'voleur';
+    room.startStep({ type: 'voleur', actors: [], roleStep: true });
+    assert.throws(() => room.act(ps[0].id, { take: null }), /Deux loups/);
+    clearTimeout(room.timer);
+    console.log('OK  Voleur : échange de carte, obligé de prendre un loup');
+  }
+  // 12. Infect Père des Loups : la victime devient loup au lieu de mourir.
+  {
+    const { room, ps } = setup(5, ['infect', 'loup', 'villageois', 'villageois', 'villageois']);
+    clearTimeout(room.timer);
+    room.phase = 'night'; room.night = 1; room.queue = [];
+    room.victim = ps[2].id;
+    room.startStep({ type: 'infect', actors: [], roleStep: true, seconds: 25 });
+    room.act(ps[0].id, { infect: true });
+    clearTimeout(room.timer);
+    room.queue = [];
+    room.startStep({ type: 'dawn', actors: [] });
+    clearTimeout(room.timer);
+    assert.ok(ps[2].alive && ps[2].infected, 'la victime est vivante et infectée');
+    assert.ok(room.isWolf(ps[2]));
+    assert.ok(room.viewFor(ps[1].id).me.wolves.includes(ps[2].id), 'les loups la reconnaissent');
+    assert.strictEqual(room.viewFor(ps[1].id).players[0].role, 'loup', "l'Infect apparaît comme loup");
+    console.log("OK  Infect : la victime rejoint les loups");
+  }
+  // 13. Enfant Sauvage : son modèle meurt, il devient loup.
+  {
+    const { room, ps } = setup(5, ['loup', 'enfant', 'villageois', 'villageois', 'villageois']);
+    clearTimeout(room.timer);
+    ps[1].model = ps[2].id;
+    room.deaths = [];
+    room.kill(ps[2].id, 'vote', []);
+    assert.ok(ps[1].wildTurned && room.isWolf(ps[1]));
+    console.log('OK  Enfant Sauvage : devient loup à la mort de son modèle');
+  }
+  // 14. Renard : flaire un joueur et ses deux voisins ; sans loup, il perd son flair.
+  {
+    const { room, ps } = setup(6, ['renard', 'villageois', 'villageois', 'villageois', 'loup', 'villageois']);
+    clearTimeout(room.timer);
+    room.phase = 'night'; room.night = 1; room.queue = [{ type: 'dawn', actors: [] }];
+    room.startStep({ type: 'renard', actors: [], roleStep: true });
+    room.act(ps[0].id, { target: ps[2].id });
+    clearTimeout(room.timer);
+    assert.deepStrictEqual(room.step.result.fox.ids, [ps[2].id, ps[1].id, ps[3].id]);
+    assert.strictEqual(room.step.result.fox.hasWolf, false);
+    assert.ok(room.foxLost, 'le Renard perd son flair');
+    assert.ok(room.neighbors(ps[0].id).includes(ps[5].id), 'la table est circulaire');
+    console.log('OK  Renard : voisins en cercle, perte du flair');
+  }
+  // 15. Chevalier : tué par les loups, le premier loup après lui meurt à l'aube suivante.
+  {
+    const { room, ps } = setup(6, ['chevalier', 'villageois', 'loup', 'loup', 'villageois', 'villageois']);
+    clearTimeout(room.timer);
+    room.phase = 'night'; room.night = 1; room.queue = [];
+    room.victim = ps[0].id;
+    room.startStep({ type: 'dawn', actors: [] });
+    clearTimeout(room.timer);
+    assert.ok(!ps[0].alive && room.rustyPending === ps[2].id, 'le premier loup est blessé');
+    room.queue = []; room.victim = null; room.night = 2;
+    room.startStep({ type: 'dawn', actors: [] });
+    clearTimeout(room.timer);
+    assert.ok(!ps[2].alive && ps[2].death.cause === 'rouille');
+    console.log('OK  Chevalier : le loup blessé meurt la nuit suivante');
+  }
+  // 16. Ange : éliminé au premier vote, il gagne seul.
+  {
+    const { room, ps } = setup(5, ['ange', 'loup', 'villageois', 'villageois', 'villageois']);
+    clearTimeout(room.timer);
+    room.phase = 'day'; room.day = 1; room.queue = [];
+    room.startStep({ type: 'vote', actors: [], seconds: 60, dynamicActors: true });
+    for (const p of ps.slice(1)) room.act(p.id, { target: ps[0].id });
+    room.act(ps[0].id, { target: ps[1].id });
+    await wait(300);
+    assert.strictEqual(room.phase, 'end');
+    assert.strictEqual(room.winner.team, 'ange');
+    console.log('OK  Ange : victoire au premier vote');
+  }
+  // 17. Joueur de flûte : tous les vivants charmés, il gagne.
+  {
+    const { room, ps } = setup(4, ['flute', 'loup', 'villageois', 'villageois']);
+    clearTimeout(room.timer);
+    ps[1].charmed = true; ps[2].charmed = true;
+    assert.strictEqual(room.checkWin(), null);
+    ps[3].charmed = true;
+    assert.strictEqual(room.checkWin().team, 'flute');
+    assert.ok(room.viewFor(ps[2].id).players[1].charmed, 'les charmés se voient');
+    assert.ok(!room.viewFor(ps[0].id).players[0].charmed);
+    console.log('OK  Joueur de flûte : victoire quand tout le monde est charmé');
+  }
+  // 18. Loup-Garou Blanc : les loups ne gagnent pas tant qu'il vit ; seul survivant, il gagne.
+  {
+    const { room, ps } = setup(4, ['loupblanc', 'loup', 'villageois', 'villageois']);
+    clearTimeout(room.timer);
+    ps[3].alive = false;
+    assert.strictEqual(room.checkWin(), null, 'pas de victoire des loups avec le Loup Blanc vivant');
+    ps[2].alive = false;
+    assert.strictEqual(room.checkWin(), null);
+    assert.deepStrictEqual(room.optionsFor({ type: 'loupblanc' }, ps[0].id), [ps[1].id]);
+    ps[1].alive = false;
+    assert.strictEqual(room.checkWin().team, 'loupblanc');
+    console.log('OK  Loup-Garou Blanc : victoire seul');
+  }
+  // 19. Sœurs : elles se reconnaissent. Composition : villageois ajustés, Sœurs par deux, Voleur +2 cartes.
+  {
+    const { room, ps } = setup(5, ['soeur', 'soeur', 'loup', 'villageois', 'villageois']);
+    clearTimeout(room.timer);
+    assert.strictEqual(room.viewFor(ps[0].id).players[1].role, 'soeur');
+    assert.strictEqual(room.viewFor(ps[3].id).players[1].role, null);
+    const r = new Room('T', () => {});
+    const a = r.addPlayer('A'); for (let i = 0; i < 7; i++) r.addPlayer('P' + i);
+    const n = r.effectiveCompo().villageois || 0;
+    r.changeCompo(a.id, 'soeur', 1);
+    assert.strictEqual(r.effectiveCompo().soeur, 2);
+    assert.strictEqual(r.effectiveCompo().villageois || 0, Math.max(0, n - 2), 'deux villageois en moins');
+    r.changeCompo(a.id, 'voleur', 1);
+    assert.strictEqual(Object.values(r.effectiveCompo()).reduce((x, y) => x + y, 0), 10, '8 joueurs + 2 cartes au centre');
+    console.log('OK  Sœurs et composition équilibrée');
+  }
   process.exit(0);
 })().catch((e) => { console.error('ÉCHEC :', e.message); process.exit(1); });

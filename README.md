@@ -361,11 +361,21 @@ Vérifier que ça tourne : `docker compose ps` et `curl -k https://127.0.0.1:300
 - Quand c'est ton tour : alerte au centre de l'écran, son et vibration (désactivables), titre de l'onglet « ● À toi », bouton d'action qui pulse.
 - Indicateur de voix : la vignette de celui qui parle s'entoure de vert, avec des barres qui suivent sa voix.
 - Mode clair / sombre au choix ; la nuit et le jour nuancent seulement les teintes.
+- Micro et caméra mémorisés : ils se rallument tout seuls à la connexion suivante.
+- Panneau de réglages large sur ordinateur, plein écran sur téléphone.
 
-**Rôles disponibles**
-Loup-Garou, Simple Villageois, Voyante, Sorcière, Chasseur, Cupidon, Petite Fille, Capitaine, Ancien, Salvateur, Idiot du village, Bouc émissaire.
-Si l'Ancien est éliminé par le village, les villageois perdent leurs pouvoirs.
-Affichés « Bientôt » : Voleur, Joueur de flûte et rôles de l'extension Personnages.
+**Rôles disponibles** (tous jouables)
+
+| Extension | Rôles |
+| --- | --- |
+| Jeu de base | Loup-Garou, Simple Villageois, Voyante, Sorcière, Chasseur, Cupidon, Petite Fille, Voleur, Capitaine |
+| Nouvelle Lune | Ancien, Salvateur, Idiot du village, Bouc émissaire, Joueur de flûte |
+| Personnages | Loup-Garou Blanc, Grand Méchant Loup, Infect Père des Loups, Enfant Sauvage, Renard, Deux Sœurs, Chevalier à l'épée rouillée, Ange |
+
+- Composition : quand l'hôte ajoute un rôle, un Simple Villageois est retiré pour garder le bon nombre de cartes. Le Voleur ajoute 2 cartes au centre, les Sœurs vont par deux.
+- Sorcière : le joueur en danger porte un badge, sa potion de vie apparaît sur sa vignette, le poison sur les autres ; bouton Passer.
+- Si l'Ancien est éliminé par le village, les villageois perdent leurs pouvoirs.
+- Solitaires : le Joueur de flûte gagne quand tous les vivants sont charmés, le Loup-Garou Blanc s'il reste seul, l'Ange s'il est éliminé au premier vote.
 
 **Caméra et micro** (indépendants : on peut parler sans se montrer)
 - Salon et jour : tout le monde se voit et s'entend.

@@ -1,6 +1,6 @@
 // Moteur de jeu : un salon (Room) = une partie.
 const crypto = require('crypto');
-const { ROLES, MAX_PLAYERS, autoComposition, votedComposition, compoSize, extAllowed } = require('./roles');
+const { ROLES, WOLF_ROLES, MAX_PLAYERS, autoComposition, votedComposition, compoSize, extAllowed, cardStep, cardsNeeded } = require('./roles');
 
 const MIN_PLAYERS = Math.max(2, parseInt(process.env.MIN_PLAYERS || '3', 10));
 const RECOMMENDED_PLAYERS = 6;
@@ -22,6 +22,7 @@ const DEFAULT_SETTINGS = {
 // Temps d'affichage (s) après la résolution d'une étape, en mode MJ automatique.
 const SHOW_DELAY = {
   roles_reveal: 0, compoVote: 8, cupidon: 3, salvateur: 2, voyante: 4, loups: 4, sorciere: 2,
+  voleur: 3, soeurs: 0, enfant: 2, renard: 4, infect: 2, grandloup: 2, loupblanc: 2, flute: 2,
   dawn: 7, captain_vote: 8, debate: 0, vote: 9, hunter: 5, successor: 4, check: 0
 };
 
@@ -38,10 +39,21 @@ const NARRATION = {
   debate: 'Le village débat. Qui est le loup ?',
   vote: 'Le village débat et vote pour éliminer un suspect.',
   hunter: 'Le Chasseur, en mourant, choisit qui emporter avec lui.',
-  successor: 'Le Capitaine désigne son successeur.'
+  successor: 'Le Capitaine désigne son successeur.',
+  voleur: 'Le Voleur se réveille et peut échanger sa carte.',
+  soeurs: 'Les Sœurs se réveillent et se concertent.',
+  enfant: "L'Enfant Sauvage se réveille et choisit son modèle.",
+  renard: 'Le Renard se réveille et flaire un joueur.',
+  infect: "L'Infect Père des Loups peut infecter la victime.",
+  grandloup: 'Le Grand Méchant Loup choisit une autre victime.',
+  loupblanc: 'Le Loup-Garou Blanc se réveille.',
+  flute: 'Le Joueur de flûte charme deux joueurs.'
 };
 
-const NIGHT_TYPES = ['cupidon', 'salvateur', 'voyante', 'loups', 'sorciere'];
+const NIGHT_TYPES = ['voleur', 'cupidon', 'soeurs', 'enfant', 'salvateur', 'voyante', 'renard', 'loups', 'infect', 'grandloup', 'loupblanc', 'sorciere', 'flute'];
+// Rôle de chaque étape de nuit (les acteurs sont calculés au début de l'étape).
+const STEP_ROLE = { voleur: 'voleur', cupidon: 'cupidon', soeurs: 'soeur', enfant: 'enfant', salvateur: 'salvateur', voyante: 'voyante', renard: 'renard', infect: 'infect', grandloup: 'grandloup', loupblanc: 'loupblanc', sorciere: 'sorciere', flute: 'flute' };
+const MAX_NIGHTS = 40;
 const PUBLIC_STEPS = ['compoVote', 'roles_reveal', 'captain_vote', 'debate', 'vote'];
 const DAY_STEPS = ['dawn', 'captain_vote', 'debate', 'vote', 'hunter', 'successor'];
 const FULL = { audio: true, video: true, blur: false };
@@ -89,10 +101,16 @@ class Room {
     this.powersLost = false;
     this.winner = null;
     this.compoVoteResult = null;
+    this.extraCards = [];
+    this.wolfDied = false;
+    this.infectUsed = false;
+    this.foxLost = false;
+    this.rustyPending = null;
+    this.angelWin = false;
     this.phaseSteps = [];
     this.phaseCursor = -1;
     for (const p of this.players.values()) {
-      Object.assign(p, { alive: true, role: null, lover: null, seen: {}, idiotRevealed: false, ancienHit: false, canVote: true, death: null });
+      Object.assign(p, { alive: true, role: null, lover: null, seen: {}, idiotRevealed: false, ancienHit: false, canVote: true, death: null, infected: false, model: null, wildTurned: false, charmed: false });
     }
   }
 
@@ -243,6 +261,25 @@ class Room {
   name(id) { const p = this.players.get(id); return p ? p.name : '?'; }
   hasRoleInGame(role) { return this.gamePlayers().some((p) => p.role === role); }
   aliveWithRole(role) { return this.alive().filter((p) => p.role === role); }
+  // Loup = carte de loup, joueur infecté, ou Enfant Sauvage dont le modèle est mort.
+  isWolf(p) { return !!p && (WOLF_ROLES.includes(p.role) || p.infected || (p.role === 'enfant' && p.wildTurned)); }
+  // Camp des loups pour la victoire (le Loup-Garou Blanc joue seul).
+  wolfTeam(p) { return this.isWolf(p) && p.role !== 'loupblanc'; }
+  aliveWolves() { return this.alive().filter((p) => this.isWolf(p)); }
+  // Cibles des loups : les non-loups ; s'il n'en reste aucun, les loups s'entre-dévorent.
+  wolfTargets(selfId) {
+    const prey = this.alive().filter((p) => !this.isWolf(p));
+    return (prey.length ? prey : this.alive().filter((p) => p.id !== selfId)).map((p) => p.id);
+  }
+  // Voisins vivants (ordre de la table, en cercle).
+  neighbors(id) {
+    const ring = this.alive().map((p) => p.id);
+    const i = ring.indexOf(id);
+    if (i < 0 || ring.length < 2) return [];
+    const out = [ring[(i - 1 + ring.length) % ring.length], ring[(i + 1) % ring.length]];
+    return [...new Set(out)].filter((x) => x !== id);
+  }
+  cardsNeeded(compo) { return cardsNeeded(this.gamePlayers().length, compo || this.effectiveCompo()); }
 
   // ---------- Réglages et composition (salon) ----------
   updateSettings(id, patch) {
@@ -275,9 +312,15 @@ class Room {
     if (!def || !def.impl) throw new Error('Rôle pas encore disponible.');
     if (!extAllowed(role, this.settings.extensions)) throw new Error('Extension désactivée.');
     const c = Object.assign({}, this.effectiveCompo());
-    const max = role === 'loup' || role === 'villageois' ? MAX_PLAYERS : 1;
-    c[role] = Math.min(max, Math.max(0, (c[role] || 0) + (delta > 0 ? 1 : -1)));
+    const step = cardStep(role);
+    const max = role === 'loup' || role === 'villageois' ? MAX_PLAYERS : step;
+    c[role] = Math.min(max, Math.max(0, (c[role] || 0) + (delta > 0 ? step : -step)));
     if (!c[role]) delete c[role];
+    // On garde le bon nombre de cartes en ajustant les simples villageois.
+    if (role !== 'villageois') {
+      const v = (c.villageois || 0) + this.cardsNeeded(c) - compoSize(c);
+      if (v > 0) c.villageois = v; else delete c.villageois;
+    }
     this.customCompo = c;
     this.changed();
   }
@@ -297,8 +340,10 @@ class Room {
     if (n > MAX_PLAYERS) throw new Error(`${MAX_PLAYERS} joueurs maximum.`);
     if (this.settings.distribution === 'auto') {
       const c = this.effectiveCompo();
-      if (compoSize(c) !== n) throw new Error(`La composition compte ${compoSize(c)} cartes pour ${n} joueurs.`);
-      if (!c.loup) throw new Error('Il faut au moins un Loup-Garou.');
+      const need = cardsNeeded(n, c);
+      if (compoSize(c) !== need) throw new Error(`La composition compte ${compoSize(c)} cartes, il en faut ${need}.`);
+      if (!WOLF_ROLES.some((r) => c[r] && r !== 'loupblanc')) throw new Error('Il faut au moins un Loup-Garou.');
+      if (c.soeur && c.soeur !== 2) throw new Error('Les Sœurs vont par deux.');
       this.compo = Object.assign({}, c);
       this.addLog('La partie commence.', true);
       this.deal();
@@ -314,7 +359,10 @@ class Room {
     const cards = [];
     for (const [r, k] of Object.entries(this.compo)) for (let i = 0; i < k; i++) cards.push(r);
     const shuffled = shuffle(cards);
-    this.gamePlayers().forEach((p, i) => { p.role = shuffled[i]; });
+    const gp = this.gamePlayers();
+    gp.forEach((p, i) => { p.role = shuffled[i]; });
+    // Les cartes en trop restent au centre pour le Voleur.
+    this.extraCards = shuffled.slice(gp.length);
     this.phase = 'setup';
     if (!this.phaseSteps.includes('roles_reveal')) this.phaseSteps = ['roles_reveal'];
     this.startStep({ type: 'roles_reveal', actors: this.gamePlayers().map((p) => p.id), seconds: 20 });
@@ -332,7 +380,8 @@ class Room {
     step.round = step.round || 1;
     step.rounds = step.rounds || [];
     if (step.type === 'check') { this.step = step; return this.resolveStep(); }
-    const secs = step.actors.length ? (step.seconds || this.settings.nightSeconds) : (step.seconds || 6 + crypto.randomInt(5));
+    // Sans acteur (rôle mort ou absent), on attend quelques secondes pour ne rien dévoiler.
+    const secs = step.actors.length ? (step.seconds || this.settings.nightSeconds) : (NIGHT_TYPES.includes(step.type) || !step.seconds ? 6 + crypto.randomInt(5) : step.seconds);
     step.deadline = Date.now() + secs * 1000 * F;
     this.step = step;
     if (step.type === 'dawn') return this.resolveStep();
@@ -351,7 +400,38 @@ class Room {
     switch (s.type) {
       case 'roles_reveal':
       case 'debate':
+      case 'soeurs':
         value = true; break;
+      case 'voleur': {
+        const i = payload.take;
+        if (i === null || i === undefined) {
+          if (this.extraCards.length && this.extraCards.every((r) => WOLF_ROLES.includes(r))) throw new Error('Deux loups : tu dois en prendre un.');
+          value = null;
+        } else if (i === 0 || i === 1) value = i;
+        else throw new Error('Carte invalide.');
+        break;
+      }
+      case 'enfant':
+        if (!isAlive(payload.target) || payload.target === id) throw new Error('Cible invalide.');
+        value = payload.target; break;
+      case 'renard':
+        if (payload.target !== null && !isAlive(payload.target)) throw new Error('Cible invalide.');
+        value = payload.target; break;
+      case 'infect':
+        value = !!payload.infect; break;
+      case 'grandloup':
+        if (!this.wolfTargets(id).includes(payload.target) || payload.target === this.victim) throw new Error('Cible invalide.');
+        value = payload.target; break;
+      case 'loupblanc':
+        if (payload.target !== null && (!isAlive(payload.target) || payload.target === id || !this.isWolf(this.players.get(payload.target)))) throw new Error('Cible invalide.');
+        value = payload.target; break;
+      case 'flute': {
+        const t = Array.isArray(payload.targets) ? [...new Set(payload.targets)] : [];
+        const ok = this.fluteOptions(id);
+        if (!t.length || t.length > 2 || !t.every((x) => ok.includes(x))) throw new Error('Choisis deux joueurs non charmés.');
+        if (t.length < Math.min(2, ok.length)) throw new Error('Choisis deux joueurs.');
+        value = t; break;
+      }
       case 'compoVote': {
         const roles = Array.isArray(payload.roles) ? payload.roles : [];
         value = roles.filter((r) => ROLES[r] && ROLES[r].impl && r !== 'loup' && r !== 'villageois' && extAllowed(r, this.settings.extensions));
@@ -369,12 +449,12 @@ class Room {
         if (!isAlive(payload.target) || payload.target === id) throw new Error('Cible invalide.');
         value = payload.target; break;
       case 'loups':
-        if (!isAlive(payload.target) || this.players.get(payload.target).role === 'loup') throw new Error('Cible invalide.');
+        if (!this.wolfTargets(id).includes(payload.target)) throw new Error('Cible invalide.');
         value = payload.target; break;
       case 'sorciere': {
         const save = !!payload.save && this.potions.life && !!s.victim;
         let kill = payload.kill || null;
-        if (kill && (!this.potions.death || !isAlive(kill))) throw new Error('Cible invalide.');
+        if (kill && (!this.potions.death || !isAlive(kill) || kill === id)) throw new Error('Cible invalide.');
         value = { save, kill }; break;
       }
       case 'captain_vote':
@@ -423,6 +503,69 @@ class Room {
           this.players.get(t[1]).lover = t[0];
           this.addLog(`Cupidon unit ${this.name(t[0])} et ${this.name(t[1])}.`, false);
         }
+        break;
+      }
+      case 'voleur': {
+        const thief = this.players.get(s.actors[0]);
+        let take = Object.values(inputs)[0];
+        if (take === undefined && this.extraCards.length && this.extraCards.every((r) => WOLF_ROLES.includes(r))) take = crypto.randomInt(2);
+        if (thief && (take === 0 || take === 1) && this.extraCards[take]) {
+          const card = this.extraCards[take];
+          this.extraCards[take] = 'voleur';
+          thief.role = card;
+          s.result.took = card;
+          this.addLog(`Le Voleur devient ${ROLES[card].name}.`, false);
+        } else if (thief) this.addLog('Le Voleur garde sa carte.', false);
+        break;
+      }
+      case 'soeurs':
+        break;
+      case 'enfant': {
+        const kid = this.players.get(s.actors[0]);
+        if (kid) {
+          let t = Object.values(inputs)[0];
+          if (!t) { const o = this.alive().filter((p) => p.id !== kid.id); t = o.length ? pick(o).id : null; }
+          kid.model = t;
+          if (t) this.addLog(`L'Enfant Sauvage prend ${this.name(t)} pour modèle.`, false);
+        }
+        break;
+      }
+      case 'renard': {
+        const t = Object.values(inputs)[0];
+        if (t) {
+          const ids = [t, ...this.neighbors(t)];
+          const hasWolf = ids.some((x) => this.isWolf(this.players.get(x)));
+          s.result.fox = { ids, hasWolf };
+          if (!hasWolf) this.foxLost = true;
+          this.addLog(`Le Renard flaire ${ids.map((x) => this.name(x)).join(', ')} : ${hasWolf ? 'il y a un loup' : 'aucun loup, il perd son flair'}.`, false);
+        }
+        break;
+      }
+      case 'infect': {
+        if (Object.values(inputs)[0] && this.victim && !this.infectUsed) {
+          this.infectUsed = true;
+          this.infecting = true;
+          this.addLog(`L'Infect Père des Loups infecte ${this.name(this.victim)}.`, false);
+          const w = this.queue.find((q) => q.type === 'sorciere');
+          if (w) w.victim = null;
+        }
+        break;
+      }
+      case 'grandloup': {
+        const t = Object.values(inputs)[0];
+        if (t && t !== this.victim) { this.bigBadKill = t; this.addLog(`Le Grand Méchant Loup dévore aussi ${this.name(t)}.`, false); }
+        break;
+      }
+      case 'loupblanc': {
+        const t = Object.values(inputs)[0];
+        if (t) { this.whiteKill = t; this.addLog(`Le Loup-Garou Blanc tue ${this.name(t)}.`, false); }
+        break;
+      }
+      case 'flute': {
+        const t = Object.values(inputs)[0] || [];
+        for (const x of t) this.players.get(x).charmed = true;
+        if (t.length) this.addLog(`Le Joueur de flûte charme ${t.map((x) => this.name(x)).join(' et ')}.`, false);
+        s.result.charmed = t;
         break;
       }
       case 'salvateur': {
@@ -487,15 +630,28 @@ class Room {
       }
       case 'dawn': {
         this.deaths = [];
-        const v = this.victim;
-        if (v && this.protected !== v && !this.saved) {
-          const vp = this.players.get(v);
+        const rust = this.rustyPending;
+        this.rustyPending = null;
+        const attack = (id) => {
+          const vp = this.players.get(id);
+          if (!vp || !vp.alive) return;
+          if (this.protected === id) return this.addLog(`${vp.name} est protégé(e) par le Salvateur.`, false);
           if (vp.role === 'ancien' && !vp.ancienHit) {
             vp.ancienHit = true;
-            this.addLog("L'Ancien résiste à l'attaque des loups.", false);
-          } else this.kill(v, 'loups', triggers);
-        } else if (v) this.addLog(`${this.name(v)} est sauvé(e) cette nuit.`, false);
+            return this.addLog("L'Ancien résiste à l'attaque des loups.", false);
+          }
+          this.kill(id, 'loups', triggers);
+        };
+        const v = this.victim;
+        if (v && this.infecting) {
+          const vp = this.players.get(v);
+          if (this.protected !== v && vp && vp.alive) { vp.infected = true; this.addLog(`${vp.name} devient loup.`, false); }
+        } else if (v && !this.saved) attack(v);
+        else if (v) this.addLog(`${this.name(v)} est sauvé(e) cette nuit.`, false);
+        if (this.bigBadKill) attack(this.bigBadKill);
+        if (this.whiteKill && this.protected !== this.whiteKill) this.kill(this.whiteKill, 'loupblanc', triggers);
         if (this.witchKill) this.kill(this.witchKill, 'sorciere', triggers);
+        if (rust) this.kill(rust, 'rouille', triggers);
         s.result.deaths = this.deaths.slice();
         s.result.text = this.deathText(this.deaths, 'cette nuit');
         this.addLog(s.result.text, true);
@@ -537,6 +693,7 @@ class Room {
           } else {
             this.kill(t.id, 'vote', triggers);
             res.text = this.deathText(this.deaths, 'par le village');
+            if (t.role === 'ange' && this.day === 1) this.angelWin = true;
           }
         }
         res.deaths = this.deaths.slice();
@@ -623,19 +780,27 @@ class Room {
   planNight() {
     this.phase = 'night';
     this.night++;
+    if (this.night > MAX_NIGHTS) return this.endGame({ team: 'personne', text: 'La partie s\'éternise : match nul.' });
     this.victim = null; this.protected = null; this.saved = false; this.witchKill = null;
+    this.infecting = false; this.bigBadKill = null; this.whiteKill = null;
     this.addLog(`Nuit ${this.night} : le village s'endort.`, true);
+    const n1 = this.night === 1;
+    // Un rôle est appelé s'il est en jeu (même mort, pour ne rien dévoiler) ; la nuit 1, aussi s'il est au centre (Voleur).
+    const inPlay = (role) => this.hasRoleInGame(role) || (n1 && this.extraCards.includes(role));
     const steps = [];
-    const actorsOf = (role) => this.aliveWithRole(role).map((p) => p.id);
-    const add = (type, role) => { if (this.hasRoleInGame(role)) steps.push({ type, actors: actorsOf(role) }); };
-    if (this.night === 1) add('cupidon', 'cupidon');
-    // Ancien éliminé par le village : les villageois n'ont plus de pouvoirs.
-    if (!this.powersLost) {
-      add('salvateur', 'salvateur');
-      add('voyante', 'voyante');
-    }
-    steps.push({ type: 'loups', actors: actorsOf('loup') });
-    if (this.hasRoleInGame('sorciere') && !this.powersLost) steps.push({ type: 'sorciere', actors: actorsOf('sorciere') });
+    const add = (type, extra) => { if (inPlay(STEP_ROLE[type])) steps.push(Object.assign({ type, actors: [], roleStep: true }, extra || {})); };
+    const villagePowers = !this.powersLost;
+    if (n1) { add('voleur'); add('cupidon'); }
+    if (villagePowers && this.night % 2 === 1) add('soeurs', { seconds: 45 });
+    if (n1) add('enfant');
+    if (villagePowers) { add('salvateur'); add('voyante'); }
+    if (villagePowers && !this.foxLost) add('renard');
+    steps.push({ type: 'loups', actors: [], wolves: true });
+    if (!this.infectUsed) add('infect', { seconds: 25 });
+    if (!this.wolfDied) add('grandloup');
+    if (this.night % 2 === 0) add('loupblanc');
+    if (villagePowers) add('sorciere');
+    add('flute');
     steps.push({ type: 'dawn', actors: [] });
     this.phaseSteps = steps.map((x) => x.type);
     this.phaseCursor = -1;
@@ -659,6 +824,13 @@ class Room {
 
   // Les votants du vote sont calculés au moment du vote (un joueur a pu mourir entre-temps).
   startStepHook(step) {
+    // Étapes de nuit : les acteurs sont ceux qui ont le rôle au moment de l'étape (le Voleur a pu en changer).
+    if (step.roleStep) step.actors = this.aliveWithRole(STEP_ROLE[step.type]).map((p) => p.id);
+    if (step.wolves) step.actors = this.aliveWolves().map((p) => p.id);
+    if (step.type === 'infect' && (!this.victim || this.infectUsed)) step.actors = [];
+    if (step.type === 'grandloup' && (this.wolfDied || !this.wolfTargets().some((t) => t !== this.victim))) step.actors = [];
+    if (step.type === 'loupblanc' && !this.aliveWolves().some((p) => p.role !== 'loupblanc')) step.actors = [];
+    if (step.type === 'flute' && step.actors.length && !this.fluteOptions(step.actors[0]).length) step.actors = [];
     if (step.dynamicActors) step.actors = this.alive().filter((p) => p.canVote).map((p) => p.id);
     if (step.type === 'captain_vote' || step.type === 'debate') step.actors = step.actors.filter((id) => this.players.get(id).alive);
   }
@@ -678,6 +850,20 @@ class Room {
     p.alive = false;
     p.death = { cause, when: this.whenLabel() };
     this.deaths.push({ id, cause, role: p.role });
+    if (this.isWolf(p)) this.wolfDied = true;
+    // Enfant Sauvage : son modèle meurt, il devient loup.
+    for (const k of this.alive()) {
+      if (k.role === 'enfant' && k.model === id && !k.wildTurned) { k.wildTurned = true; this.addLog(`${k.name}, l'Enfant Sauvage, devient loup.`, false); }
+    }
+    // Chevalier tué par les loups : le premier loup après lui mourra la nuit suivante.
+    if (p.role === 'chevalier' && cause === 'loups' && !this.powersLost) {
+      const ring = this.order.filter((x) => x === id || (this.players.get(x).alive && !this.isMJ(x)));
+      const i = ring.indexOf(id);
+      for (let k = 1; k < ring.length; k++) {
+        const w = this.players.get(ring[(i + k) % ring.length]);
+        if (this.isWolf(w)) { this.rustyPending = w.id; this.addLog(`L'épée rouillée blesse ${w.name}.`, false); break; }
+      }
+    }
     if (p.role === 'ancien' && cause === 'vote' && !this.powersLost) {
       this.powersLost = true;
       this.addLog("Le village a éliminé l'Ancien : les villageois perdent leurs pouvoirs.", true);
@@ -698,7 +884,8 @@ class Room {
     const phrase = {
       loups: 'est retrouvé(e) mort(e) ce matin', sorciere: 'est retrouvé(e) mort(e) ce matin',
       vote: 'est éliminé(e) par le village', bouc: 'est sacrifié(e)', chasseur: 'est abattu(e) par le Chasseur',
-      chagrin: "meurt de chagrin d'amour", exclu: 'a été exclu(e)'
+      chagrin: "meurt de chagrin d'amour", exclu: 'a été exclu(e)',
+      loupblanc: 'est retrouvé(e) mort(e) ce matin', rouille: 'est retrouvé(e) mort(e) ce matin'
     };
     return deaths.map((d) => {
       const role = this.settings.revealOnDeath ? ` Il/elle était ${ROLES[d.role].name}.` : '';
@@ -709,14 +896,39 @@ class Room {
   checkWin() {
     const alive = this.alive();
     if (!alive.length) return { team: 'personne', text: 'Tout le monde est mort. Personne ne gagne.' };
+    if (this.angelWin) return { team: 'ange', text: "L'Ange a été éliminé au premier vote : il gagne seul !" };
     if (this.lovers && alive.length === 2 && this.lovers.every((l) => alive.some((p) => p.id === l))) {
-      const roles = this.lovers.map((l) => this.players.get(l).role);
-      if (roles.includes('loup') && roles.some((r) => r !== 'loup')) return { team: 'amoureux', text: 'Les Amoureux gagnent ensemble !' };
+      const lv = this.lovers.map((l) => this.players.get(l));
+      if (lv.some((p) => this.isWolf(p)) && lv.some((p) => !this.isWolf(p))) return { team: 'amoureux', text: 'Les Amoureux gagnent ensemble !' };
     }
-    const wolves = alive.filter((p) => p.role === 'loup').length;
-    if (wolves === 0) return { team: 'village', text: 'Le Village a éliminé tous les loups !' };
-    if (wolves >= alive.length - wolves) return { team: 'loups', text: 'Les Loups-Garous dévorent le village !' };
+    if (alive.length === 1 && alive[0].role === 'loupblanc') return { team: 'loupblanc', text: 'Le Loup-Garou Blanc reste seul : il gagne !' };
+    const piper = alive.find((p) => p.role === 'flute');
+    if (piper && alive.every((p) => p.id === piper.id || p.charmed)) return { team: 'flute', text: 'Tout le village est charmé : le Joueur de flûte gagne !' };
+    const wolves = alive.filter((p) => this.isWolf(p)).length;
+    if (wolves === 0) return piper ? null : { team: 'village', text: 'Le Village a éliminé tous les loups !' };
+    const white = alive.some((p) => p.role === 'loupblanc');
+    const pack = alive.filter((p) => this.wolfTeam(p)).length;
+    if (!white && pack >= alive.length - pack) return { team: 'loups', text: 'Les Loups-Garous dévorent le village !' };
     return null;
+  }
+
+  fluteOptions(selfId) { return this.alive().filter((p) => p.id !== selfId && !p.charmed).map((p) => p.id); }
+
+  // Cibles valides de l'étape pour un acteur (le client s'en sert pour savoir quelles tuiles toucher).
+  optionsFor(s, id) {
+    const alive = this.alive().map((p) => p.id);
+    const others = alive.filter((x) => x !== id);
+    switch (s.type) {
+      case 'cupidon': case 'captain_vote': case 'renard': return alive;
+      case 'salvateur': return alive.filter((x) => x !== this.lastProtected);
+      case 'voyante': case 'vote': case 'enfant': case 'hunter': case 'successor': return others;
+      case 'loups': return this.wolfTargets(id);
+      case 'grandloup': return this.wolfTargets(id).filter((x) => x !== this.victim);
+      case 'loupblanc': return others.filter((x) => this.isWolf(this.players.get(x)));
+      case 'sorciere': return this.potions.death ? others : [];
+      case 'flute': return this.fluteOptions(id);
+      default: return null;
+    }
   }
 
   endGame(w) {
@@ -804,7 +1016,6 @@ class Room {
     if (this.seesAll(viewer)) return true;
     if (!target.alive && this.settings.revealOnDeath) return true;
     if (target.idiotRevealed) return true;
-    if (viewer.role === 'loup' && target.role === 'loup') return true;
     if (viewer.seen && viewer.seen[target.id]) return true;
     return false;
   }
@@ -813,14 +1024,22 @@ class Room {
     const me = this.players.get(id);
     if (!me) return null;
     const omniscient = this.isMJ(id) || this.seesAll(me) || this.phase === 'end';
+    const meWolf = this.isWolf(me);
+    const seeCharm = omniscient || me.charmed || me.role === 'flute';
     const players = this.order.map((pid) => {
       const p = this.players.get(pid);
-      const vis = this.phase !== 'lobby' && this.roleVisible(me, p);
+      const started = this.phase !== 'lobby';
+      let role = started && this.roleVisible(me, p) ? p.role : null;
+      // Les loups se reconnaissent (sans connaître le rôle exact), les Sœurs aussi.
+      if (started && !role && meWolf && this.isWolf(p)) role = 'loup';
+      if (started && !role && me.role === 'soeur' && p.role === 'soeur') role = 'soeur';
       return {
         id: p.id, name: p.name, connected: p.connected, alive: p.alive, isMJ: this.isMJ(p.id),
         captain: this.captainId === p.id, idiotRevealed: p.idiotRevealed, cam: p.cam, mic: p.mic, conn: p.conn, kicked: !!p.kicked,
         death: p.death,
-        role: vis ? p.role : null,
+        role,
+        charmed: seeCharm && p.charmed,
+        infected: (omniscient || pid === id) && (p.infected || (p.role === 'enfant' && p.wildTurned)),
         lover: (omniscient || pid === id || me.lover === pid) && p.lover ? p.lover : null
       };
     });
@@ -829,7 +1048,10 @@ class Room {
         id, name: me.name, isHost: id === this.hostId, isMJ: this.isMJ(id), canControl: this.canControl(id),
         alive: me.alive, role: me.role, lover: me.lover, canVote: me.canVote, conn: me.conn, seesAll: this.seesAll(me),
         seen: Object.entries(me.seen || {}).map(([t, r]) => ({ id: t, name: this.name(t), role: r })),
-        wolves: me.role === 'loup' ? this.gamePlayers().filter((p) => p.role === 'loup').map((p) => p.id) : []
+        wolves: meWolf ? this.gamePlayers().filter((p) => this.isWolf(p)).map((p) => p.id) : [],
+        isWolf: meWolf, infected: !!me.infected, charmed: !!me.charmed,
+        model: me.role === 'enfant' ? me.model : null, wild: me.role === 'enfant' && me.wildTurned,
+        foxLost: me.role === 'renard' && this.foxLost
       },
       room: {
         code: this.code, phase: this.phase, hostId: this.hostId, settings: this.settings, night: this.night, day: this.day,
@@ -844,6 +1066,7 @@ class Room {
       media: this.mediaFor(me),
       players,
       compo: this.effectiveCompo(),
+      expectedCards: this.cardsNeeded(),
       customCompo: !!this.customCompo,
       compoVoteResult: this.compoVoteResult,
       log: this.log.filter((l) => l.pub || omniscient).slice(-40),
@@ -877,11 +1100,19 @@ class Room {
       v.potions = this.potions;
     }
     if (s.type === 'salvateur' && (isActor || omniscient)) v.lastProtected = this.lastProtected;
+    if (isActor && !s.resolved) { const o = this.optionsFor(s, me.id); if (o) v.options = o; }
+    if (s.type === 'voleur' && (isActor || omniscient)) {
+      v.cards = this.extraCards.slice();
+      v.mustTake = this.extraCards.length > 0 && this.extraCards.every((r) => WOLF_ROLES.includes(r));
+    }
+    if (['infect', 'grandloup'].includes(s.type) && (isActor || omniscient)) v.victim = this.victim;
     if (s.resolved && s.result) {
       const r = s.result;
       if (['captain_vote', 'vote'].includes(s.type)) v.result = { choices: r.choices, tally: r.tally, text: r.text };
       else if (['dawn', 'hunter', 'successor'].includes(s.type)) v.result = { text: r.text };
       else if (s.type === 'voyante' && (isActor || omniscient)) v.result = { seen: r.seen };
+      else if (s.type === 'renard' && (isActor || omniscient)) v.result = { fox: r.fox || null };
+      else if (s.type === 'voleur' && (isActor || omniscient)) v.result = { took: r.took || null };
       else if (s.type === 'loups' && (isActor || omniscient)) v.result = { victim: r.victim };
       else if (s.type === 'compoVote') v.result = { counts: r.counts, compo: r.compo };
     }

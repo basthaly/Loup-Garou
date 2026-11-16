@@ -31,11 +31,17 @@ function react(s) {
   const others = alive.filter((p) => p.id !== v.me.id);
   let payload = {};
   switch (st.type) {
-    case 'compoVote': payload = { roles: ['voyante', 'sorciere', 'chasseur', 'cupidon', 'salvateur', 'ancien', 'idiot', 'bouc'].filter(() => Math.random() < 0.6) }; break;
+    case 'compoVote': payload = { roles: ['voyante', 'sorciere', 'chasseur', 'cupidon', 'salvateur', 'ancien', 'idiot', 'bouc', 'voleur', 'flute', 'loupblanc', 'grandloup', 'infect', 'enfant', 'renard', 'soeur', 'chevalier', 'ange', 'petitefille'].filter(() => Math.random() < 0.6) }; break;
     case 'cupidon': { const a = [...alive].sort(() => Math.random() - 0.5); payload = { targets: [a[0].id, a[1].id] }; break; }
     case 'salvateur': payload = { target: rnd(alive.filter((p) => p.id !== st.lastProtected)).id }; break;
     case 'voyante': payload = { target: rnd(others).id }; break;
-    case 'loups': payload = { target: rnd(alive.filter((p) => !v.me.wolves.includes(p.id))).id }; break;
+    case 'loups': case 'grandloup': case 'enfant': payload = { target: rnd(st.options) }; break;
+    case 'renard': payload = { target: Math.random() < 0.2 ? null : rnd(st.options) }; break;
+    case 'loupblanc': payload = { target: Math.random() < 0.5 || !st.options.length ? null : rnd(st.options) }; break;
+    case 'flute': payload = { targets: [...st.options].sort(() => Math.random() - 0.5).slice(0, 2) }; break;
+    case 'voleur': payload = { take: st.mustTake || Math.random() < 0.6 ? Math.floor(Math.random() * 2) : null }; break;
+    case 'infect': payload = { infect: Math.random() < 0.5 }; break;
+    case 'soeurs': payload = {}; break;
     case 'sorciere': payload = { save: Math.random() < 0.5, kill: st.potions && st.potions.death && Math.random() < 0.3 ? rnd(others).id : null }; break;
     case 'captain_vote': payload = { target: rnd(alive).id }; break;
     case 'vote': payload = { target: Math.random() < 0.1 ? null : rnd(others).id }; break;
@@ -62,6 +68,18 @@ async function game(url, n, opts) {
   if (opts.mj) { patch.mjMode = 'joueur'; patch.mjId = bots[n - 1].view.me.id; bots[n - 1].isMJBot = true; }
   const st = await emit(host, 'settings', patch);
   if (!st.ok) throw new Error(st.error);
+  for (const role of opts.roles || []) {
+    const r = await emit(host, 'compo', { role, delta: 1 });
+    if (!r.ok) throw new Error(`${role} : ${r.error}`);
+  }
+  // Trop de cartes : on retire des rôles de base, comme le ferait l'hôte.
+  for (const role of ['bouc', 'idiot', 'ancien', 'petitefille', 'salvateur', 'cupidon', 'chasseur', 'sorciere', 'voyante', 'loup']) {
+    await new Promise((r) => setTimeout(r, 20));
+    const v = host.view;
+    const size = Object.values(v.compo).reduce((a, b) => a + b, 0);
+    if (size <= v.expectedCards) break;
+    if (v.compo[role] && !(opts.roles || []).includes(role)) await emit(host, 'compo', { role, delta: -1 });
+  }
   const go = await emit(host, 'start', {});
   if (!go.ok) throw new Error(go.error);
   const t0 = Date.now();
@@ -83,6 +101,12 @@ async function game(url, n, opts) {
   let errors = 0;
   const cases = [];
   for (let n = 6; n <= 16; n += 2) cases.push([n, {}], [n, { vote: true }], [n + 1, { mj: true }]);
+  // Parties avec les rôles des extensions (composition choisie par l'hôte).
+  const extra = [
+    ['voleur', 'flute', 'loupblanc'], ['grandloup', 'infect', 'enfant', 'renard'], ['soeur', 'chevalier', 'ange', 'voleur'],
+    ['loupblanc', 'infect', 'flute', 'soeur', 'renard', 'chevalier'], ['ange', 'enfant', 'grandloup', 'voleur', 'flute']
+  ];
+  for (let rep = 0; rep < 4; rep++) extra.forEach((roles, i) => cases.push([8 + ((i + rep) % 5) * 2, { roles }]));
   for (const [n, opts] of cases) {
     const r = await game(url, n, opts);
     results[r.winner] = (results[r.winner] || 0) + 1;

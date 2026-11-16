@@ -14,6 +14,23 @@ window.LGMedia = (() => {
   const videos = new Map();   // id -> <video> persistant entre deux rendus
   const pool = document.getElementById('media-pool');
 
+  // Choix micro / caméra mémorisés : on les rallume tout seuls à la prochaine connexion.
+  const prefs = () => { try { return JSON.parse(localStorage.getItem('lg-media') || '{}'); } catch (e) { return {}; } };
+  const remember = () => { try { localStorage.setItem('lg-media', JSON.stringify({ mic: !!(local.audioTrack && local.mic), cam: !!local.cam })); } catch (e) { /* stockage indisponible */ } };
+  let restored = false;
+  async function restore() {
+    if (restored) return;
+    restored = true;
+    const p = prefs();
+    if (!window.isSecureContext || !navigator.mediaDevices) return;
+    // Sans autorisation déjà accordée, le navigateur redemanderait : on laisse alors le joueur cliquer.
+    const granted = async (name) => {
+      try { return !navigator.permissions || (await navigator.permissions.query({ name })).state !== 'denied'; } catch (e) { return true; }
+    };
+    if (p.mic && !local.audioTrack && await granted('microphone')) await enable('audio', true);
+    if (p.cam && !local.videoTrack && await granted('camera')) await enable('video', true);
+  }
+
   const rule = (id) => (view && view.media && view.media[id]) || { send: {}, recv: {} };
 
   function videoEl(id) {
@@ -98,7 +115,7 @@ window.LGMedia = (() => {
   }
 
   // ---------- Micro / caméra locaux (indépendants) ----------
-  async function enable(kind) {
+  async function enable(kind, quiet) {
     if (local.busy[kind]) return;
     if (!window.isSecureContext || !navigator.mediaDevices) {
       local.error = 'Le micro et la caméra demandent une connexion sécurisée (https://).';
@@ -122,11 +139,13 @@ window.LGMedia = (() => {
       }
       local.error = null;
     } catch (e) {
+      if (quiet) { local.busy[kind] = false; return onChange(); }
       local.error = kind === 'audio'
         ? 'Micro refusé ou indisponible. Autorise-le dans les réglages du navigateur.'
         : 'Caméra refusée ou indisponible. Autorise-la dans les réglages du navigateur.';
     }
     local.busy[kind] = false;
+    if (!quiet || local.error === null) remember();
     publish();
     transport.applyLocal();
     onChange();
@@ -145,6 +164,7 @@ window.LGMedia = (() => {
       local.videoTrack = null;
       setPreview();
     }
+    remember();
     publish();
     transport.applyLocal();
     onChange();
@@ -158,7 +178,7 @@ window.LGMedia = (() => {
     const first = !view && v;
     view = v;
     if (!v) return transport.close();
-    if (first) publish();
+    if (first) { publish(); restore(); }
     if (local.audioTrack) meter(v.me.id, local.audioTrack);
     transport.sync();
   }
