@@ -265,7 +265,7 @@
     const inner = `${asleep ? `<div class="sleep">${icon('moon', 22)}<span>Endormi</span></div>` : `<span class="avatar" style="background:${colorOf(p.id)}" aria-hidden="true">${esc(p.name[0])}</span>`}
       <div class="vslot" data-vslot="${slot}"></div>
       <div class="tl">${tl.join('')}</div><div class="tr">${tr.join('')}</div>
-      ${opts.picked ? `<span class="picked-mark">${icon('check', 18)} ${opts.mark || (st && st.type === 'vote' ? 'Ton vote' : 'Choisi')}</span>` : ''}
+      ${opts.picked ? `<span class="picked-mark">${icon('check', 14)}<span class="pm-t">${opts.mark || (st && st.type === 'vote' ? 'Ton vote' : 'Choisi')}</span></span>` : ''}
       ${opts.tools || ''}
       <span class="nm">${p.mic ? '<span class="vu" aria-hidden="true"><i></i><i></i><i></i></span>' : icon('micoff', 13)}${esc(p.name)}${isMe ? ' (toi)' : ''}</span>`;
     const cls = `tile has-video-host ${isMe ? 'me' : ''} ${asleep ? 'asleep' : ''} ${opts.wolfMate ? 'wolfmate' : ''} ${opts.pick ? 'pickable' : ''} ${opts.picked ? 'picked' : ''} ${opts.danger ? 'danger' : ''} ${opts.poisoned ? 'poisoned' : ''} ${opts.saved ? 'saved' : ''} ${opts.tools ? 'has-tools' : ''}`;
@@ -777,12 +777,14 @@
     const el = document.getElementById('alert');
     if (!el) return;
     el.className = `alert ${kind} show`;
-    el.innerHTML = `${kind === 'turn' ? `<span class="alert-icon">${icon('target', 22)}</span>` : ''}<div><div class="alert-title">${title}</div>${text ? `<div class="alert-text">${text}</div>` : ''}</div>`;
+    const ic = kind === 'turn' ? 'target' : kind === 'step' ? (isDayCtx() ? 'sun' : 'moon') : null;
+    el.innerHTML = `${ic ? `<span class="alert-icon">${icon(ic, 22)}</span>` : ''}<div><div class="alert-title">${title}</div>${text ? `<div class="alert-text">${text}</div>` : ''}</div>`;
     clearTimeout(alertT);
-    alertT = setTimeout(() => { el.classList.remove('show'); }, kind === 'turn' ? 3500 : 3000);
+    alertT = setTimeout(() => { el.classList.remove('show'); }, kind === 'turn' ? 3500 : kind === 'step' ? 2600 : 3000);
   }
 
   let lastTurnKey = null;
+  let lastStepKey = null;
   let lastInfoKey = null;
   let lastPhaseKey = null;
   function notify(prev, v) {
@@ -791,16 +793,23 @@
     document.title = myTurn ? '● À toi · Loup-Garou' : 'Loup-Garou';
     if (!prev) { lastTurnKey = myTurn ? stepKey(st) : null; return; }
     const phaseKey = `${v.room.phase}:${v.room.night}:${v.room.day}`;
-    if (v.room.phase === 'night' && phaseKey !== lastPhaseKey && prev.room.phase !== 'night') {
-      showAlert('info', `Nuit ${v.room.night}`, 'Le village s\'endort');
-    }
+    const newNight = v.room.phase === 'night' && phaseKey !== lastPhaseKey && prev.room.phase !== 'night';
     lastPhaseKey = phaseKey;
-    if (myTurn && stepKey(st) !== lastTurnKey && st.type !== 'roles_reveal') {
-      lastTurnKey = stepKey(st);
-      showAlert('turn', 'À toi !', esc(QUESTION[st.type] || ''));
-      chime();
-      return;
+    // Orange : c'est à toi. Bleu : une nouvelle étape commence, juste pour prévenir.
+    if (st && !st.resolved && stepKey(st) !== lastStepKey) {
+      lastStepKey = stepKey(st);
+      if (myTurn && st.type !== 'roles_reveal') {
+        lastTurnKey = stepKey(st);
+        showAlert('turn', 'À toi !', esc(QUESTION[st.type] || ''));
+        chime();
+        return;
+      }
+      if (st.type !== 'roles_reveal') {
+        showAlert('step', newNight ? `Nuit ${v.room.night}` : esc(STEP_LABEL[st.type] || 'Nouvelle étape'), esc(st.narration || ''));
+        return;
+      }
     }
+    if (newNight) { showAlert('step', `Nuit ${v.room.night}`, 'Le village s\'endort'); return; }
     if (st && st.resolved && st.result && stepKey(st) !== lastInfoKey) {
       lastInfoKey = stepKey(st);
       const res = st.result;
