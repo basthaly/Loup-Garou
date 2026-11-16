@@ -360,6 +360,7 @@ Vérifier que ça tourne : `docker compose ps` et `curl -k https://127.0.0.1:300
 - On joue en touchant directement les visages ; la barre du bas regroupe sa caméra, son rôle, le micro, la caméra et l'action à valider.
 - L'hôte peut exclure un joueur, arrêter la partie ou nommer un autre hôte ; s'il part, la main passe automatiquement.
 - Quand c'est ton tour : alerte au centre de l'écran, son et vibration (désactivables), titre de l'onglet « ● À toi », bouton d'action qui pulse.
+- Bouton « ? » (en haut, ou en touchant son rôle en bas) : comment se joue sa carte, le déroulé d'une partie et les cartes en jeu.
 - Indicateur de voix : la vignette de celui qui parle s'entoure de vert, avec des barres qui suivent sa voix.
 - Mode clair / sombre au choix ; la nuit et le jour nuancent seulement les teintes.
 - Micro et caméra mémorisés : ils se rallument tout seuls à la connexion suivante. Choix du micro et de la caméra dans le panneau (bouton en bas à droite).

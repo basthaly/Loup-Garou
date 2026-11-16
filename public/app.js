@@ -7,6 +7,9 @@
   let view = null;
   let ROLES = null;
   let EXTS = null;
+  let RULES = [];
+  let helpOpen = false;
+  let helpAnim = false;
   let offset = 0;
   let ui = { key: null, sel: [], cv: null, save: false, kill: null };
 
@@ -39,6 +42,7 @@
     cards: '<rect x="3" y="5" width="12" height="16" rx="2"/><path d="M9 3h10a2 2 0 0 1 2 2v14"/>',
     scroll: '<path d="M8 6h12M8 12h12M8 18h12M4 6h0M4 12h0M4 18h0"/>',
     x: '<path d="M6 6l12 12M18 6L6 18"/>',
+    help: '<circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.6.3-1 .9-1 1.6v.6M12 17h0"/>',
     potion: '<path d="M9 3h6M10 3v5L5 17a3 3 0 0 0 2.6 4.5h8.8A3 3 0 0 0 19 17l-5-9V3"/><path d="M7.5 14h9"/>',
     poison: '<path d="M12 3a7 7 0 0 0-4 12.7V19h8v-3.3A7 7 0 0 0 12 3z"/><path d="M9 19v2M15 19v2M12 19v2"/><circle cx="9.5" cy="11" r="1.2"/><circle cx="14.5" cy="11" r="1.2"/>',
     alert: '<path d="M12 3l10 18H2z"/><path d="M12 10v5M12 18h0"/>',
@@ -73,6 +77,7 @@
   fetch('/api/roles').then((r) => r.json()).then((d) => {
     ROLES = d.roles;
     EXTS = d.extensions;
+    RULES = d.rules || [];
     Media.init(socket, d, render);
     render();
   });
@@ -165,11 +170,14 @@
     document.body.dataset.screen = view.room.phase === 'lobby' ? 'lobby' : 'game';
     updateThemeColor();
     // Le panneau garde sa position de défilement d'un rendu à l'autre (sinon il remonte à chaque changement).
-    const dr = $app.querySelector('.drawer');
-    const keep = dr ? dr.scrollTop : 0;
+    const keep = [...$app.querySelectorAll('.drawer')].map((d) => [d.classList.contains('sheet'), d.scrollTop]);
+    const opened = [...$app.querySelectorAll('details[open]')].map((d) => d.querySelector('summary').textContent);
     $app.innerHTML = view.room.phase === 'lobby' ? lobbyHTML() : gameHTML();
-    const dr2 = $app.querySelector('.drawer');
-    if (dr2 && keep) dr2.scrollTop = keep;
+    for (const [sheet, top] of keep) {
+      const d = $app.querySelector(sheet ? '.drawer.sheet' : '.drawer:not(.sheet)');
+      if (d && top) d.scrollTop = top;
+    }
+    $app.querySelectorAll('details').forEach((d) => { if (opened.includes(d.querySelector('summary').textContent)) d.open = true; });
     Media.mount($app);
   }
 
@@ -342,7 +350,7 @@
     const head = `<header class="band"><div class="in">
         <span class="ph-title">Salon</span><span class="code">${r.code}</span>
         <button class="share" data-act="copy" data-link="${esc(link)}">${icon('share', 16)} Inviter</button>
-        <span class="grow"></span>${appearanceButton()}<button class="stop leave" data-act="leave" aria-label="Quitter le salon">${icon('x', 16)}<span class="lbl">Quitter</span></button>
+        <span class="grow"></span>${helpButton()}${appearanceButton()}<button class="stop leave" data-act="leave" aria-label="Quitter le salon">${icon('x', 16)}<span class="lbl">Quitter</span></button>
       </div></header>`;
     const title = nGame < r.minPlayers ? 'En attente des joueurs' : host ? 'Prêt à lancer' : "En attente de l'hôte";
     const summary = `<div class="lobby-summary">
@@ -354,7 +362,7 @@
     const prompt = `<div class="prompt"><h1>${title}</h1><p class="hint">${view.players.length} connecté${view.players.length > 1 ? 's' : ''}</p>${summary}
       ${warn.map((w) => `<div class="warn">${w}</div>`).join('')}</div>`;
     const tiles = view.players.map((p) => tileHTML(p)).join('');
-    return head + `<main class="stage lobby-stage">${prompt}<div class="stage-grid lobby-grid">${tiles}</div></main>${dockHTML()}${drawerHTML()}`;
+    return head + `<main class="stage lobby-stage">${prompt}<div class="stage-grid lobby-grid">${tiles}</div></main>${dockHTML()}${drawerHTML()}${helpHTML()}`;
   }
 
   function compoHTML(n) {
@@ -426,10 +434,33 @@
     const spect = document.body.dataset.dead === '1' ? `<span class="pill spect-pill">${icon('ear', 14)} Spectateur</span>` : '';
     const head = `<header class="band"><div class="in">
         <span class="ph-title">${title}</span>${steps}${spect}<span class="grow"></span>${timer}
-        ${appearanceButton()}
+        ${helpButton()}${appearanceButton()}
         ${me.isHost && r.phase !== 'end' ? '<button class="stop" data-act="abort">Arrêter</button>' : ''}</div>
         ${narr ? `<div class="narr"><div class="in"><p>${narr}</p></div></div>` : ''}</header>`;
-    return head + `<main class="stage">${promptHTML()}${gridHTML()}${cemeteryHTML()}</main>${dockHTML()}${drawerHTML()}`;
+    return head + `<main class="stage">${promptHTML()}${gridHTML()}${cemeteryHTML()}</main>${dockHTML()}${drawerHTML()}${helpHTML()}`;
+  }
+
+  function helpButton() {
+    return `<button class="appear" data-act="help" aria-label="Comment jouer ?" title="Comment jouer ?">${icon('help', 18)}</button>`;
+  }
+
+  // Aide : comment se joue ma carte, le déroulé d'une partie, les cartes en jeu.
+  function helpHTML() {
+    if (!helpOpen || !view) return '';
+    const me = view.me;
+    const d = me.role && !me.isMJ ? ROLES[me.role] : null;
+    const goal = { loups: 'Camp des loups', village: 'Camp du village', solitaire: 'Tu joues seul' };
+    const mine = d ? `<section class="help-mine"><p class="hint">Ta carte</p><div class="bigrole t-${d.team}">${esc(d.name)}</div>
+        <p class="muted small">${goal[d.team]}</p><ul class="how">${(d.how || [d.desc]).map((x) => `<li>${esc(x)}</li>`).join('')}</ul>
+        ${me.infected || me.wild ? '<div class="note">Tu es devenu loup : tu te réveilles aussi avec la meute.</div>' : ''}</section>` : '';
+    const inGame = Object.keys(view.compo || {}).filter((k) => ROLES[k] && k !== me.role);
+    const cards = inGame.length ? `<section><h3>${view.room.phase === 'lobby' ? 'Cartes prévues' : 'Cartes de la partie'}</h3>${inGame.map((k) => `
+        <details class="card-help"><summary><span>${esc(ROLES[k].name)}</span><small class="t-${ROLES[k].team}">${TEAM[ROLES[k].team]}</small></summary>
+        <ul class="how">${(ROLES[k].how || [ROLES[k].desc]).map((x) => `<li>${esc(x)}</li>`).join('')}</ul></details>`).join('')}</section>` : '';
+    return `<aside class="drawer sheet open ${helpAnim ? 'slide' : ''}" role="dialog" aria-modal="true" aria-label="Comment jouer">
+      <div class="drawer-head"><h2>Comment jouer</h2><button class="round" data-act="help" aria-label="Fermer">${icon('x', 18)}</button></div>
+      ${mine}<section><h3>Déroulé</h3><ol class="how rules">${RULES.map((x) => `<li>${esc(x)}</li>`).join('')}</ol></section>${cards}</aside>
+      <div class="scrim" data-act="help"></div>`;
   }
 
   function appearanceButton() {
@@ -465,7 +496,8 @@
     switch (st.type) {
       case 'roles_reveal': {
         const d = ROLES[me.role] || {};
-        return `<div class="prompt"><p class="hint">Ton rôle</p><h1 class="bigrole t-${d.team}">${esc(d.name || '')}</h1><p class="desc">${esc(d.desc || '')}</p>${progressHTML(st, 'prêts')}</div>`;
+        return `<div class="prompt"><p class="hint">Ton rôle</p><h1 class="bigrole t-${d.team}">${esc(d.name || '')}</h1><p class="desc">${esc(d.desc || '')}</p>
+          <div><button class="ghost small-btn" data-act="help">${icon('help', 14)} Comment jouer ?</button></div>${progressHTML(st, 'prêts')}</div>`;
       }
       case 'compoVote': {
         const opts = Object.entries(ROLES).filter(([k, d]) => d.impl && k !== 'loup' && k !== 'villageois' && (d.ext === 'base' || r.settings.extensions[d.ext]));
@@ -573,7 +605,7 @@
     const d = me.role ? ROLES[me.role] : null;
     const L = Media.local;
     const roleBtn = me.isMJ ? '<span class="dock-role"><small>Rôle</small><b>Maître du jeu</b></span>'
-      : d ? `<button class="dock-role" data-act="drawer" aria-label="Voir mon rôle"><small>${me.alive || r.phase === 'end' ? 'Ton rôle' : 'Tu étais'}</small><b class="t-${d.team}">${esc(d.name)}</b></button>` : '';
+      : d ? `<button class="dock-role" data-act="help" aria-label="Comment jouer ${esc(d.name)} ?"><small>${me.alive || r.phase === 'end' ? 'Ton rôle' : 'Tu étais'}</small><b class="t-${d.team}">${esc(d.name)}<span class="qmark" aria-hidden="true">?</span></b></button>` : '';
     const mic = `<button class="round ${L.audioTrack ? (L.mic ? 'on' : 'off') : ''}" data-act="media-mic" aria-pressed="${!!(L.audioTrack && L.mic)}" aria-label="${L.audioTrack && L.mic ? 'Couper le micro' : 'Activer le micro'}" ${L.busy.audio ? 'disabled' : ''}>${icon(L.audioTrack && L.mic ? 'mic' : 'micoff', 20)}</button>`;
     const cam = `<button class="round ${L.cam ? 'on' : ''}" data-act="media-cam" aria-pressed="${L.cam}" aria-label="${L.cam ? 'Couper la caméra' : 'Activer la caméra'}" ${L.busy.video ? 'disabled' : ''}>${icon(L.cam ? 'cam' : 'camoff', 20)}</button>`;
     const self = `<div class="dock-self has-video-host" data-speak="${me.id}"><span class="avatar" style="background:${colorOf(me.id)}" aria-hidden="true">${esc(me.name[0])}</span><div class="vslot" data-vslot="me"></div></div>`;
@@ -858,6 +890,13 @@
         if (p && confirm(`Donner le rôle d'hôte à ${p.name} ?`)) send('giveHost', { id: p.id });
         break;
       }
+      case 'help':
+        helpOpen = !helpOpen;
+        helpAnim = helpOpen;
+        if (helpOpen) drawerOpen = false;
+        render();
+        setTimeout(() => { helpAnim = false; }, 400);
+        break;
       case 'drawer':
         drawerOpen = !drawerOpen;
         if (drawerOpen) Media.refreshDevices();
@@ -922,7 +961,7 @@
   });
 
   document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape' && drawerOpen) { drawerOpen = false; render(); }
+    if (e.key === 'Escape' && (drawerOpen || helpOpen)) { drawerOpen = false; helpOpen = false; render(); }
   });
   $app.addEventListener('keydown', (e) => {
     if (e.key === 'Enter' && (e.target.id === 'f-name' || e.target.id === 'f-code')) {

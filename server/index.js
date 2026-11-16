@@ -7,7 +7,7 @@ const crypto = require('crypto');
 const express = require('express');
 const { Server } = require('socket.io');
 const { Room } = require('./game');
-const { ROLES, EXTENSIONS } = require('./roles');
+const { ROLES, RULES, EXTENSIONS } = require('./roles');
 const LK = require('./livekit');
 
 const PORT = parseInt(process.env.PORT || '3000', 10);
@@ -39,7 +39,7 @@ function loadCert() {
 
 app.use(express.static(path.join(__dirname, '..', 'public')));
 app.use('/vendor', express.static(path.join(__dirname, '..', 'node_modules', 'livekit-client', 'dist')));
-app.get('/api/roles', (req, res) => res.json({ roles: ROLES, extensions: EXTENSIONS, iceServers: ICE_SERVERS, video: LK.enabled ? 'livekit' : 'mesh' }));
+app.get('/api/roles', (req, res) => res.json({ roles: ROLES, rules: RULES, extensions: EXTENSIONS, iceServers: ICE_SERVERS, video: LK.enabled ? 'livekit' : 'mesh' }));
 const connectedCount = () => [...rooms.values()].reduce((n, r) => n + [...r.players.values()].filter((p) => p.connected).length, 0);
 app.get('/health', (req, res) => res.json({ ok: true, rooms: rooms.size, players: connectedCount() }));
 
