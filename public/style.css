@@ -217,6 +217,7 @@ label.check { display: flex; gap: 10px; align-items: center; min-height: 34px; c
 }
 
 /* ---------- Finitions : vidéo, exclusion, barre micro/caméra ---------- */
+.band button.stop { min-height: 36px; padding: 6px 12px; font-size: 13px; background: transparent; border-color: var(--band-line); color: var(--band-sub); }
 .vid.mirror { transform: scaleX(-1); }
 .tile .kick { position: absolute; right: 6px; bottom: 6px; z-index: 2; width: 32px; height: 32px; min-height: 32px; padding: 0; border-radius: 50%; background: rgba(12,14,20,.75); color: #EEEAE2; border: 1px solid rgba(255,255,255,.15); opacity: 0; }
 .tile:hover .kick, .tile .kick:focus-visible { opacity: 1; }

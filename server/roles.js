@@ -9,7 +9,7 @@ const ROLES = {
   sorciere:    { name: 'Sorcière',          team: 'village',   ext: 'base', impl: true,  desc: 'Une potion de vie et une potion de mort, utilisables une fois chacune.' },
   chasseur:    { name: 'Chasseur',          team: 'village',   ext: 'base', impl: true,  desc: 'En mourant, il emporte un joueur avec lui.' },
   cupidon:     { name: 'Cupidon',           team: 'village',   ext: 'base', impl: true,  desc: 'La première nuit, il désigne deux amoureux qui vivent et meurent ensemble.' },
-  petitefille: { name: 'Petite Fille',      team: 'village',   ext: 'base', impl: true,  desc: 'Pendant le tour des loups, voit leur vidéo floutée (sans le son).' },
+  petitefille: { name: 'Petite Fille',      team: 'village',   ext: 'base', impl: true,  desc: 'Pendant le tour des loups, voit tout le village flou (sans le son).' },
   voleur:      { name: 'Voleur',            team: 'village',   ext: 'base', impl: false, desc: 'Peut échanger sa carte la première nuit.' },
   // Nouvelle Lune
   ancien:      { name: 'Ancien',            team: 'village',   ext: 'nouvelleLune', impl: true,  desc: 'Survit à la première attaque des loups.' },

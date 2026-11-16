@@ -87,5 +87,61 @@ const wait = (ms) => new Promise((r) => setTimeout(r, ms));
     assert.ok(a);
     console.log('OK  reprise de la place d\'un joueur déconnecté');
   }
+  // 5. Petite Fille : tout le village flouté pendant le tour des loups.
+  {
+    const { room, ps } = setup(4, ['loup', 'petitefille', 'villageois', 'villageois']);
+    clearTimeout(room.timer);
+    room.phase = 'night'; room.night = 1; room.queue = [];
+    room.startStep({ type: 'loups', actors: [ps[0].id] });
+    assert.deepStrictEqual(room.mediaAllowed(ps[2], ps[1]), { audio: false, video: true, blur: true }, 'villageois flouté');
+    assert.deepStrictEqual(room.mediaAllowed(ps[0], ps[1]), { audio: false, video: true, blur: true }, 'loup flouté');
+    clearTimeout(room.timer);
+    console.log('OK  Petite Fille : tout le village flouté');
+  }
+
+  // 6. Chasseur mort : il ne voit pas les rôles tant qu'il n'a pas tiré.
+  {
+    const { room, ps } = setup(4, ['loup', 'chasseur', 'villageois', 'villageois']);
+    clearTimeout(room.timer);
+    room.phase = 'day'; room.day = 1; room.queue = []; room.deaths = [];
+    const trig = [];
+    room.kill(ps[1].id, 'vote', trig);
+    room.queue.unshift(...trig);
+    assert.strictEqual(room.seesAll(ps[1]), false, 'pas de rôles avant le tir');
+    room.next();
+    assert.strictEqual(room.step.type, 'hunter');
+    assert.strictEqual(room.roleVisible(ps[1], ps[0]), false, 'le rôle du loup reste caché');
+    room.act(ps[1].id, { target: ps[2].id });
+    assert.strictEqual(room.seesAll(ps[1]), true, 'après le tir, il voit tout');
+    clearTimeout(room.timer);
+    console.log('OK  Chasseur : rôles cachés jusqu\'à son tir');
+  }
+
+  // 7. Ancien éliminé par le village : plus de pouvoirs (pas de tir du Chasseur, pas de Voyante).
+  {
+    const { room, ps } = setup(6, ['loup', 'loup', 'ancien', 'chasseur', 'voyante', 'villageois']);
+    clearTimeout(room.timer);
+    room.phase = 'day'; room.day = 1; room.queue = []; room.deaths = [];
+    const trig = [];
+    room.kill(ps[2].id, 'vote', trig);
+    assert.ok(room.powersLost, 'pouvoirs perdus');
+    room.kill(ps[3].id, 'vote', trig);
+    assert.ok(!trig.some((t) => t.type === 'hunter'), 'le Chasseur ne tire plus');
+    room.queue = [];
+    room.planNight();
+    assert.ok(!room.phaseSteps.includes('voyante'), 'la Voyante ne se réveille plus');
+    clearTimeout(room.timer);
+    console.log('OK  Ancien éliminé par le vote : pouvoirs perdus');
+  }
+
+  // 8. L'hôte arrête la partie : retour au salon.
+  {
+    const { room, ps } = setup(4, ['loup', 'villageois', 'villageois', 'villageois']);
+    assert.throws(() => room.abort(ps[1].id), 'seul l\'hôte');
+    room.abort(ps[0].id);
+    assert.strictEqual(room.phase, 'lobby');
+    assert.ok(ps.every((p) => p.alive && !p.role), 'joueurs remis à zéro');
+    console.log('OK  arrêt de la partie par l\'hôte');
+  }
   process.exit(0);
 })().catch((e) => { console.error('ÉCHEC :', e.message); process.exit(1); });

@@ -191,6 +191,7 @@ io.on('connection', (socket) => {
     }
   });
 
+  socket.on('abort', handle(() => { const { room, id } = current(socket); room.abort(id); }));
   socket.on('restart', handle(() => { const { room, id } = current(socket); room.restart(id); }));
 
   socket.on('disconnect', () => {

@@ -86,6 +86,7 @@ class Room {
     this.captainId = null;
     this.potions = { life: true, death: true };
     this.lastProtected = null;
+    this.powersLost = false;
     this.winner = null;
     this.compoVoteResult = null;
     this.phaseSteps = [];
@@ -481,14 +482,14 @@ class Room {
         s.result = res;
         if (!res.top.length) res.text = "Personne n'est éliminé.";
         else if (res.top.length > 1) {
-          const bouc = this.aliveWithRole('bouc')[0];
+          const bouc = this.powersLost ? null : this.aliveWithRole('bouc')[0];
           if (bouc) {
             this.kill(bouc.id, 'bouc', triggers);
             res.text = `Égalité : le Bouc émissaire, ${bouc.name}, est sacrifié.`;
           } else res.text = "Égalité : personne n'est éliminé.";
         } else {
           const t = this.players.get(res.top[0]);
-          if (t.role === 'idiot' && !t.idiotRevealed) {
+          if (t.role === 'idiot' && !t.idiotRevealed && !this.powersLost) {
             t.idiotRevealed = true;
             t.canVote = false;
             res.text = `${t.name} est l'Idiot du village : gracié, mais il ne votera plus.`;
@@ -587,10 +588,13 @@ class Room {
     const actorsOf = (role) => this.aliveWithRole(role).map((p) => p.id);
     const add = (type, role) => { if (this.hasRoleInGame(role)) steps.push({ type, actors: actorsOf(role) }); };
     if (this.night === 1) add('cupidon', 'cupidon');
-    add('salvateur', 'salvateur');
-    add('voyante', 'voyante');
+    // Ancien éliminé par le village : les villageois n'ont plus de pouvoirs.
+    if (!this.powersLost) {
+      add('salvateur', 'salvateur');
+      add('voyante', 'voyante');
+    }
     steps.push({ type: 'loups', actors: actorsOf('loup') });
-    if (this.hasRoleInGame('sorciere')) steps.push({ type: 'sorciere', actors: actorsOf('sorciere') });
+    if (this.hasRoleInGame('sorciere') && !this.powersLost) steps.push({ type: 'sorciere', actors: actorsOf('sorciere') });
     steps.push({ type: 'dawn', actors: [] });
     this.phaseSteps = steps.map((x) => x.type);
     this.phaseCursor = -1;
@@ -632,7 +636,11 @@ class Room {
     p.alive = false;
     p.death = { cause, when: this.whenLabel() };
     this.deaths.push({ id, cause, role: p.role });
-    if (p.role === 'chasseur') triggers.push({ type: 'hunter', actors: [id], seconds: 40 });
+    if (p.role === 'ancien' && cause === 'vote' && !this.powersLost) {
+      this.powersLost = true;
+      this.addLog("Le village a éliminé l'Ancien : les villageois perdent leurs pouvoirs.", true);
+    }
+    if (p.role === 'chasseur' && !this.powersLost) triggers.push({ type: 'hunter', actors: [id], seconds: 40 });
     if (this.captainId === id) {
       this.captainId = null;
       if (this.alive().length) triggers.push({ type: 'successor', actors: [id], seconds: 40 });
@@ -679,6 +687,15 @@ class Room {
     this.changed();
   }
 
+  // L'hôte arrête la partie en cours et ramène tout le monde au salon.
+  abort(id) {
+    if (id !== this.hostId) throw new Error("Seul l'hôte peut arrêter la partie.");
+    if (this.phase === 'lobby') return;
+    this.resetGame();
+    this.addLog("L'hôte a arrêté la partie.", true);
+    this.changed();
+  }
+
   restart(id) {
     if (id !== this.hostId) throw new Error("Seul l'hôte peut relancer.");
     this.resetGame();
@@ -706,7 +723,8 @@ class Room {
     // et s'entendent entre eux ; les autres dorment et ne voient ni n'entendent personne.
     const awake = st && NIGHT_TYPES.includes(st.type) ? st.actors : [];
     if (awake.includes(r.id)) return { audio: awake.includes(s.id), video: true, blur: false };
-    if (st && st.type === 'loups' && s.role === 'loup' && r.role === 'petitefille') return { audio: false, video: true, blur: true };
+    // Petite Fille : pendant le tour des loups, elle entrouvre les yeux et voit tout le village, flou.
+    if (st && st.type === 'loups' && r.role === 'petitefille' && !this.powersLost) return { audio: false, video: true, blur: true };
     return NONE;
   }
 
@@ -725,12 +743,23 @@ class Room {
   }
 
   // ---------- Ce que voit chaque joueur ----------
+  // Un mort voit tous les rôles (option), sauf tant qu'il a encore une action (Chasseur, Capitaine).
+  hasPendingAction(id) {
+    const s = this.step;
+    if (s && !s.resolved && s.actors.includes(id)) return true;
+    return this.queue.some((q) => (q.type === 'hunter' || q.type === 'successor') && q.actors && q.actors.includes(id));
+  }
+
+  seesAll(p) {
+    return !p.alive && this.settings.deadSeeRoles && this.phase !== 'lobby' && !this.hasPendingAction(p.id);
+  }
+
   roleVisible(viewer, target) {
     if (!viewer) return false;
     if (this.phase === 'end') return true;
     if (viewer.id === target.id) return true;
     if (this.isMJ(viewer.id)) return true;
-    if (!viewer.alive && this.settings.deadSeeRoles && this.phase !== 'lobby') return true;
+    if (this.seesAll(viewer)) return true;
     if (!target.alive && this.settings.revealOnDeath) return true;
     if (target.idiotRevealed) return true;
     if (viewer.role === 'loup' && target.role === 'loup') return true;
@@ -741,7 +770,7 @@ class Room {
   viewFor(id) {
     const me = this.players.get(id);
     if (!me) return null;
-    const omniscient = this.isMJ(id) || (!me.alive && this.settings.deadSeeRoles && this.phase !== 'lobby') || this.phase === 'end';
+    const omniscient = this.isMJ(id) || this.seesAll(me) || this.phase === 'end';
     const players = this.order.map((pid) => {
       const p = this.players.get(pid);
       const vis = this.phase !== 'lobby' && this.roleVisible(me, p);
@@ -756,7 +785,7 @@ class Room {
     const view = {
       me: {
         id, name: me.name, isHost: id === this.hostId, isMJ: this.isMJ(id), canControl: this.canControl(id),
-        alive: me.alive, role: me.role, lover: me.lover, canVote: me.canVote, conn: me.conn,
+        alive: me.alive, role: me.role, lover: me.lover, canVote: me.canVote, conn: me.conn, seesAll: this.seesAll(me),
         seen: Object.entries(me.seen || {}).map(([t, r]) => ({ id: t, name: this.name(t), role: r })),
         wolves: me.role === 'loup' ? this.gamePlayers().filter((p) => p.role === 'loup').map((p) => p.id) : []
       },
@@ -764,7 +793,7 @@ class Room {
         code: this.code, phase: this.phase, hostId: this.hostId, settings: this.settings, night: this.night, day: this.day,
         minPlayers: MIN_PLAYERS, recommended: RECOMMENDED_PLAYERS, maxPlayers: MAX_PLAYERS, captainId: this.captainId,
         potions: me.role === 'sorciere' || this.isMJ(id) ? this.potions : null,
-        waitingMJ: this.waitingMJ, winner: this.winner, serverNow: Date.now(),
+        waitingMJ: this.waitingMJ, winner: this.winner, serverNow: Date.now(), powersLost: this.powersLost,
         phaseSteps: this.phaseSteps.map((t, i) => ({
           type: t,
           state: i < this.phaseCursor || (i === this.phaseCursor && this.step && this.step.resolved && this.step.type === t) ? 'done' : i === this.phaseCursor ? 'now' : 'next'

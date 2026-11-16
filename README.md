@@ -65,11 +65,12 @@ Ton propre nom de domaine : crée un enregistrement DNS `A` vers l'IP du VPS, pu
 - **Micro et caméra indépendants** (on peut parler sans se montrer), barre flottante sur téléphone, règles automatiques :
   - jour et salon : tout le monde se voit et s'entend
   - nuit : les joueurs endormis ne voient et n'entendent plus personne (seulement leur propre caméra) ; les rôles réveillés voient tout le monde, et les loups s'entendent entre eux
-  - Petite Fille : voit la vidéo floutée des loups pendant leur tour (sans le son)
+  - Petite Fille : voit tout le village flou pendant le tour des loups (sans le son)
   - morts : voient et entendent tout, mais ne parlent plus qu'aux autres morts
   - MJ joueur : voit et entend tout, tout le monde l'entend
 - Joueurs morts en spectateurs (option : ils voient les rôles)
-- Rôles gérés : Loup-Garou, Villageois, Voyante, Sorcière, Chasseur, Cupidon (amoureux), Petite Fille, Capitaine, Ancien, Salvateur, Idiot du village, Bouc émissaire
+- Rôles gérés : Loup-Garou, Villageois, Voyante, Sorcière, Chasseur, Cupidon (amoureux), Petite Fille, Capitaine, Ancien, Salvateur, Idiot du village, Bouc émissaire (Ancien éliminé par le village : les villageois perdent leurs pouvoirs)
+- L'hôte peut arrêter la partie à tout moment pour revenir au salon
 - Affichés « Bientôt » : Voleur, Joueur de flûte et rôles de l'extension Personnages
 
 ## Vidéo : deux modes

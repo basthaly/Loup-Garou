@@ -352,7 +352,7 @@
       ? `<div class="spect"><div class="in">${icon('ear', 18)} Spectateur</div></div>` : '';
     const head = `<header class="band"><div class="in">${brand()}
         <div class="phase"><span class="ph-title">${title}</span><span class="ph-sub">Partie ${r.code}</span></div>
-        ${steps}<span class="grow"></span>${timer}</div>
+        ${steps}<span class="grow"></span>${timer}${me.isHost && r.phase !== 'end' ? '<button class="stop" data-act="abort" aria-label="Arrêter la partie" title="Arrêter la partie">Arrêter</button>' : ''}</div>
         <div class="narr"><div class="in">${narr}</div></div>${spectator}</header>`;
     return head + `<main class="zones game">
       <div class="z-col-left">${moiZone()}</div>
@@ -574,7 +574,7 @@
   function logZone() {
     if (!view.log.length) return '';
     const items = view.log.slice().reverse().map((l) => `<li class="${l.pub ? '' : 'priv'}"><span class="when">${esc(l.when || '')}</span><span>${esc(l.text)}</span></li>`).join('');
-    const full = view.me.isMJ || (!view.me.alive && view.room.settings.deadSeeRoles);
+    const full = view.me.isMJ || view.me.seesAll;
     return zone('scroll', full ? 'Journal complet' : 'Journal', `<ol class="log">${items}</ol>`, 'z-log');
   }
 
@@ -639,6 +639,7 @@
       case 'start': send('start'); break;
       case 'control': send('control'); break;
       case 'restart': send('restart'); break;
+      case 'abort': if (confirm('Arrêter la partie et revenir au salon ?')) send('abort'); break;
       case 'ready': send('act', {}); break;
       case 'sel': ui.sel = [el.dataset.id]; render(); break;
       case 'sel2': {
