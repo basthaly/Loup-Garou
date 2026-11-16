@@ -375,6 +375,9 @@ button.ghost { background: transparent; }
 .drawer .prow { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 6px 0; border-bottom: 1px solid var(--border); }
 .drawer .desc { margin: 0; }
 button.small-btn { min-height: 36px; padding: 4px 12px; font-size: 13px; }
+.dev-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 44px; }
+.dev-row label, .dev-row > span:first-child { font-weight: 600; flex: none; }
+.dev-row select { flex: 1; min-width: 0; max-width: 300px; }
 .scrim { position: fixed; inset: 0; background: rgba(0,0,0,.35); z-index: 7; }
 
 /* Téléphone : le panneau prend tout l'écran et monte depuis la barre du bas. */

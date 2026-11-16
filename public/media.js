@@ -16,7 +16,60 @@ window.LGMedia = (() => {
 
   // Choix micro / caméra mémorisés : on les rallume tout seuls à la prochaine connexion.
   const prefs = () => { try { return JSON.parse(localStorage.getItem('lg-media') || '{}'); } catch (e) { return {}; } };
-  const remember = () => { try { localStorage.setItem('lg-media', JSON.stringify({ mic: !!(local.audioTrack && local.mic), cam: !!local.cam })); } catch (e) { /* stockage indisponible */ } };
+  const savePrefs = (patch) => { try { localStorage.setItem('lg-media', JSON.stringify(Object.assign(prefs(), patch))); } catch (e) { /* stockage indisponible */ } };
+  const remember = () => savePrefs({ mic: !!(local.audioTrack && local.mic), cam: !!local.cam });
+
+  // ---------- Choix du micro et de la caméra (pour ceux qui en ont plusieurs) ----------
+  const devices = { audio: [], video: [] };
+  async function refreshDevices() {
+    if (!navigator.mediaDevices || !navigator.mediaDevices.enumerateDevices) return;
+    try {
+      const list = await navigator.mediaDevices.enumerateDevices();
+      devices.audio = list.filter((d) => d.kind === 'audioinput' && d.deviceId);
+      devices.video = list.filter((d) => d.kind === 'videoinput' && d.deviceId);
+      onChange();
+    } catch (e) { /* liste indisponible */ }
+  }
+  if (navigator.mediaDevices && navigator.mediaDevices.addEventListener) navigator.mediaDevices.addEventListener('devicechange', refreshDevices);
+  // Appareil en cours d'utilisation (ou celui choisi la dernière fois).
+  function selected(kind) {
+    const t = kind === 'audio' ? local.audioTrack : local.videoTrack;
+    const cur = t && t.getSettings ? t.getSettings().deviceId : null;
+    return cur || prefs()[kind === 'audio' ? 'micId' : 'camId'] || '';
+  }
+  const constraintsFor = (kind, deviceId) => {
+    const dev = deviceId ? { deviceId: { exact: deviceId } } : {};
+    return kind === 'audio'
+      ? { audio: Object.assign({ echoCancellation: true, noiseSuppression: true, autoGainControl: true }, dev) }
+      : { video: Object.assign({ width: { ideal: 320 }, height: { ideal: 240 }, frameRate: { ideal: 15, max: 20 }, facingMode: 'user' }, dev) };
+  };
+  // Changer d'appareil : si la piste est active, on la remplace sans couper la partie.
+  async function choose(kind, deviceId) {
+    savePrefs({ [kind === 'audio' ? 'micId' : 'camId']: deviceId || null });
+    const old = kind === 'audio' ? local.audioTrack : local.videoTrack;
+    if (!old) return onChange();
+    local.busy[kind] = true;
+    onChange();
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia(constraintsFor(kind, deviceId));
+      const track = kind === 'audio' ? stream.getAudioTracks()[0] : stream.getVideoTracks()[0];
+      if (kind === 'audio') {
+        track.enabled = local.mic;
+        local.audioTrack = track;
+        if (view) meter(view.me.id, track);
+      } else {
+        local.videoTrack = track;
+        setPreview();
+      }
+      old.stop();
+      local.error = null;
+    } catch (e) {
+      local.error = kind === 'audio' ? 'Ce micro est indisponible.' : 'Cette caméra est indisponible.';
+    }
+    local.busy[kind] = false;
+    transport.applyLocal();
+    onChange();
+  }
   let restored = false;
   async function restore() {
     if (restored) return;
@@ -124,10 +177,13 @@ window.LGMedia = (() => {
     local.busy[kind] = true;
     onChange();
     try {
-      const constraints = kind === 'audio'
-        ? { audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true } }
-        : { video: { width: { ideal: 320 }, height: { ideal: 240 }, frameRate: { ideal: 15, max: 20 }, facingMode: 'user' } };
-      const stream = await navigator.mediaDevices.getUserMedia(constraints);
+      const want = prefs()[kind === 'audio' ? 'micId' : 'camId'];
+      let stream;
+      try { stream = await navigator.mediaDevices.getUserMedia(constraintsFor(kind, want)); } catch (e) {
+        // Appareil choisi débranché : on prend celui par défaut.
+        if (!want) throw e;
+        stream = await navigator.mediaDevices.getUserMedia(constraintsFor(kind, null));
+      }
       if (kind === 'audio') {
         local.audioTrack = stream.getAudioTracks()[0];
         local.mic = true;
@@ -146,6 +202,7 @@ window.LGMedia = (() => {
     }
     local.busy[kind] = false;
     if (!quiet || local.error === null) remember();
+    refreshDevices();
     publish();
     transport.applyLocal();
     onChange();
@@ -478,5 +535,5 @@ window.LGMedia = (() => {
     return { init, sync, applyLocal, close, hasVideo };
   }
 
-  return { init, enable, toggle, update, mount, visible, local };
+  return { init, enable, toggle, update, mount, visible, local, devices, refreshDevices, selected, choose };
 })();

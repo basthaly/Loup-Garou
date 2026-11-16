@@ -362,7 +362,7 @@ Vérifier que ça tourne : `docker compose ps` et `curl -k https://127.0.0.1:300
 - Quand c'est ton tour : alerte au centre de l'écran, son et vibration (désactivables), titre de l'onglet « ● À toi », bouton d'action qui pulse.
 - Indicateur de voix : la vignette de celui qui parle s'entoure de vert, avec des barres qui suivent sa voix.
 - Mode clair / sombre au choix ; la nuit et le jour nuancent seulement les teintes.
-- Micro et caméra mémorisés : ils se rallument tout seuls à la connexion suivante.
+- Micro et caméra mémorisés : ils se rallument tout seuls à la connexion suivante. Choix du micro et de la caméra dans le panneau (bouton en bas à droite).
 - Panneau de réglages large sur ordinateur, plein écran sur téléphone.
 
 **Rôles disponibles** (tous jouables)

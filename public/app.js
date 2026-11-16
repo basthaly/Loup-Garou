@@ -138,8 +138,13 @@
   }, 250);
 
   // ---------- Rendu ----------
+  // Une liste déroulante ouverte se refermerait au moindre rendu : on attend qu'elle soit refermée.
+  let pendingRender = false;
+  $app.addEventListener('focusout', (e) => { if (e.target.tagName === 'SELECT' && pendingRender) { pendingRender = false; setTimeout(render, 0); } });
   function render() {
     if (!ROLES) return;
+    const ae = document.activeElement;
+    if (ae && ae.tagName === 'SELECT' && $app.contains(ae)) { pendingRender = true; return; }
     // Animation d'entrée seulement quand l'écran change vraiment (nouvelle étape), pas à chaque mise à jour.
     const key = view ? `${view.room.phase}:${ui.key}` : `home:${home.step}`;
     if (key !== lastAnimKey) {
@@ -688,11 +693,25 @@
         ${me.isHost && p.connected ? `<button class="ghost small-btn" data-act="giveHost" data-id="${p.id}">Nommer hôte</button>` : ''}
         <button class="ghost small-btn" data-act="kick" data-id="${p.id}">Exclure</button></span></div>`).join('') || '<p class="muted small">Personne d\'autre pour l\'instant.</p>'}</section>` : '';
     const log = view.log.length ? `<section><h3>Journal</h3><ol class="log">${view.log.slice().reverse().map((l) => `<li class="${l.pub ? '' : 'priv'}"><span class="when">${esc(l.when || '')}</span><span>${esc(l.text)}</span></li>`).join('')}</ol></section>` : '';
+    const devs = `<section><h3>Micro et caméra</h3>${deviceSelect('audio')}${deviceSelect('video')}</section>`;
     const prefs = `<section><h3>Préférences</h3><label class="check"><input type="checkbox" data-act="sound" ${soundOn() ? 'checked' : ''}> Son et vibration quand c'est à toi</label></section>`;
     return `<aside class="drawer ${lobby ? 'wide' : ''} ${drawerOpen ? 'open' : ''} ${drawerAnim ? 'slide' : ''}" aria-hidden="${!drawerOpen}" aria-label="${lobby ? 'Réglages' : 'Infos'}">
       <div class="drawer-head"><h2>${lobby ? 'Réglages' : 'Infos'}</h2><button class="round" data-act="drawer" aria-label="Fermer">${icon('x', 18)}</button></div>
-      ${top}${players}${log}${prefs}</aside>
+      ${devs}${top}${players}${log}${prefs}</aside>
       ${drawerOpen ? '<div class="scrim" data-act="drawer"></div>' : ''}`;
+  }
+
+  // Liste des micros / caméras (les noms n'apparaissent qu'une fois l'accès autorisé).
+  function deviceSelect(kind) {
+    const list = Media.devices[kind];
+    const label = kind === 'audio' ? 'Micro' : 'Caméra';
+    const id = `f-dev-${kind}`;
+    if (!list.length || list.every((d) => !d.label)) {
+      return `<div class="dev-row"><span>${label}</span><span class="muted small">Active ${kind === 'audio' ? 'le micro' : 'la caméra'} pour choisir</span></div>`;
+    }
+    const cur = Media.selected(kind);
+    return `<div class="dev-row"><label for="${id}">${label}</label><select id="${id}" data-act="dev" data-kind="${kind}" ${Media.local.busy[kind] ? 'disabled' : ''}>
+      ${list.map((d, i) => `<option value="${esc(d.deviceId)}" ${d.deviceId === cur ? 'selected' : ''}>${esc(d.label || `${label} ${i + 1}`)}</option>`).join('')}</select></div>`;
   }
 
   // ---------- Alertes : on ne rate pas son tour ni ce qui vient de se passer ----------
@@ -841,6 +860,7 @@
       }
       case 'drawer':
         drawerOpen = !drawerOpen;
+        if (drawerOpen) Media.refreshDevices();
         drawerAnim = drawerOpen;
         render();
         setTimeout(() => { drawerAnim = false; }, 400);
@@ -881,6 +901,7 @@
 
   $app.addEventListener('change', (e) => {
     const el = e.target;
+    if (el.tagName === 'SELECT') setTimeout(() => el.blur(), 0);
     if (el.dataset.act === 'cv') {
       const st = view.step;
       let cur = (ui.cv || (Array.isArray(st.myInput) ? st.myInput : [])).slice();
@@ -888,6 +909,7 @@
       ui.cv = cur;
       return;
     }
+    if (el.dataset.act === 'dev') { Media.choose(el.dataset.kind, el.value); return; }
     if (el.dataset.act === 'sound') { localStorage.setItem('lg-sound', el.checked ? '1' : '0'); if (el.checked) chime(); return; }
     const key = el.dataset.set;
     if (!key) return;
