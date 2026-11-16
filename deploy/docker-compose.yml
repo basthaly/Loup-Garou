@@ -1,0 +1,38 @@
+# Pile complète pour un VPS (OVH ou autre) : site + serveur vidéo LiveKit + HTTPS automatique (Caddy).
+# Installation : ./install.sh   ·   Mise à jour : ./update.sh
+services:
+  app:
+    build: ..
+    restart: unless-stopped
+    network_mode: host
+    environment:
+      PORT: "3000"
+      HOST: 127.0.0.1
+      LIVEKIT_URL: wss://${DOMAIN}:7443
+      LIVEKIT_HOST: http://127.0.0.1:7880
+      LIVEKIT_API_KEY: ${LIVEKIT_API_KEY}
+      LIVEKIT_API_SECRET: ${LIVEKIT_API_SECRET}
+
+  livekit:
+    # Version figée : testée avec livekit-client 2.9.9 (voir package.json). Mettre à jour les deux ensemble.
+    image: livekit/livekit-server:v1.8.4
+    restart: unless-stopped
+    network_mode: host
+    command: --config /etc/livekit.yaml
+    volumes:
+      - ./livekit.yaml:/etc/livekit.yaml:ro
+
+  caddy:
+    image: caddy:2
+    restart: unless-stopped
+    network_mode: host
+    environment:
+      DOMAIN: ${DOMAIN}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+
+volumes:
+  caddy_data: {}
+  caddy_config: {}

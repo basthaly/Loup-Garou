@@ -1,0 +1,406 @@
+/* Loup-Garou — micro et caméra.
+   Deux transports, même interface :
+   - « livekit » : chacun envoie sa vidéo une fois au serveur vidéo (VPS), qui la redistribue. Pour jouer nombreux / hors réseau.
+   - « mesh »    : chaque navigateur est relié directement aux autres (test en local, petits groupes).
+   Le serveur de jeu calcule pour chaque paire de joueurs qui peut voir / entendre qui (view.media) :
+   on ne s'abonne qu'à ce qui est autorisé, et le serveur coupe en plus l'accès des joueurs endormis. */
+window.LGMedia = (() => {
+  let socket = null;
+  let config = {};
+  let view = null;
+  let onChange = () => {};
+  let transport = null;
+  const local = { mic: false, cam: false, audioTrack: null, videoTrack: null, error: null, busy: { audio: false, video: false } };
+  const videos = new Map();   // id -> <video> persistant entre deux rendus
+  const pool = document.getElementById('media-pool');
+
+  const rule = (id) => (view && view.media && view.media[id]) || { send: {}, recv: {} };
+
+  function videoEl(id) {
+    let v = videos.get(id);
+    if (!v) {
+      v = document.createElement('video');
+      v.autoplay = true;
+      v.playsInline = true;
+      v.muted = true; // le son passe par des <audio> séparés
+      v.className = 'vid';
+      videos.set(id, v);
+    }
+    return v;
+  }
+
+  function setPreview() {
+    const stream = local.videoTrack ? new MediaStream([local.videoTrack]) : null;
+    for (const id of ['me', 'me2']) {
+      const v = videoEl(id);
+      v.srcObject = stream;
+      v.classList.add('mirror');
+    }
+  }
+
+  function init(s, cfg, cb) {
+    socket = s;
+    config = cfg || {};
+    onChange = cb || onChange;
+    transport = config.video === 'livekit' ? liveKitTransport() : meshTransport();
+    transport.init();
+  }
+
+  // ---------- Micro / caméra locaux (indépendants) ----------
+  async function enable(kind) {
+    if (local.busy[kind]) return;
+    if (!window.isSecureContext || !navigator.mediaDevices) {
+      local.error = 'Le micro et la caméra demandent une connexion sécurisée (https://).';
+      return onChange();
+    }
+    local.busy[kind] = true;
+    onChange();
+    try {
+      const constraints = kind === 'audio'
+        ? { audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true } }
+        : { video: { width: { ideal: 320 }, height: { ideal: 240 }, frameRate: { ideal: 15, max: 20 }, facingMode: 'user' } };
+      const stream = await navigator.mediaDevices.getUserMedia(constraints);
+      if (kind === 'audio') {
+        local.audioTrack = stream.getAudioTracks()[0];
+        local.mic = true;
+      } else {
+        local.videoTrack = stream.getVideoTracks()[0];
+        local.cam = true;
+        setPreview();
+      }
+      local.error = null;
+    } catch (e) {
+      local.error = kind === 'audio'
+        ? 'Micro refusé ou indisponible. Autorise-le dans les réglages du navigateur.'
+        : 'Caméra refusée ou indisponible. Autorise-la dans les réglages du navigateur.';
+    }
+    local.busy[kind] = false;
+    publish();
+    transport.applyLocal();
+    onChange();
+  }
+
+  function toggle(kind) {
+    if (kind === 'mic') {
+      if (!local.audioTrack) return enable('audio');
+      local.mic = !local.mic;
+      local.audioTrack.enabled = local.mic;
+    } else {
+      if (!local.videoTrack) return enable('video');
+      // Caméra coupée = vraiment éteinte (le voyant s'éteint).
+      local.cam = false;
+      local.videoTrack.stop();
+      local.videoTrack = null;
+      setPreview();
+    }
+    publish();
+    transport.applyLocal();
+    onChange();
+  }
+
+  function publish() {
+    if (socket && view) socket.emit('media', { cam: local.cam, mic: local.mic }, () => {});
+  }
+
+  function update(v) {
+    const first = !view && v;
+    view = v;
+    if (!v) return transport.close();
+    if (first) publish();
+    transport.sync();
+  }
+
+  function visible(id) {
+    if (id === 'me' || id === 'me2') return { show: !!(local.cam && local.videoTrack), blur: false };
+    const p = view && view.players.find((x) => x.id === id);
+    const r = rule(id);
+    return { show: !!(p && p.cam && r.recv.video && transport.hasVideo(id)), blur: !!r.recv.blur };
+  }
+
+  // Après chaque rendu : place les <video> persistants dans les emplacements [data-vslot].
+  function mount(root) {
+    root.querySelectorAll('[data-vslot]').forEach((slot) => {
+      const id = slot.dataset.vslot;
+      const vis = visible(id);
+      const host = slot.closest('.has-video-host');
+      if (vis.show) {
+        const v = videoEl(id);
+        if (v.parentNode !== slot) slot.appendChild(v);
+        v.classList.toggle('blur', vis.blur);
+        v.play().catch(() => {});
+        if (host) host.classList.add('has-video');
+      } else if (host) host.classList.remove('has-video');
+    });
+  }
+
+  // ---------- Transport LiveKit ----------
+  function liveKitTransport() {
+    let room = null;
+    let roomKey = null;
+    let connecting = false;
+    let scriptReady = null;
+    const published = { audio: null, video: null };
+    const remote = new Map(); // id -> { video: track|null, audio: [elements] }
+
+    function init() {
+      scriptReady = new Promise((resolve, reject) => {
+        const s = document.createElement('script');
+        s.src = '/vendor/livekit-client.umd.js';
+        s.onload = resolve;
+        s.onerror = reject;
+        document.head.appendChild(s);
+      });
+    }
+
+    function entry(id) {
+      let e = remote.get(id);
+      if (!e) { e = { video: null, audio: [] }; remote.set(id, e); }
+      return e;
+    }
+
+    function attach(track, id) {
+      const e = entry(id);
+      if (track.kind === 'video') {
+        e.video = track;
+        track.attach(videoEl(id));
+      } else {
+        const el = track.attach();
+        pool.appendChild(el);
+        e.audio.push(el);
+      }
+    }
+
+    function detach(track, id) {
+      const e = entry(id);
+      for (const el of track.detach()) if (el.tagName === 'AUDIO') el.remove();
+      if (track.kind === 'video') e.video = null;
+      else e.audio = e.audio.filter((el) => el.isConnected);
+    }
+
+    async function connect() {
+      if (room || connecting || !view) return;
+      connecting = true;
+      try {
+        await scriptReady;
+        const L = window.LivekitClient;
+        const r = await new Promise((res) => socket.emit('lkToken', {}, res));
+        if (!r || !r.ok) throw new Error((r && r.error) || 'jeton refusé');
+        const rm = new L.Room({ adaptiveStream: false, dynacast: true });
+        rm.on(L.RoomEvent.TrackSubscribed, (track, pub, part) => { attach(track, part.identity); onChange(); })
+          .on(L.RoomEvent.TrackUnsubscribed, (track, pub, part) => { detach(track, part.identity); onChange(); })
+          .on(L.RoomEvent.TrackPublished, () => applySubs())
+          .on(L.RoomEvent.ParticipantConnected, () => applySubs())
+          .on(L.RoomEvent.ParticipantPermissionsChanged, (prev, part) => {
+            // Droit d'abonnement rendu par le serveur (fin de la nuit) : on redemande les flux voulus.
+            if (part === rm.localParticipant && part.permissions && part.permissions.canSubscribe) resubscribe = true;
+            applySubs();
+          })
+          .on(L.RoomEvent.Disconnected, () => {
+            if (room !== rm) return;
+            room = null;
+            published.audio = published.video = null;
+            remote.clear();
+            onChange();
+            setTimeout(connect, 2000);
+          });
+        await rm.connect(r.url, r.token, { autoSubscribe: false });
+        room = rm;
+        window.__lgRoom = rm; // utile pour le débogage
+        roomKey = `${view.room.code}:${view.me.id}`;
+        if (local.error && local.error.startsWith('Serveur vidéo')) local.error = null;
+        applyLocal();
+        applySubs();
+      } catch (e) {
+        console.error('LiveKit', e);
+        local.error = 'Serveur vidéo injoignable, nouvel essai…';
+        onChange();
+        setTimeout(() => { connecting = false; connect(); }, 5000);
+        return;
+      }
+      connecting = false;
+      onChange();
+    }
+
+    function applyLocal() {
+      if (!room) return;
+      const L = window.LivekitClient;
+      const lp = room.localParticipant;
+      for (const kind of ['audio', 'video']) {
+        const track = kind === 'audio' ? local.audioTrack : local.videoTrack;
+        if (published[kind] === track) continue;
+        if (published[kind]) lp.unpublishTrack(published[kind], false).catch(() => {});
+        published[kind] = track;
+        if (track) {
+          const opts = kind === 'audio'
+            ? { source: L.Track.Source.Microphone }
+            : { source: L.Track.Source.Camera, simulcast: false, videoEncoding: { maxBitrate: 300000, maxFramerate: 15 } };
+          lp.publishTrack(track, opts).catch((e) => console.error('publication', e));
+        }
+      }
+      const micPub = lp.getTrackPublication(L.Track.Source.Microphone);
+      if (micPub) (local.mic ? micPub.unmute() : micPub.mute()).catch(() => {});
+    }
+
+    // S'abonner uniquement à ce que les règles autorisent (et se désabonner du reste).
+    let resubscribe = false;
+    function applySubs() {
+      if (!room) return;
+      const again = resubscribe;
+      resubscribe = false;
+      for (const part of room.remoteParticipants.values()) {
+        const r = rule(part.identity);
+        for (const pub of part.trackPublications.values()) {
+          const want = pub.kind === 'video' ? !!r.recv.video : !!r.recv.audio;
+          if (want && again && !pub.isSubscribed) pub.setSubscribed(false);
+          if (pub.isDesired !== want || (want && !pub.isSubscribed && again)) pub.setSubscribed(want);
+        }
+      }
+    }
+
+    function sync() {
+      const key = `${view.room.code}:${view.me.id}`;
+      if (room && roomKey !== key) { const rm = room; room = null; rm.disconnect(); }
+      if (!room) return connect();
+      applySubs();
+    }
+
+    function close() {
+      if (room) { const rm = room; room = null; rm.disconnect(); }
+      published.audio = published.video = null;
+      remote.clear();
+    }
+
+    const hasVideo = (id) => !!(remote.get(id) && remote.get(id).video);
+    return { init, sync, applyLocal, close, hasVideo };
+  }
+
+  // ---------- Transport maillage (WebRTC direct) ----------
+  function meshTransport() {
+    const peers = new Map();
+
+    function init() { socket.on('rtc', onSignal); }
+
+    function sync() {
+      const me = view.me;
+      const present = new Set();
+      for (const p of view.players) {
+        if (p.id === me.id || !p.connected || !p.conn) continue;
+        present.add(p.id);
+        const peer = peers.get(p.id);
+        if (peer && peer.conn === p.conn && peer.myConn === me.conn) continue;
+        if (peer) closePeer(p.id);
+        if (me.id < p.id) createPeer(p.id, p.conn, true); // le plus petit identifiant fait l'offre
+      }
+      for (const id of [...peers.keys()]) if (!present.has(id)) closePeer(id);
+      applyLocal();
+    }
+
+    function createPeer(id, conn, offerer) {
+      const pc = new RTCPeerConnection({ iceServers: config.iceServers || [] });
+      const peer = { id, conn, myConn: view.me.conn, pc, audioT: null, videoT: null, pending: [], stream: new MediaStream(), sent: {} };
+      peers.set(id, peer);
+      peer.audioEl = document.createElement('audio');
+      peer.audioEl.autoplay = true;
+      peer.audioEl.srcObject = peer.stream;
+      pool.appendChild(peer.audioEl);
+      const v = videoEl(id);
+      v.srcObject = peer.stream;
+      pc.ontrack = (e) => {
+        if (!peer.stream.getTracks().includes(e.track)) peer.stream.addTrack(e.track);
+        v.play().catch(() => {});
+        peer.audioEl.play().catch(() => {});
+        onChange();
+      };
+      pc.onicecandidate = (e) => { if (e.candidate) signal(peer, { candidate: e.candidate }); };
+      pc.onconnectionstatechange = () => {
+        if (pc.connectionState === 'connected') limitBitrate(peer);
+        if (pc.connectionState === 'failed' && peers.get(id) === peer) { closePeer(id); if (view) sync(); }
+      };
+      if (offerer) {
+        peer.audioT = pc.addTransceiver('audio', { direction: 'sendrecv' });
+        peer.videoT = pc.addTransceiver('video', { direction: 'sendrecv' });
+        applyPeer(peer);
+        pc.createOffer()
+          .then((o) => pc.setLocalDescription(o))
+          .then(() => signal(peer, { sdp: pc.localDescription }))
+          .catch((e) => console.error('RTC offre', e));
+      }
+      return peer;
+    }
+
+    function signal(peer, data) {
+      socket.emit('rtc', { to: peer.id, data: Object.assign({ fromConn: view.me.conn, toConn: peer.conn }, data) });
+    }
+
+    async function onSignal({ from, data }) {
+      if (!view || !data) return;
+      if (data.toConn && data.toConn !== view.me.conn) return;
+      let peer = peers.get(from);
+      if (peer && peer.conn !== data.fromConn) { closePeer(from); peer = null; }
+      if (!peer) {
+        if (!data.sdp || data.sdp.type !== 'offer') return;
+        peer = createPeer(from, data.fromConn, false);
+      }
+      const pc = peer.pc;
+      try {
+        if (data.sdp) {
+          await pc.setRemoteDescription(data.sdp);
+          if (data.sdp.type === 'offer') {
+            for (const t of pc.getTransceivers()) {
+              t.direction = 'sendrecv';
+              const kind = t.receiver.track.kind;
+              if (kind === 'audio' && !peer.audioT) peer.audioT = t;
+              if (kind === 'video' && !peer.videoT) peer.videoT = t;
+            }
+            applyPeer(peer);
+            await pc.setLocalDescription(await pc.createAnswer());
+            signal(peer, { sdp: pc.localDescription });
+          }
+          for (const c of peer.pending.splice(0)) await pc.addIceCandidate(c).catch(() => {});
+        } else if (data.candidate) {
+          if (pc.remoteDescription) await pc.addIceCandidate(data.candidate).catch(() => {});
+          else peer.pending.push(data.candidate);
+        }
+      } catch (e) {
+        console.error('RTC', e);
+      }
+    }
+
+    function applyPeer(peer) {
+      const r = rule(peer.id);
+      const a = local.mic && r.send.audio ? local.audioTrack : null;
+      const v = local.cam && r.send.video ? local.videoTrack : null;
+      if (peer.audioT && peer.sent.a !== a) { peer.sent.a = a; peer.audioT.sender.replaceTrack(a).catch(() => {}); }
+      if (peer.videoT && peer.sent.v !== v) { peer.sent.v = v; peer.videoT.sender.replaceTrack(v).then(() => limitBitrate(peer)).catch(() => {}); }
+      if (peer.audioEl) peer.audioEl.muted = !r.recv.audio;
+    }
+
+    function applyLocal() { for (const peer of peers.values()) applyPeer(peer); }
+
+    function limitBitrate(peer) {
+      if (!peer.videoT) return;
+      const s = peer.videoT.sender;
+      const p = s.getParameters();
+      if (!p.encodings || !p.encodings.length) return;
+      p.encodings[0].maxBitrate = 300000;
+      s.setParameters(p).catch(() => {});
+    }
+
+    function closePeer(id) {
+      const peer = peers.get(id);
+      if (!peer) return;
+      peers.delete(id);
+      try { peer.pc.close(); } catch (e) { /* déjà fermée */ }
+      if (peer.audioEl) peer.audioEl.remove();
+      const v = videos.get(id);
+      if (v) { v.srcObject = null; v.remove(); videos.delete(id); }
+    }
+
+    function close() { for (const id of [...peers.keys()]) closePeer(id); }
+
+    const hasVideo = (id) => { const p = peers.get(id); return !!(p && p.stream.getVideoTracks().length); };
+    return { init, sync, applyLocal, close, hasVideo };
+  }
+
+  return { init, enable, toggle, update, mount, visible, local };
+})();

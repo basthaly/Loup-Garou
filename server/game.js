@@ -72,6 +72,7 @@ class Room {
 
   resetGame() {
     clearTimeout(this.timer);
+    for (const [id, p] of this.players) if (p.kicked) { this.players.delete(id); this.order = this.order.filter((x) => x !== id); }
     this.timer = null;
     this.phase = 'lobby';
     this.step = null;
@@ -125,6 +126,64 @@ class Room {
   byToken(token) {
     for (const p of this.players.values()) if (p.token === token) return p;
     return null;
+  }
+
+  // Infos publiques d'un salon (écran « Rejoindre ») : qui est déconnecté, peut-on entrer ?
+  publicInfo() {
+    return {
+      code: this.code, phase: this.phase, canJoin: this.phase === 'lobby',
+      players: this.order.map((id) => this.players.get(id)).filter((p) => p && !p.kicked)
+        .map((p) => ({ id: p.id, name: p.name, connected: p.connected }))
+    };
+  }
+
+  // Reprendre la place d'un joueur déconnecté (onglet fermé, bug, changement d'appareil).
+  reclaim(playerId) {
+    const p = this.players.get(playerId);
+    if (!p || p.kicked) throw new Error('Ce joueur n\'existe plus.');
+    if (p.connected) throw new Error('Ce joueur est déjà connecté.');
+    p.token = crypto.randomBytes(16).toString('hex');
+    return p;
+  }
+
+  kick(byId, targetId) {
+    if (byId !== this.hostId && !this.isMJ(byId)) throw new Error("Seul l'hôte peut exclure un joueur.");
+    if (byId === targetId) throw new Error('Tu ne peux pas t\'exclure toi-même.');
+    const p = this.players.get(targetId);
+    if (!p) throw new Error('Joueur introuvable.');
+    if (this.phase === 'lobby') { this.removePlayer(targetId); return p; }
+    p.kicked = true;
+    p.connected = false;
+    p.token = crypto.randomBytes(16).toString('hex');
+    this.addLog(`${p.name} a été exclu(e) de la partie.`, true);
+    if (this.isMJ(targetId)) {
+      this.settings.mjMode = 'site';
+      this.settings.mjId = null;
+      this.addLog('Le site reprend le rôle de maître du jeu.', true);
+    }
+    if (this.phase === 'end') { this.changed(); return p; }
+    if (p.alive) {
+      this.deaths = [];
+      const triggers = [];
+      this.kill(targetId, 'exclu', triggers);
+      // Un exclu ne tire pas et ne désigne personne : on garde seulement les déclenchements des autres morts (amoureux).
+      const keep = triggers.filter((t) => !t.actors.includes(targetId));
+      if (this.captainId === null && triggers.some((t) => t.type === 'successor' && t.actors.includes(targetId))) {
+        const alive = this.alive();
+        if (alive.length) this.captainId = pick(alive).id;
+      }
+      this.queue.unshift(...keep);
+    }
+    const s = this.step;
+    if (s && !s.resolved && s.actors.includes(targetId)) {
+      s.actors = s.actors.filter((a) => a !== targetId);
+      delete s.inputs[targetId];
+    }
+    const w = this.checkWin();
+    if (w) { this.endGame(w); return p; }
+    if (s && !s.resolved && s.actors.length && s.actors.every((a) => a in s.inputs)) this.resolveStep();
+    else this.changed();
+    return p;
   }
 
   setMedia(id, m) {
@@ -510,6 +569,12 @@ class Room {
     }
     if (nxt.type === 'deal') return this.deal();
     if (nxt.type === 'night_start') return this.planNight();
+    // Partie déjà gagnée : pas de nouveau Capitaine à désigner. Le Chasseur tire seulement
+    // si son tir peut encore changer l'issue (victoire des loups à l'égalité).
+    if (nxt.type === 'successor' || nxt.type === 'hunter') {
+      const w = this.checkWin();
+      if (w && (nxt.type === 'successor' || w.team !== 'loups')) return this.endGame(w);
+    }
     this.startStep(nxt);
   }
 
@@ -583,7 +648,7 @@ class Room {
     const phrase = {
       loups: 'est retrouvé(e) mort(e) ce matin', sorciere: 'est retrouvé(e) mort(e) ce matin',
       vote: 'est éliminé(e) par le village', bouc: 'est sacrifié(e)', chasseur: 'est abattu(e) par le Chasseur',
-      chagrin: "meurt de chagrin d'amour"
+      chagrin: "meurt de chagrin d'amour", exclu: 'a été exclu(e)'
     };
     return deaths.map((d) => {
       const role = this.settings.revealOnDeath ? ` Il/elle était ${ROLES[d.role].name}.` : '';
@@ -637,10 +702,11 @@ class Room {
     if (!r.alive) return FULL;                         // les morts suivent tout
     const st = this.step;
     if (this.phase === 'day' || (st && DAY_STEPS.includes(st.type))) return FULL;
-    if (st && st.type === 'loups' && s.role === 'loup') {
-      if (r.role === 'loup') return FULL;
-      if (r.role === 'petitefille') return { audio: false, video: true, blur: true };
-    }
+    // La nuit : les joueurs réveillés (acteurs de l'étape) voient tout le monde
+    // et s'entendent entre eux ; les autres dorment et ne voient ni n'entendent personne.
+    const awake = st && NIGHT_TYPES.includes(st.type) ? st.actors : [];
+    if (awake.includes(r.id)) return { audio: awake.includes(s.id), video: true, blur: false };
+    if (st && st.type === 'loups' && s.role === 'loup' && r.role === 'petitefille') return { audio: false, video: true, blur: true };
     return NONE;
   }
 
@@ -681,7 +747,7 @@ class Room {
       const vis = this.phase !== 'lobby' && this.roleVisible(me, p);
       return {
         id: p.id, name: p.name, connected: p.connected, alive: p.alive, isMJ: this.isMJ(p.id),
-        captain: this.captainId === p.id, idiotRevealed: p.idiotRevealed, cam: p.cam, mic: p.mic, conn: p.conn,
+        captain: this.captainId === p.id, idiotRevealed: p.idiotRevealed, cam: p.cam, mic: p.mic, conn: p.conn, kicked: !!p.kicked,
         death: p.death,
         role: vis ? p.role : null,
         lover: (omniscient || pid === id || me.lover === pid) && p.lover ? p.lover : null

@@ -5,7 +5,7 @@
   "main": "server/index.js",
   "scripts": {
     "start": "node server/index.js",
-    "test": "node test/simulate.js"
+    "test": "node test/rules.js && node test/simulate.js"
   },
   "engines": {
     "node": ">=18"
@@ -13,6 +13,8 @@
   "license": "MIT",
   "dependencies": {
     "express": "^4.21.2",
+    "livekit-client": "2.9.9",
+    "livekit-server-sdk": "^2.20.0",
     "selfsigned": "^2.4.1",
     "socket.io": "^4.8.1"
   },

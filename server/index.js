@@ -8,8 +8,10 @@ const express = require('express');
 const { Server } = require('socket.io');
 const { Room } = require('./game');
 const { ROLES, EXTENSIONS } = require('./roles');
+const LK = require('./livekit');
 
 const PORT = parseInt(process.env.PORT || '3000', 10);
+const HOST = process.env.HOST || '0.0.0.0';
 const USE_HTTPS = process.env.HTTPS === '1';
 const app = express();
 const server = USE_HTTPS ? https.createServer(loadCert(), app) : http.createServer(app);
@@ -36,7 +38,8 @@ function loadCert() {
 }
 
 app.use(express.static(path.join(__dirname, '..', 'public')));
-app.get('/api/roles', (req, res) => res.json({ roles: ROLES, extensions: EXTENSIONS, iceServers: ICE_SERVERS }));
+app.use('/vendor', express.static(path.join(__dirname, '..', 'node_modules', 'livekit-client', 'dist')));
+app.get('/api/roles', (req, res) => res.json({ roles: ROLES, extensions: EXTENSIONS, iceServers: ICE_SERVERS, video: LK.enabled ? 'livekit' : 'mesh' }));
 app.get('/health', (req, res) => res.json({ ok: true, rooms: rooms.size }));
 
 const rooms = new Map();          // code -> Room
@@ -53,10 +56,12 @@ function newCode() {
 
 // Envoie à chaque joueur connecté sa propre vue de la partie.
 function broadcast(room) {
+  LK.sync(room);
   for (const [sid, info] of sockets) {
     if (info.code !== room.code) continue;
     const s = io.sockets.sockets.get(sid);
-    if (s) s.emit('state', room.viewFor(info.playerId));
+    const v = room.viewFor(info.playerId);
+    if (s && v) s.emit('state', v);
   }
 }
 
@@ -107,11 +112,53 @@ io.on('connection', (socket) => {
     return { code: room.code, token: p.token };
   }));
 
+  // Écran « Rejoindre » : état du salon et joueurs déconnectés dont on peut reprendre la place.
+  socket.on('roomInfo', handle(({ code }) => {
+    const room = rooms.get(String(code || '').toUpperCase().trim());
+    if (!room) throw new Error('Code de partie inconnu.');
+    return { info: room.publicInfo() };
+  }));
+
+  socket.on('reclaim', handle(({ code, playerId }) => {
+    const room = rooms.get(String(code || '').toUpperCase().trim());
+    if (!room) throw new Error('Code de partie inconnu.');
+    const p = room.reclaim(playerId);
+    attach(socket, room, p);
+    return { code: room.code, token: p.token };
+  }));
+
+  socket.on('kick', handle(({ id: target }) => {
+    const { room, id } = current(socket);
+    if (id !== room.hostId && !room.isMJ(id)) throw new Error("Seul l'hôte peut exclure un joueur.");
+    if (id === target) throw new Error("Tu ne peux pas t'exclure toi-même.");
+    // On déconnecte d'abord l'exclu, puis on met à jour la partie.
+    for (const [sid, info] of sockets) {
+      if (info.code === room.code && info.playerId === target) {
+        const s = io.sockets.sockets.get(sid);
+        sockets.delete(sid);
+        if (s) { s.leave(room.code); s.emit('kicked'); }
+      }
+    }
+    room.kick(id, target);
+    LK.kick(room, target);
+    broadcast(room);
+  }));
+
+  socket.on('lkToken', async (data, ack) => {
+    try {
+      if (!LK.enabled) throw new Error('Vidéo LiveKit non configurée.');
+      const { room, id } = current(socket);
+      ack(Object.assign({ ok: true }, await LK.token(room, room.players.get(id))));
+    } catch (e) {
+      if (typeof ack === 'function') ack({ ok: false, error: e.message });
+    }
+  });
+
   socket.on('resume', handle(({ code, token }) => {
     const room = rooms.get(String(code || '').toUpperCase());
     if (!room) throw new Error("Cette partie n'existe plus.");
     const p = room.byToken(token);
-    if (!p) throw new Error('Session expirée.');
+    if (!p || p.kicked) throw new Error('Session expirée : rejoins la partie avec le code.');
     attach(socket, room, p);
     return { code: room.code };
   }));
@@ -167,12 +214,13 @@ setInterval(() => {
 }, 15 * 60 * 1000).unref();
 
 if (require.main === module) {
-  server.listen(PORT, () => {
+  server.listen(PORT, HOST, () => {
     const proto = USE_HTTPS ? 'https' : 'http';
     console.log(`Loup-Garou : ${proto}://localhost:${PORT}`);
     for (const list of Object.values(os.networkInterfaces())) {
       for (const a of list || []) if (a.family === 'IPv4' && !a.internal) console.log(`  sur le réseau : ${proto}://${a.address}:${PORT}`);
     }
+    console.log(`  vidéo : ${LK.enabled ? 'LiveKit' : 'maillage direct (sans serveur vidéo)'}`);
     if (!USE_HTTPS) console.log('  (caméra/micro : OK sur localhost ; pour les autres appareils, lance avec HTTPS=1)');
   });
 }

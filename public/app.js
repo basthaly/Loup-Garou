@@ -3,7 +3,7 @@
   const socket = io();
   const $app = document.getElementById('app');
   const $toast = document.getElementById('toast');
-  const RTC = window.LGRTC;
+  const Media = window.LGMedia;
   let view = null;
   let ROLES = null;
   let EXTS = null;
@@ -29,30 +29,55 @@
     mic: '<rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/>',
     micoff: '<rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3M3 3l18 18"/>',
     grave: '<path d="M7 21V10a5 5 0 0 1 10 0v11M5 21h14M12 10v5M10 12h4"/>',
-    ear: '<path d="M4 15v-3a8 8 0 0 1 16 0v3"/><rect x="3" y="14" width="4" height="6" rx="1"/><rect x="17" y="14" width="4" height="6" rx="1"/>'
+    ear: '<path d="M4 15v-3a8 8 0 0 1 16 0v3"/><rect x="3" y="14" width="4" height="6" rx="1"/><rect x="17" y="14" width="4" height="6" rx="1"/>',
+    person: '<circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/>',
+    village: '<path d="M3 21V11l5-4 5 4v10M13 21v-7l4-3 4 3v7M3 21h18M7 21v-4h2v4"/>',
+    target: '<circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3"/>',
+    sliders: '<path d="M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12M20 18h0"/><circle cx="16" cy="6" r="2"/><circle cx="10" cy="12" r="2"/><circle cx="18" cy="18" r="2"/>',
+    cards: '<rect x="3" y="5" width="12" height="16" rx="2"/><path d="M9 3h10a2 2 0 0 1 2 2v14"/>',
+    scroll: '<path d="M8 6h12M8 12h12M8 18h12M4 6h0M4 12h0M4 18h0"/>',
+    x: '<path d="M6 6l12 12M18 6L6 18"/>'
   };
   const icon = (n, size = 16, color = 'currentColor') =>
     `<svg aria-hidden="true" width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="${color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${ICON[n]}</svg>`;
   const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
   // ---------- Connexion ----------
-  const saved = () => { try { return JSON.parse(sessionStorage.getItem('lg') || 'null'); } catch { return null; } };
-  const save = (code, token) => sessionStorage.setItem('lg', JSON.stringify({ code, token }));
+  // Session : par onglet (sessionStorage, pour tester à plusieurs onglets) + la dernière partie
+  // gardée dans localStorage pour pouvoir revenir après avoir fermé l'onglet (iPhone…).
+  const readJSON = (store, key) => { try { return JSON.parse(store.getItem(key) || 'null'); } catch { return null; } };
+  const saved = () => readJSON(sessionStorage, 'lg');
+  const lastGame = () => readJSON(localStorage, 'lg-last');
+  const save = (code, token, name) => {
+    sessionStorage.setItem('lg', JSON.stringify({ code, token }));
+    localStorage.setItem('lg-last', JSON.stringify({ code, token, name }));
+  };
+  const forget = () => { sessionStorage.removeItem('lg'); localStorage.removeItem('lg-last'); };
+  const urlCode = (new URLSearchParams(location.search).get('code') || '').toUpperCase();
+  let home = { step: urlCode ? 'join' : 'choose', code: urlCode, info: null };
+  let lastAnimKey = null;
+  let animT = null;
+  const freshDead = new Set();
 
   fetch('/api/roles').then((r) => r.json()).then((d) => {
     ROLES = d.roles;
     EXTS = d.extensions;
-    RTC.init(socket, d.iceServers, render);
+    Media.init(socket, d, render);
     render();
   });
 
   socket.on('connect', () => {
     const s = saved();
     if (s) socket.emit('resume', s, (r) => { if (!r.ok) { sessionStorage.removeItem('lg'); setView(null); toast(r.error); } });
-    else render();
+    else {
+      render();
+      if (home.step === 'join' && home.code && !home.info) lookup(home.code);
+    }
   });
+  socket.on('kicked', () => { forget(); home = { step: 'choose', code: '', info: null }; setView(null); toast("Tu as été exclu de la partie par l'hôte."); });
   socket.on('disconnect', () => toast('Connexion perdue… reconnexion en cours'));
   socket.on('state', (v) => {
+    if (!v) return;
     offset = v.room.serverNow - Date.now();
     const k = stepKey(v.step);
     if (k !== ui.key) ui = { key: k, sel: [], cv: null, save: false, kill: null };
@@ -60,8 +85,14 @@
   });
 
   function setView(v) {
+    if (view && v && view.room.code === v.room.code) {
+      for (const p of v.players) {
+        const before = view.players.find((x) => x.id === p.id);
+        if (before && before.alive && !p.alive) { freshDead.add(p.id); setTimeout(() => freshDead.delete(p.id), 2500); }
+      }
+    }
     view = v;
-    RTC.update(v);
+    Media.update(v);
     render();
   }
   function stepKey(st) { return st ? `${st.type}:${st.round}:${st.deadline}` : null; }
@@ -85,8 +116,9 @@
   const teamOf = (r) => (ROLES && ROLES[r] ? ROLES[r].team : 'village');
   const fmt = (ms) => { const s = Math.max(0, Math.ceil(ms / 1000)); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`; };
   const isDayCtx = () => !!view && view.room.phase !== 'end' && (view.room.phase === 'day' || !!(view.step && DAY_STEPS.includes(view.step.type)));
-  const zone = (n, title, body, cls = '', right = '') =>
-    `<section class="zone ${cls}"><h2 class="zh"><span class="zn">${n}</span>${title}${right ? `<span class="zh-r">${right}</span>` : ''}</h2><div class="zb">${body}</div></section>`;
+  // Chaque zone a son icône : on sait d'un coup d'œil où l'on est.
+  const zone = (ic, title, body, cls = '', right = '') =>
+    `<section class="zone ${cls}"><h2 class="zh"><span class="zn">${icon(ic, 14)}</span>${title}${right ? `<span class="zh-r">${right}</span>` : ''}</h2><div class="zb">${body}</div></section>`;
 
   setInterval(() => {
     document.querySelectorAll('[data-deadline]').forEach((el) => { el.textContent = fmt(+el.dataset.deadline - Date.now() - offset); });
@@ -95,6 +127,14 @@
   // ---------- Rendu ----------
   function render() {
     if (!ROLES) return;
+    // Animation d'entrée seulement quand l'écran change vraiment (nouvelle étape), pas à chaque mise à jour.
+    const key = view ? `${view.room.phase}:${ui.key}` : `home:${home.step}`;
+    if (key !== lastAnimKey) {
+      lastAnimKey = key;
+      $app.classList.add('enter');
+      clearTimeout(animT);
+      animT = setTimeout(() => $app.classList.remove('enter'), 700);
+    }
     if (!view) {
       document.body.dataset.theme = 'night';
       document.body.dataset.dead = '';
@@ -103,28 +143,60 @@
     }
     document.body.dataset.theme = isDayCtx() ? 'day' : 'night';
     document.body.dataset.dead = !view.me.alive && !view.me.isMJ && view.room.phase !== 'end' ? '1' : '';
-    $app.innerHTML = view.room.phase === 'lobby' ? lobbyHTML() : gameHTML();
-    RTC.mount($app);
+    $app.innerHTML = (view.room.phase === 'lobby' ? lobbyHTML() : gameHTML()) + mediaBarHTML();
+    Media.mount($app);
   }
 
   function brand() {
     return `<div class="brand">${icon(isDayCtx() ? 'sun' : 'moon', 26)}<span>Loup-Garou</span></div>`;
   }
 
+  function lookup(code) {
+    socket.emit('roomInfo', { code }, (r) => {
+      if (!r || !r.ok) { toast((r && r.error) || 'Code inconnu'); home.info = null; home.step = 'join'; }
+      else { home.info = r.info; home.code = r.info.code; home.step = 'joinInfo'; }
+      render();
+    });
+  }
+
+  // Accueil en deux temps : d'abord créer ou rejoindre, ensuite le pseudo (ou reprendre une place).
   function homeHTML() {
-    const code = new URLSearchParams(location.search).get('code') || '';
     const name = localStorage.getItem('lg-name') || '';
+    const last = lastGame();
+    const back = '<button class="link" data-act="home-back">‹ Retour</button>';
+    const nameField = `<label for="f-name">Ton pseudo</label>
+      <input type="text" id="f-name" maxlength="20" value="${esc(name)}" autocomplete="nickname" enterkeyhint="go">`;
+    let body;
+    if (home.step === 'create') {
+      body = `${back}<h1 class="h">Créer un salon</h1>${nameField}<button class="primary" data-act="create">Créer le salon</button>`;
+    } else if (home.step === 'join') {
+      body = `${back}<h1 class="h">Rejoindre un salon</h1>
+        <label for="f-code">Code du salon</label>
+        <input type="text" id="f-code" class="codefield" maxlength="4" value="${esc(home.code)}" autocomplete="off" autocapitalize="characters" enterkeyhint="next">
+        <button class="primary" data-act="lookup">Continuer</button>`;
+    } else if (home.step === 'joinInfo' && home.info) {
+      const info = home.info;
+      const away = info.players.filter((p) => !p.connected);
+      const here = info.players.filter((p) => p.connected);
+      const reclaim = away.length ? `<div class="label">Reprendre ta place</div>
+        <p class="muted small">Onglet fermé, bug, changement d'appareil : choisis ton nom pour revenir dans la partie.</p>
+        <div class="opts">${away.map((p) => `<button class="opt" data-act="reclaim" data-id="${p.id}">${esc(p.name)}</button>`).join('')}</div>` : '';
+      const join = info.canJoin ? `<div class="label">Nouveau joueur</div>${nameField}<button class="primary" data-act="join">Rejoindre le salon</button>`
+        : away.length ? '' : '<div class="note">La partie a commencé et tous les joueurs sont connectés.</div>';
+      body = `${back}<h1 class="h">Salon <span class="code">${esc(info.code)}</span></h1>
+        <p class="muted small">${info.canJoin ? 'En attente du lancement' : 'Partie en cours'} · ${here.length} connecté${here.length > 1 ? 's' : ''}${here.length ? ' : ' + here.map((p) => esc(p.name)).join(', ') : ''}</p>
+        ${join}${reclaim}`;
+    } else {
+      const resume = last ? `<button class="resume" data-act="resume">
+          <span class="resume-t">Reprendre ma partie</span><span class="muted small">${esc(last.name || '')} · salon ${esc(last.code)}</span></button>` : '';
+      body = `${resume}
+        <button class="big primary" data-act="home-create">${icon('moon', 20)} Créer un salon</button>
+        <button class="big" data-act="home-join">${icon('village', 20)} Rejoindre avec un code</button>`;
+    }
     return `<main class="home">
       <div class="brand big">${icon('moon', 44)}<span>Loup-Garou</span></div>
       <p class="muted" style="text-align:center;margin:0">Le Loup-Garou entre amis, avec caméra et micro.</p>
-      <div class="zone"><div class="zb">
-        <label for="f-name">Ton pseudo</label>
-        <input type="text" id="f-name" maxlength="20" value="${esc(name)}" autocomplete="nickname">
-        ${code ? '' : '<button class="primary" data-act="create">Créer une partie</button><div class="sep">ou rejoindre une partie</div>'}
-        <label for="f-code">Code de la partie</label>
-        <input type="text" id="f-code" maxlength="4" value="${esc(code)}" style="text-transform:uppercase;letter-spacing:3px">
-        <button class="${code ? 'primary' : ''}" data-act="join">Rejoindre</button>
-      </div></div></main>`;
+      <div class="zone"><div class="zb">${body}</div></div></main>`;
   }
 
   // ----- Tuiles vidéo -----
@@ -148,24 +220,35 @@
     if (p.lover || me.lover === p.id) tr.push(`<span class="chip" title="Amoureux">${icon('heart', 12, '#F08A6C')}</span>`);
     if (voted) tr.push(`<span class="chip ok">${icon('check', 12)} ${st.type === 'debate' || st.type === 'roles_reveal' ? 'Prêt' : 'A voté'}</span>`);
     if (opts.target) tr.push('<span class="chip target">Ta cible</span>');
+    const canKick = (me.isHost || me.isMJ) && !isMe && !p.kicked && view.room.phase !== 'end';
+    const kick = canKick ? `<button class="kick" data-act="kick" data-id="${p.id}" aria-label="Exclure ${esc(p.name)}" title="Exclure">${icon('x', 14)}</button>` : '';
     return `<div class="tile has-video-host ${isMe ? 'me' : ''} ${asleep ? 'asleep' : ''} ${opts.wolfMate ? 'wolfmate' : ''} ${opts.target ? 'targeted' : ''}">
       ${asleep ? `<div class="sleep">${icon('moon', 22)}<span>Endormi</span></div>` : `<span class="avatar" style="background:${colorOf(p.id)}" aria-hidden="true">${esc(p.name[0])}</span>`}
       <div class="vslot" data-vslot="${slot}"></div>
       <div class="tl">${tl.join('')}</div><div class="tr">${tr.join('')}</div>
-      <span class="nm">${p.mic ? '' : icon('micoff', 13)}${esc(p.name)}${isMe ? ' (toi)' : ''}</span></div>`;
+      <span class="nm">${p.mic ? '' : icon('micoff', 13)}${esc(p.name)}${isMe ? ' (toi)' : ''}</span>${kick}</div>`;
+  }
+
+  // Micro et caméra indépendants : on peut parler sans se montrer.
+  function mediaButtons(compact) {
+    const L = Media.local;
+    const mic = !L.audioTrack
+      ? `<button class="toggle" data-act="media-mic" ${L.busy.audio ? 'disabled' : ''}>${icon('micoff', 16)} ${L.busy.audio ? 'Autorisation…' : compact ? 'Micro' : 'Activer le micro'}</button>`
+      : `<button class="toggle ${L.mic ? 'on' : 'off'}" aria-pressed="${L.mic}" data-act="media-mic">${icon(L.mic ? 'mic' : 'micoff', 16)} ${L.mic ? 'Micro' : 'Micro coupé'}</button>`;
+    const cam = `<button class="toggle ${L.cam ? 'on' : ''}" aria-pressed="${L.cam}" data-act="media-cam" ${L.busy.video ? 'disabled' : ''}>${icon(L.cam ? 'cam' : 'camoff', 16)} ${L.busy.video ? 'Autorisation…' : L.cam ? 'Caméra' : compact ? 'Caméra' : 'Activer la caméra'}</button>`;
+    return mic + cam;
   }
 
   function mediaControlsHTML() {
-    const L = RTC.local, me = view.me;
-    if (!L.stream) {
-      return `<button class="primary" data-act="media-start" ${L.starting ? 'disabled' : ''}>${icon('cam', 16)} ${L.starting ? 'Autorisation…' : 'Activer caméra et micro'}</button>
-        ${L.error ? `<div class="warn">${esc(L.error)}</div>` : ''}`;
-    }
+    const L = Media.local, me = view.me;
     const deadNote = !me.alive && !me.isMJ && view.room.phase !== 'end' ? '<div class="note">Seuls les autres morts t\'entendent.</div>' : '';
-    return `<div class="row">
-        <button class="toggle ${L.cam ? 'on' : ''}" aria-pressed="${L.cam}" data-act="media-cam">${icon(L.cam ? 'cam' : 'camoff', 16)} ${L.cam ? 'Caméra' : 'Caméra coupée'}</button>
-        <button class="toggle ${L.mic ? 'on' : ''}" aria-pressed="${L.mic}" data-act="media-mic">${icon(L.mic ? 'mic' : 'micoff', 16)} ${L.mic ? 'Micro' : 'Micro coupé'}</button>
-      </div>${L.error ? `<div class="note">${esc(L.error)}</div>` : ''}${deadNote}`;
+    return `<div class="row media-row">${mediaButtons(false)}</div>${L.error ? `<div class="warn">${esc(L.error)}</div>` : ''}${deadNote}`;
+  }
+
+  // Barre flottante sur téléphone : micro et caméra toujours à portée de pouce.
+  function mediaBarHTML() {
+    if (!view || view.room.phase === 'end') return '';
+    return `<nav class="mediabar" aria-label="Micro et caméra">${mediaButtons(true)}</nav>`;
   }
 
   // ----- Salon -----
@@ -192,10 +275,10 @@
         <div class="row"><span class="ph-sub">Code</span><span class="code">${r.code}</span>
           <button data-act="copy" data-link="${esc(link)}">Copier le lien</button><button data-act="leave">Quitter</button></div>
       </div></header>`;
-    const moi = zone(1, 'Moi', `${tileHTML(P(me.id), { slot: 'me' })}${mediaControlsHTML()}
+    const moi = zone('person', 'Moi', `${tileHTML(P(me.id), { slot: 'me' })}${mediaControlsHTML()}
       <p class="muted" style="margin:0;font-size:14px">La caméra est facultative. Le micro sert à débattre.</p>`, 'z-moi');
     const others = view.players.filter((p) => p.id !== me.id);
-    const players = zone(2, 'Joueurs', `<div class="grid">${others.map((p) => tileHTML(p)).join('') || '<p class="muted" style="margin:0">En attente d\'autres joueurs… Partage le lien, ou ouvre d\'autres onglets pour tester seul.</p>'}</div>`, 'z-village', `${view.players.length} connecté${view.players.length > 1 ? 's' : ''}`);
+    const players = zone('village', 'Joueurs', `<div class="grid">${others.map((p) => tileHTML(p)).join('') || '<p class="muted" style="margin:0">En attente d\'autres joueurs… Partage le lien, ou ouvre d\'autres onglets pour tester seul.</p>'}</div>`, 'z-village', `${view.players.length} connecté${view.players.length > 1 ? 's' : ''}`);
     const settings = `
       <div class="label">Maître du jeu</div>
       ${radio('mjMode', 'site', 'Le site (automatique)', 'Annonce les phases, réveille les rôles et compte les votes.')}
@@ -217,10 +300,10 @@
         </select></div>
       ${warn.map((w) => `<div class="warn">${w}</div>`).join('')}
       ${host ? '<button class="primary" data-act="start">Lancer la partie</button>' : '<div class="note">L\'hôte lancera la partie.</div>'}`;
-    return head + `<main class="zones">
+    return head + `<main class="zones lobby">
         <div class="z-col-left">${moi}</div>
-        <div class="z-col-mid">${players}${zone(4, 'Composition des rôles', compoHTML(nGame))}</div>
-        <div class="z-col-right">${zone(3, 'Réglages', settings, 'z-action v-accent')}</div>
+        <div class="z-col-mid">${players}${zone('cards', 'Composition des rôles', compoHTML(nGame))}</div>
+        <div class="z-col-right">${zone('sliders', 'Réglages', settings, 'z-action v-accent')}</div>
       </main>`;
   }
 
@@ -274,7 +357,7 @@
         <div class="phase"><span class="ph-title">${title}</span><span class="ph-sub">Partie ${r.code}</span></div>
         ${steps}<span class="grow"></span>${timer}</div>
         <div class="narr"><div class="in">${narr}</div></div>${spectator}</header>`;
-    return head + `<main class="zones">
+    return head + `<main class="zones game">
       <div class="z-col-left">${moiZone()}</div>
       <div class="z-col-mid">${villageZone()}</div>
       <div class="z-col-right">${actionZone()}${logZone()}</div>
@@ -303,7 +386,7 @@
         <div class="muted" style="font-size:14px">Équipe : ${TEAM[d.team]}</div></div>
         <p style="margin:0;font-size:14px">${esc(d.desc)}</p>${extra.map((x) => `<div class="note">${x}</div>`).join('')}`;
     }
-    return zone(1, 'Moi', `${tileHTML(P(me.id), { slot: 'me' })}${role}${mediaControlsHTML()}`, 'z-moi');
+    return zone('person', 'Moi', `${tileHTML(P(me.id), { slot: 'me' })}${role}${mediaControlsHTML()}`, 'z-moi');
   }
 
   function villageZone() {
@@ -319,7 +402,7 @@
     if (st && !st.resolved && ['vote', 'captain_vote', 'debate'].includes(st.type) && st.actorsCount != null) {
       hint = `${st.done.length} sur ${st.actorsCount} ${st.type === 'debate' ? 'prêts' : 'ont voté'}`;
     } else if (night && me.alive && !me.isMJ) {
-      hint = st && st.type === 'loups' && me.role === 'loup' ? 'Seule ta meute est visible' : 'Le village dort';
+      hint = st && st.isActor ? 'Tu es réveillé : tu vois tout le village' : 'Le village dort : tu ne vois personne';
     }
     const tiles = (mj ? tileHTML(mj) : '') + alive.map((p) => tileHTML(p, {
       wolfMate: me.role === 'loup' && p.role === 'loup' && p.id !== me.id && night,
@@ -330,15 +413,15 @@
         <div class="dgrid">${dead.map(deadRowHTML).join('')}</div></div>` : '';
     const body = `<div class="sub"><h3><span class="dot"></span>Vivants · ${alive.length}</h3><span class="muted" style="font-size:14px">${esc(hint)}</span></div>
       <div class="grid">${tiles}</div>${cemetery}`;
-    return zone(2, 'Le village', body, 'z-village');
+    return zone('village', 'Le village', body, 'z-village');
   }
 
   function deadRowHTML(p) {
-    const causes = { loups: 'mort(e)', sorciere: 'mort(e)', vote: 'éliminé(e)', bouc: 'sacrifié(e)', chasseur: 'abattu(e)', chagrin: 'mort(e) de chagrin' };
+    const causes = { loups: 'mort(e)', sorciere: 'mort(e)', vote: 'éliminé(e)', bouc: 'sacrifié(e)', chasseur: 'abattu(e)', chagrin: 'mort(e) de chagrin', exclu: 'exclu(e)' };
     const d = p.death || {};
     const info = [p.role ? roleName(p.role) : null, `${causes[d.cause] || 'mort(e)'}${d.when ? ' · ' + d.when.toLowerCase() : ''}`].filter(Boolean).join(' · ');
     const isMe = p.id === view.me.id;
-    return `<div class="drow has-video-host ${isMe ? 'me' : ''}">
+    return `<div class="drow has-video-host ${isMe ? 'me' : ''} ${freshDead.has(p.id) ? 'fresh' : ''}">
       <div class="dav"><span class="avatar" aria-hidden="true">${esc(p.name[0])}</span><div class="vslot" data-vslot="${isMe ? 'me2' : p.id}"></div></div>
       <div style="min-width:0"><div class="dname">${esc(p.name)}${isMe ? ' (toi)' : ''}</div><div class="dinfo">${esc(info)}</div></div></div>`;
   }
@@ -370,9 +453,9 @@
     if (r.phase === 'end') {
       const body = `<div class="bigrole">${esc(r.winner ? r.winner.text : '')}</div>
         ${me.isHost ? '<button class="primary" data-act="restart">Nouvelle partie</button>' : '<div class="note">L\'hôte peut relancer une partie.</div>'}`;
-      return zone(3, 'Fin de partie', body, 'z-action v-accent');
+      return zone('target', 'Fin de partie', body, 'z-action v-accent');
     }
-    if (!st) return zone(3, 'Patiente', '<p class="muted" style="margin:0">…</p>', 'z-action v-muted');
+    if (!st) return zone('target', 'Patiente', '<p class="muted" style="margin:0">…</p>', 'z-action v-muted');
     let title, variant, body;
     if (st.resolved) {
       title = 'Résultat';
@@ -402,7 +485,7 @@
       }
       body += progressHTML(st, st.type === 'debate' ? 'Prêts à voter' : night ? 'Ont agi' : 'Votes reçus');
     }
-    return zone(3, title, body + controlHTML(), `z-action ${variant}`);
+    return zone('target', title, body + controlHTML(), `z-action ${variant}`);
   }
 
   function actorHTML(st) {
@@ -411,7 +494,8 @@
     const sel = ui.sel.length ? ui.sel : st.myInput && typeof st.myInput === 'string' ? [st.myInput] : [];
     switch (st.type) {
       case 'roles_reveal':
-        return `<div class="q">Découvre ton rôle</div><p class="muted" style="margin:0">Il est affiché dans la zone « Moi ». Garde-le secret !</p>
+        const d = ROLES[view.me.role] || {};
+        return `<div class="label">Ton rôle · garde-le secret</div><div class="bigrole t-${d.team}">${esc(d.name || '')}</div><p style="margin:0">${esc(d.desc || '')}</p>
           ${st.submitted ? sent : '<button class="primary" data-act="ready">J\'ai vu mon rôle</button>'}${progressHTML(st, 'Prêts')}`;
       case 'compoVote': {
         const opts = Object.entries(ROLES).filter(([k, d]) => d.impl && k !== 'loup' && k !== 'villageois' && (d.ext === 'base' || r.settings.extensions[d.ext]));
@@ -495,7 +579,7 @@
     if (!view.log.length) return '';
     const items = view.log.slice().reverse().map((l) => `<li class="${l.pub ? '' : 'priv'}"><span class="when">${esc(l.when || '')}</span><span>${esc(l.text)}</span></li>`).join('');
     const full = view.me.isMJ || (!view.me.alive && view.room.settings.deadSeeRoles);
-    return zone(4, full ? 'Journal complet' : 'Journal', `<ol class="log">${items}</ol>`, 'z-log');
+    return zone('scroll', full ? 'Journal complet' : 'Journal', `<ol class="log">${items}</ol>`, 'z-log');
   }
 
   // ---------- Événements ----------
@@ -505,11 +589,42 @@
     const act = el.dataset.act;
     const st = view && view.step;
     switch (act) {
+      case 'home-create': home = { step: 'create', code: '', info: null }; render(); focus('f-name'); break;
+      case 'home-join': home = { step: 'join', code: '', info: null }; render(); focus('f-code'); break;
+      case 'home-back': home = { step: home.step === 'joinInfo' ? 'join' : 'choose', code: home.code, info: null }; render(); break;
+      case 'lookup': {
+        const code = document.getElementById('f-code').value.trim().toUpperCase();
+        if (code.length !== 4) { toast('Le code fait 4 caractères.'); break; }
+        home.code = code;
+        lookup(code);
+        break;
+      }
+      case 'resume': {
+        const last = lastGame();
+        if (!last) break;
+        socket.emit('resume', { code: last.code, token: last.token }, (r) => {
+          if (r && r.ok) { sessionStorage.setItem('lg', JSON.stringify({ code: last.code, token: last.token })); return; }
+          localStorage.removeItem('lg-last');
+          // Jeton expiré : on propose directement de reprendre une place dans ce salon.
+          home = { step: 'join', code: last.code, info: null };
+          lookup(last.code);
+        });
+        break;
+      }
       case 'create': case 'join': {
         const name = document.getElementById('f-name').value.trim();
-        const code = (document.getElementById('f-code') || {}).value || '';
         localStorage.setItem('lg-name', name);
-        send(act, { name, code: code.trim().toUpperCase() }, (r) => { save(r.code, r.token); history.replaceState(null, '', '/'); });
+        send(act, { name, code: home.code }, (r) => { save(r.code, r.token, name); history.replaceState(null, '', '/'); });
+        break;
+      }
+      case 'reclaim': {
+        const name = el.textContent.trim();
+        send('reclaim', { code: home.code, playerId: el.dataset.id }, (r) => { save(r.code, r.token, name); history.replaceState(null, '', '/'); });
+        break;
+      }
+      case 'kick': {
+        const p = P(el.dataset.id);
+        if (p && confirm(`Exclure ${p.name} de la partie ?${view.room.phase === 'lobby' ? '' : ' Il sera compté comme mort.'}`)) send('kick', { id: p.id });
         break;
       }
       case 'copy': {
@@ -519,11 +634,10 @@
         break;
       }
       case 'leave':
-        send('leave', {}, () => { sessionStorage.removeItem('lg'); setView(null); });
+        send('leave', {}, () => { forget(); home = { step: 'choose', code: '', info: null }; setView(null); });
         break;
-      case 'media-start': RTC.start(); break;
-      case 'media-cam': RTC.toggle('cam'); break;
-      case 'media-mic': RTC.toggle('mic'); break;
+      case 'media-cam': Media.toggle('cam'); break;
+      case 'media-mic': Media.toggle('mic'); break;
       case 'compo': send('compo', { role: el.dataset.role, delta: +el.dataset.delta }); break;
       case 'compoReset': send('compoReset'); break;
       case 'start': send('start'); break;
@@ -574,9 +688,10 @@
 
   $app.addEventListener('keydown', (e) => {
     if (e.key === 'Enter' && (e.target.id === 'f-name' || e.target.id === 'f-code')) {
-      const code = (document.getElementById('f-code') || {}).value;
-      const btn = $app.querySelector(code ? '[data-act="join"]' : '[data-act="create"]') || $app.querySelector('[data-act="join"]');
+      const btn = $app.querySelector('.home .primary[data-act]');
       if (btn) btn.click();
     }
   });
+
+  function focus(id) { setTimeout(() => { const el = document.getElementById(id); if (el) el.focus(); }, 30); }
 })();

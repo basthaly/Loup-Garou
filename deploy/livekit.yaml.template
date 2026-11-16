@@ -1,0 +1,17 @@
+# Généré par install.sh à partir de livekit.yaml.template (ne pas versionner livekit.yaml : il contient la clé secrète).
+port: 7880
+rtc:
+  tcp_port: 7881
+  port_range_start: 50000
+  port_range_end: 50200
+  use_external_ip: true
+# Relais TURN intégré : pour les joueurs en 4G ou derrière une box stricte.
+turn:
+  enabled: true
+  udp_port: 3478
+  relay_range_start: 30000
+  relay_range_end: 30200
+keys:
+  __KEY__: __SECRET__
+logging:
+  level: info
