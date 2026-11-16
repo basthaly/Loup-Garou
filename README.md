@@ -1,20 +1,45 @@
 # Loup-Garou en ligne
 
-Site pour jouer au Loup-Garou entre amis, avec caméras, hébergé sur le NAS Synology (DS220+).
+Site pour jouer au Loup-Garou entre amis, chacun sur son écran. Moteur de jeu temps réel en Node.js + Socket.IO.
 
-## Fonctionnalités prévues
-- Caméra et micro facultatifs pour chaque joueur
-- MJ automatique (le site) ou tenu par un joueur
-- Rôles distribués automatiquement selon le nombre de joueurs, ou choisis par vote des joueurs
-- Joueur mort : entend et voit la partie, micro coupé
-- Votes toujours révélés en même temps
-- Extensions : jeu de base, Nouvelle Lune, Personnages
+## Lancer en local
 
-## Maquette
-Dossier `maquette/` : 7 écrans (salon, composition des rôles, nuit, vote, révélation, mort, tableau de bord MJ).
-Fichiers sources Claude Design (`.dc.html`) — version interactive : https://claude.ai/artifact/F92wuHsXrSHCYzJ2pXk17N
+Prérequis : [Node.js](https://nodejs.org) 18 ou plus.
 
-## Stack envisagée
-- V1 : Node.js + Socket.IO (moteur de jeu temps réel), Docker
-- V2 : LiveKit (SFU vidéo) + coturn, vidéo limitée à 360p/480p
-- Tests en local d'abord, puis VPS ou NAS (après ajout de RAM)
+```bash
+npm install
+npm start
+```
+
+Puis ouvre http://localhost:3000.
+
+**Tester seul** : ouvre plusieurs onglets (ou fenêtres privées), chacun est un joueur. Minimum 3 joueurs (6+ recommandé).
+
+**Avec des amis sur le même réseau** : ils ouvrent `http://<IP-de-ton-PC>:3000` (ex. `http://192.168.1.20:3000`).
+
+### Avec Docker
+
+```bash
+docker compose up -d --build
+```
+
+## Ce que fait la V1
+- Salon avec code à 4 lettres et lien d'invitation, reconnexion automatique
+- MJ automatique (le site) ou tenu par un joueur (il voit tout et fait avancer la partie)
+- Rôles distribués automatiquement selon le nombre de joueurs (modifiable par l'hôte), ou choisis par vote des joueurs
+- Votes (village, Capitaine, loups) secrets puis révélés en même temps
+- Thème nuit / jour, joueurs morts en spectateurs (option : ils voient les rôles)
+- Rôles gérés : Loup-Garou, Villageois, Voyante, Sorcière, Chasseur, Cupidon (amoureux), Petite Fille (sans pouvoir pour l'instant), Capitaine, Ancien, Salvateur, Idiot du village, Bouc émissaire
+- Affichés « Bientôt » : Voleur, Joueur de flûte et rôles de l'extension Personnages
+
+## Pas encore fait
+- Caméras et micros (V2 : LiveKit + coturn) ; la Petite Fille pourra alors espionner le salon des loups
+- Rôles marqués « Bientôt »
+
+## Structure
+- `server/roles.js` : rôles et composition automatique
+- `server/game.js` : moteur (phases, étapes, votes, morts, victoire)
+- `server/index.js` : serveur web + Socket.IO
+- `public/` : interface
+- `test/simulate.js` : `npm test` simule 18 parties complètes avec des bots
+- `maquette/` : maquette Claude Design (7 écrans)

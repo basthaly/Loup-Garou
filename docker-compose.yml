@@ -1,0 +1,7 @@
+services:
+  loup-garou:
+    build: .
+    container_name: loup-garou
+    ports:
+      - "3000:3000"
+    restart: unless-stopped
