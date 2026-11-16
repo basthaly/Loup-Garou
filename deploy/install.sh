@@ -54,3 +54,14 @@ docker compose up -d --build
 echo
 echo "✔ Loup-Garou est en ligne : https://$DOMAIN"
 echo "  (le certificat HTTPS peut prendre une minute à être délivré la première fois)"
+echo "  Vérifier que tout tourne : ./status.sh"
+
+# Serveur chez soi (VM, mini-PC…) derrière une box : rappeler les redirections de ports.
+LOCAL_IP="$(hostname -I 2>/dev/null | awk '{print $1}')"
+if [[ "$LOCAL_IP" =~ ^(10\.|192\.168\.|172\.(1[6-9]|2[0-9]|3[01])\.) ]]; then
+  echo
+  echo "Ce serveur est derrière une box (IP locale $LOCAL_IP)."
+  echo "Redirige ces ports de ta box vers $LOCAL_IP :"
+  echo "  TCP : 80, 443, 7443, 7881"
+  echo "  UDP : 3478, 30000-30200, 50000-50200"
+fi

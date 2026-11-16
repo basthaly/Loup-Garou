@@ -5,7 +5,7 @@ Jouer au Loup-Garou entre amis, chacun sur son écran, avec caméra et micro. Le
 **Sommaire**
 1. [Tester sur ton PC](#1-tester-sur-ton-pc) (avec Node.js ou avec Docker)
 2. [Jouer à plusieurs sur ton réseau (Wi-Fi)](#2-jouer-à-plusieurs-sur-ton-réseau-wi-fi)
-3. [Mettre en ligne sur un VPS (OVH)](#3-mettre-en-ligne-sur-un-vps-ovh)
+3. [Mettre en ligne sur un serveur (VPS ou chez toi)](#3-mettre-en-ligne-sur-un-serveur-vps-ou-chez-toi)
 4. [Dépannage](#4-dépannage)
 5. [Fonctionnalités](#5-fonctionnalités)
 6. [Pour les développeurs](#6-pour-les-développeurs)
@@ -109,27 +109,47 @@ Loup-Garou : https://localhost:3000
    - Safari (iPhone) : **Afficher les détails** → **Visiter ce site web** → confirmer
 3. Sous Windows, si une fenêtre du pare-feu demande l'accès pour Node.js, clique sur **Autoriser** (réseaux privés).
 
-> Ce mode relie chaque navigateur directement aux autres : confortable jusqu'à environ 8 joueurs. Au-delà, ou avec des amis hors de chez toi, passe au VPS (partie 3).
+> Ce mode relie chaque navigateur directement aux autres : confortable jusqu'à environ 8 joueurs. Au-delà, ou avec des amis hors de chez toi, passe à un serveur (partie 3).
 
 ---
 
-## 3. Mettre en ligne sur un VPS (OVH)
+## 3. Mettre en ligne sur un serveur (VPS ou chez toi)
 
-Pour jouer avec des amis où qu'ils soient, et à nombreux. Le script installe tout :
+Pour jouer avec des amis où qu'ils soient, et à nombreux. Le serveur peut être un **VPS** loué (OVH…) ou une **machine chez toi** (VM Proxmox, mini-PC…). Le script installe tout :
 - le site ;
 - **LiveKit**, le serveur vidéo : chacun n'envoie sa vidéo qu'une fois, le serveur la redistribue (15 joueurs et plus) ;
 - un **relais TURN** pour les joueurs en 4G ou derrière une box stricte ;
 - le **HTTPS automatique** (certificat Let's Encrypt gratuit, renouvelé tout seul).
 
-### Étape 1 — Commander le VPS
+### Étape 1 — Préparer le serveur
 
-Chez OVH, un **VPS-1** suffit. À la commande, choisis l'image **Ubuntu 24.04**.
+Il faut une machine sous **Ubuntu 24.04** (2 cœurs, 2 Go de RAM et 10 Go de disque suffisent), joignable depuis Internet.
 
-Tu reçois un e-mail avec :
+**Cas A — un VPS (ex. OVH VPS-1)**
+
+À la commande, choisis l'image **Ubuntu 24.04**. Tu reçois un e-mail avec :
 - l'**adresse IP** du serveur, par exemple `51.210.12.34` (aussi visible dans l'espace client OVH) ;
 - l'**utilisateur** (en général `ubuntu`) et le **mot de passe**.
 
-### Étape 2 — Se connecter au VPS
+Rien d'autre à faire : un VPS est directement joignable depuis Internet.
+
+**Cas B — une machine chez toi (VM Proxmox, mini-PC…)**
+
+1. Crée la VM avec l'image **Ubuntu Server 24.04** et coche **OpenSSH server** pendant l'installation.
+2. Donne-lui une **IP locale fixe** (réservation DHCP dans ta box, ou IP statique dans la VM), par exemple `192.168.1.50`.
+3. Dans ta box, **redirige ces ports vers l'IP locale de la VM** :
+
+   | Protocole | Ports | Sert à |
+   | --- | --- | --- |
+   | TCP | 80, 443 | Site et certificat HTTPS |
+   | TCP | 7443, 7881 | Serveur vidéo (signalisation, secours TCP) |
+   | UDP | 3478, 30000-30200, 50000-50200 | Vidéo et relais TURN |
+
+4. Ton **IP publique** (celle de ta box) est celle que tes amis utiliseront. Le script la détecte tout seul. Si elle change de temps en temps (fréquent chez les particuliers), utilise plutôt un **DNS dynamique** (le service DynDNS de ta box ou de ton NAS, DuckDNS…) et installe avec ce nom.
+
+> Si les ports 80 et 443 de ta box sont déjà redirigés vers une autre machine (par exemple un NAS qui héberge un autre site), ils ne peuvent pas aller aussi vers la VM. Il faut alors passer par le proxy inversé de cette machine, ou jouer seulement en interne (voir « Jouer seulement sur ton réseau » plus bas).
+
+### Étape 2 — Se connecter au serveur
 
 Depuis ton PC (PowerShell sous Windows, Terminal sous macOS) :
 
@@ -137,7 +157,7 @@ Depuis ton PC (PowerShell sous Windows, Terminal sous macOS) :
 ssh ubuntu@51.210.12.34
 ```
 
-(remplace `51.210.12.34` par l'IP de **ton** serveur). Tape `yes` à la première connexion, puis le mot de passe reçu (il ne s'affiche pas pendant la saisie, c'est normal). Passe ensuite administrateur :
+Remplace `ubuntu` par ton utilisateur, et `51.210.12.34` par l'IP de **ton** serveur : l'IP du VPS, ou l'IP locale de ta VM (par exemple `192.168.1.50`) si tu es chez toi. Tape `yes` à la première connexion, puis le mot de passe (il ne s'affiche pas pendant la saisie, c'est normal). Passe ensuite administrateur :
 
 ```bash
 sudo -i
@@ -145,7 +165,7 @@ sudo -i
 
 ### Étape 3 — Installer Docker
 
-Tout tourne dans Docker sur le VPS. Deux façons de l'installer, au choix :
+Tout tourne dans Docker sur le serveur. Deux façons de l'installer, au choix :
 
 **A. Rapide** (script officiel de Docker) :
 ```bash
@@ -181,12 +201,12 @@ Le HTTPS est obligatoire (sinon pas de caméra), et un certificat HTTPS gratuit 
 
 | Tu veux utiliser… | Commande | Adresse du site |
 | --- | --- | --- |
-| **Juste l'IP** du serveur (le plus simple) | `./install.sh` | `https://51-210-12-34.sslip.io` |
+| **Juste l'IP publique** (le plus simple) | `./install.sh` | `https://51-210-12-34.sslip.io` |
 | Une IP précise | `./install.sh 51.210.12.34` | `https://51-210-12-34.sslip.io` |
 | **Ton nom de domaine** | `./install.sh loupgarou.mon-domaine.fr` | `https://loupgarou.mon-domaine.fr` |
 
-- **Avec l'IP** : le script détecte l'IP tout seul et utilise [sslip.io](https://sslip.io), un service gratuit où `51-210-12-34.sslip.io` pointe vers `51.210.12.34`. Rien à configurer.
-- **Avec ton domaine** : crée d'abord, chez ton registrar (OVH, Gandi…), un enregistrement DNS **A** qui pointe vers l'IP du serveur, et attends quelques minutes qu'il soit actif.
+- **Avec l'IP** : le script détecte l'IP publique tout seul (celle de ta box si le serveur est chez toi) et utilise [sslip.io](https://sslip.io), un service gratuit où `51-210-12-34.sslip.io` pointe vers `51.210.12.34`. Rien à configurer.
+- **Avec ton domaine** (ou un DNS dynamique) : crée d'abord, chez ton registrar (OVH, Gandi…), un enregistrement DNS **A** qui pointe vers l'IP publique, et attends quelques minutes qu'il soit actif.
 
 **Avec le script (recommandé)** :
 ```bash
@@ -196,10 +216,11 @@ cd Loup-Garou/deploy
 ./install.sh
 ```
 
-L'installation prend quelques minutes. À la fin, le script affiche l'adresse du site :
+L'installation prend quelques minutes. À la fin, le script affiche l'adresse du site (et, si le serveur est chez toi, rappelle les ports à rediriger) :
 
 ```
 ✔ Loup-Garou est en ligne : https://51-210-12-34.sslip.io
+  Vérifier que tout tourne : ./status.sh
 ```
 
 **À la main avec Docker Compose** (ce que fait le script, si tu préfères tout contrôler) :
@@ -226,16 +247,57 @@ docker compose ps
 ```
 `docker compose ps` doit montrer trois services `running` : `app`, `livekit` et `caddy`.
 
-### Étape 5 — Jouer
+### Étape 5 — Vérifier que tout tourne
+
+Sur le serveur, dans le dossier `Loup-Garou/deploy` :
+
+```bash
+./status.sh
+```
+
+Exemple de résultat :
+
+```
+Adresse du site : https://51-210-12-34.sslip.io
+
+— En interne (sur ce serveur)
+✔ conteneur app démarré
+✔ conteneur livekit démarré
+✔ conteneur caddy démarré
+✔ site : répond (0 partie(s) en cours)
+✔ serveur vidéo LiveKit : répond
+✔ certificat HTTPS : obtenu
+
+— Depuis l'extérieur (par l'adresse publique)
+✔ https://51-210-12-34.sslip.io répond avec un certificat valide
+✔ signalisation vidéo https://51-210-12-34.sslip.io:7443 répond
+
+Tout est bon.
+```
+
+En cas de ✘, la ligne indique la commande à lancer pour voir l'erreur. Tu peux aussi vérifier à la main :
+
+| Vérification | Commande | Résultat attendu |
+| --- | --- | --- |
+| Les 3 conteneurs tournent | `docker compose ps` | `app`, `livekit`, `caddy` en `running` |
+| Le site répond en interne | `curl http://127.0.0.1:3000/health` | `{"ok":true,"rooms":0}` |
+| Le serveur vidéo répond | `curl http://127.0.0.1:7880` | `OK` |
+| Le certificat est obtenu | `docker compose logs caddy \| grep -i certificate` | `certificate obtained successfully` |
+| Les ports écoutent | `ss -tulpn \| grep -E ':(80\|443\|7443\|7880\|7881\|3478) '` | une ligne par port |
+
+> **Serveur chez toi** : la vérification « depuis l'extérieur » peut échouer depuis le serveur lui-même si ta box ne gère pas le « NAT loopback », alors que tout marche pour tes amis. Le test le plus fiable : ouvre l'adresse du site sur ton téléphone **en 4G** (Wi-Fi coupé).
+
+### Étape 6 — Jouer
 
 Ouvre l'adresse affichée à la fin de l'installation (par exemple **https://51-210-12-34.sslip.io**) et partage le lien avec tes amis. Le premier chargement peut prendre une minute, le temps d'obtenir le certificat HTTPS.
 
-### Commandes utiles sur le VPS
+### Commandes utiles sur le serveur
 
 Toujours depuis le dossier `Loup-Garou/deploy` (après `ssh` puis `sudo -i`, tape `cd Loup-Garou/deploy`) :
 
 | Pour… | Commande |
 | --- | --- |
+| Vérifier que tout tourne | `./status.sh` |
 | Mettre à jour vers la dernière version | `./update.sh` |
 | Voir ce qui se passe (journaux) | `docker compose logs -f app` (quitter avec `Ctrl + C`) |
 | Redémarrer | `docker compose restart` |
@@ -244,15 +306,30 @@ Toujours depuis le dossier `Loup-Garou/deploy` (après `ssh` puis `sudo -i`, tap
 
 ### Passer à ton propre nom de domaine plus tard
 
-1. Chez ton registrar, crée un enregistrement DNS **A** qui pointe vers l'IP du VPS.
+1. Chez ton registrar, crée un enregistrement DNS **A** qui pointe vers l'IP publique (celle du VPS, ou de ta box).
 2. Attends quelques minutes, puis relance : `./install.sh loupgarou.mon-domaine.fr` (ou, à la main, change `DOMAIN=` dans `.env` puis `docker compose up -d`).
 
 ### Pare-feu
 
-Par défaut, un VPS OVH n'a pas de pare-feu actif : rien à faire. Si tu en actives un, ouvre ces ports (le script le fait déjà pour `ufw`) :
+Par défaut, un VPS OVH et une VM Ubuntu neuve n'ont pas de pare-feu actif : rien à faire. Si tu en actives un (sur le serveur, ou le pare-feu de Proxmox), ouvre ces ports (le script le fait déjà pour `ufw`) :
 
 - TCP : 80, 443, 7443, 7881
 - UDP : 3478, 30000-30200, 50000-50200
+
+### Jouer seulement sur ton réseau (sans accès depuis Internet)
+
+Si tu veux juste jouer chez toi, sans redirection de ports ni nom de domaine, n'utilise pas `install.sh` : lance le site seul en HTTPS auto-signé sur le serveur.
+
+```bash
+apt update && apt install -y git
+git clone https://github.com/basthaly/Loup-Garou && cd Loup-Garou
+sed -i 's/# HTTPS: "1"/HTTPS: "1"/' docker-compose.yml
+docker compose up -d --build
+```
+
+Ouvre ensuite **https://192.168.1.50:3000** (l'IP locale du serveur) depuis les appareils de ton réseau et accepte l'avertissement du navigateur (voir partie 2). La vidéo passe alors directement entre les navigateurs, sans LiveKit (confortable jusqu'à environ 8 joueurs).
+
+Vérifier que ça tourne : `docker compose ps` et `curl -k https://127.0.0.1:3000/health`.
 
 ---
 
@@ -266,8 +343,9 @@ Par défaut, un VPS OVH n'a pas de pare-feu actif : rien à faire. Si tu en acti
 | J'ai fermé l'onglet en pleine partie | Rouvre le site : **Reprendre ma partie**. Sinon, **Rejoindre avec un code** puis touche ton nom dans « Reconnexion ». |
 | « Code de partie inconnu » | Le serveur a redémarré : les parties en cours sont perdues, crée un nouveau salon. |
 | L'hôte est parti | Un autre joueur connecté devient hôte automatiquement (après 15 secondes s'il a juste perdu la connexion). |
-| Le site ne s'ouvre pas sur le VPS | Vérifie les journaux : `docker compose logs -f`. Le certificat peut mettre une minute à arriver la première fois. |
-| Vidéo noire ou coupée pour certains joueurs (VPS) | Vérifie que les ports UDP sont ouverts si tu as activé un pare-feu (voir plus haut). |
+| Le site ne s'ouvre pas sur le serveur | Lance `./status.sh` dans `Loup-Garou/deploy`. Le certificat peut mettre une minute à arriver la première fois. |
+| Vidéo noire ou coupée pour certains joueurs | Vérifie que les ports UDP sont ouverts (pare-feu) et, chez toi, redirigés par la box vers le serveur. |
+| Certificat HTTPS jamais obtenu | Les ports 80 et 443 doivent arriver jusqu'au serveur depuis Internet (redirection de ports chez toi), et le nom doit pointer vers l'IP publique. |
 
 ---
 
@@ -308,7 +386,7 @@ Affichés « Bientôt » : Voleur, Joueur de flûte et rôles de l'extension Per
 | `public/app.js` | Interface |
 | `public/media.js` | Micro et caméra (LiveKit ou maillage direct) |
 | `Dockerfile`, `docker-compose.yml` | Le site seul dans Docker (PC ou serveur) |
-| `deploy/` | Installation complète sur VPS : Docker Compose, LiveKit, Caddy |
+| `deploy/` | Installation complète sur serveur : Docker Compose, LiveKit, Caddy, `install.sh`, `status.sh`, `update.sh` |
 | `test/` | Tests (`npm test`) |
 | `maquette/` | Maquettes Claude Design |
 
