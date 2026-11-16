@@ -43,6 +43,9 @@ const NARRATION = {
 
 const NIGHT_TYPES = ['cupidon', 'salvateur', 'voyante', 'loups', 'sorciere'];
 const PUBLIC_STEPS = ['compoVote', 'roles_reveal', 'captain_vote', 'debate', 'vote'];
+const DAY_STEPS = ['dawn', 'captain_vote', 'debate', 'vote', 'hunter', 'successor'];
+const FULL = { audio: true, video: true, blur: false };
+const NONE = { audio: false, video: false, blur: false };
 
 function shuffle(arr) {
   const a = arr.slice();
@@ -84,8 +87,10 @@ class Room {
     this.lastProtected = null;
     this.winner = null;
     this.compoVoteResult = null;
+    this.phaseSteps = [];
+    this.phaseCursor = -1;
     for (const p of this.players.values()) {
-      Object.assign(p, { alive: true, role: null, lover: null, seen: {}, idiotRevealed: false, ancienHit: false, canVote: true });
+      Object.assign(p, { alive: true, role: null, lover: null, seen: {}, idiotRevealed: false, ancienHit: false, canVote: true, death: null });
     }
   }
 
@@ -98,7 +103,8 @@ class Room {
     for (const p of this.players.values()) if (p.name.toLowerCase() === name.toLowerCase()) throw new Error('Ce pseudo est déjà pris.');
     const p = {
       id: crypto.randomBytes(6).toString('hex'), token: crypto.randomBytes(16).toString('hex'), name,
-      connected: true, alive: true, role: null, lover: null, seen: {}, idiotRevealed: false, ancienHit: false, canVote: true
+      connected: true, alive: true, role: null, lover: null, seen: {}, idiotRevealed: false, ancienHit: false, canVote: true,
+      death: null, cam: false, mic: false, conn: null
     };
     this.players.set(p.id, p);
     this.order.push(p.id);
@@ -119,6 +125,14 @@ class Room {
   byToken(token) {
     for (const p of this.players.values()) if (p.token === token) return p;
     return null;
+  }
+
+  setMedia(id, m) {
+    const p = this.players.get(id);
+    if (!p) return;
+    p.cam = !!m.cam;
+    p.mic = !!m.mic;
+    this.changed();
   }
 
   isMJ(id) { return this.settings.mjMode === 'joueur' && this.settings.mjId === id; }
@@ -190,6 +204,7 @@ class Room {
     } else {
       this.phase = 'setup';
       this.addLog('La partie commence : vote de la composition.', true);
+      this.phaseSteps = ['compoVote', 'roles_reveal'];
       this.startStep({ type: 'compoVote', actors: this.gamePlayers().map((p) => p.id), seconds: 90 });
     }
   }
@@ -200,12 +215,15 @@ class Room {
     const shuffled = shuffle(cards);
     this.gamePlayers().forEach((p, i) => { p.role = shuffled[i]; });
     this.phase = 'setup';
+    if (!this.phaseSteps.includes('roles_reveal')) this.phaseSteps = ['roles_reveal'];
     this.startStep({ type: 'roles_reveal', actors: this.gamePlayers().map((p) => p.id), seconds: 20 });
   }
 
   // ---------- Machine à étapes ----------
   startStep(step) {
     this.startStepHook(step);
+    const idx = this.phaseSteps.indexOf(step.type);
+    if (idx >= 0) this.phaseCursor = idx;
     clearTimeout(this.timer);
     this.waitingMJ = false;
     step.inputs = {};
@@ -509,6 +527,8 @@ class Room {
     steps.push({ type: 'loups', actors: actorsOf('loup') });
     if (this.hasRoleInGame('sorciere')) steps.push({ type: 'sorciere', actors: actorsOf('sorciere') });
     steps.push({ type: 'dawn', actors: [] });
+    this.phaseSteps = steps.map((x) => x.type);
+    this.phaseCursor = -1;
     this.queue = steps;
     this.next();
   }
@@ -521,6 +541,8 @@ class Room {
     if (this.day === 1 && !this.captainId) steps.push({ type: 'captain_vote', actors: alive, seconds: this.settings.voteSeconds });
     steps.push({ type: 'debate', actors: alive, seconds: this.settings.debateSeconds });
     steps.push({ type: 'vote', actors: [], seconds: this.settings.voteSeconds, dynamicActors: true });
+    this.phaseSteps = ['dawn', ...steps.map((x) => x.type)];
+    this.phaseCursor = 0;
     this.queue.push(...steps);
   }
 
@@ -543,6 +565,7 @@ class Room {
     const p = this.players.get(id);
     if (!p || !p.alive) return;
     p.alive = false;
+    p.death = { cause, when: this.whenLabel() };
     this.deaths.push({ id, cause, role: p.role });
     if (p.role === 'chasseur') triggers.push({ type: 'hunter', actors: [id], seconds: 40 });
     if (this.captainId === id) {
@@ -583,11 +606,11 @@ class Room {
 
   endGame(w) {
     clearTimeout(this.timer);
+    this.addLog(w.text, true);
     this.phase = 'end';
     this.winner = w;
     this.queue = [];
     this.step = null;
-    this.addLog(w.text, true);
     this.changed();
   }
 
@@ -597,7 +620,38 @@ class Room {
     this.changed();
   }
 
-  addLog(text, pub) { this.log.push({ t: Date.now(), text, pub }); }
+  whenLabel() {
+    if (this.phase === 'night') return `Nuit ${this.night}`;
+    if (this.phase === 'day') return `Jour ${this.day}`;
+    return '';
+  }
+
+  addLog(text, pub) { this.log.push({ t: Date.now(), text, pub, when: this.whenLabel() }); }
+
+  // ---------- Audio / vidéo : qui voit et entend qui ----------
+  mediaAllowed(s, r) {
+    if (!s || !r || s.id === r.id) return NONE;
+    if (['lobby', 'setup', 'end'].includes(this.phase)) return FULL;
+    if (this.isMJ(r.id) || this.isMJ(s.id)) return FULL;
+    if (!s.alive) return r.alive ? NONE : FULL;      // un mort ne parle qu'aux morts
+    if (!r.alive) return FULL;                         // les morts suivent tout
+    const st = this.step;
+    if (this.phase === 'day' || (st && DAY_STEPS.includes(st.type))) return FULL;
+    if (st && st.type === 'loups' && s.role === 'loup') {
+      if (r.role === 'loup') return FULL;
+      if (r.role === 'petitefille') return { audio: false, video: true, blur: true };
+    }
+    return NONE;
+  }
+
+  mediaFor(me) {
+    const out = {};
+    for (const p of this.players.values()) {
+      if (p.id === me.id) continue;
+      out[p.id] = { send: this.mediaAllowed(me, p), recv: this.mediaAllowed(p, me) };
+    }
+    return out;
+  }
 
   changed() {
     this.lastActivity = Date.now();
@@ -627,7 +681,8 @@ class Room {
       const vis = this.phase !== 'lobby' && this.roleVisible(me, p);
       return {
         id: p.id, name: p.name, connected: p.connected, alive: p.alive, isMJ: this.isMJ(p.id),
-        captain: this.captainId === p.id, idiotRevealed: p.idiotRevealed,
+        captain: this.captainId === p.id, idiotRevealed: p.idiotRevealed, cam: p.cam, mic: p.mic, conn: p.conn,
+        death: p.death,
         role: vis ? p.role : null,
         lover: (omniscient || pid === id || me.lover === pid) && p.lover ? p.lover : null
       };
@@ -635,7 +690,7 @@ class Room {
     const view = {
       me: {
         id, name: me.name, isHost: id === this.hostId, isMJ: this.isMJ(id), canControl: this.canControl(id),
-        alive: me.alive, role: me.role, lover: me.lover, canVote: me.canVote,
+        alive: me.alive, role: me.role, lover: me.lover, canVote: me.canVote, conn: me.conn,
         seen: Object.entries(me.seen || {}).map(([t, r]) => ({ id: t, name: this.name(t), role: r })),
         wolves: me.role === 'loup' ? this.gamePlayers().filter((p) => p.role === 'loup').map((p) => p.id) : []
       },
@@ -643,8 +698,13 @@ class Room {
         code: this.code, phase: this.phase, hostId: this.hostId, settings: this.settings, night: this.night, day: this.day,
         minPlayers: MIN_PLAYERS, recommended: RECOMMENDED_PLAYERS, maxPlayers: MAX_PLAYERS, captainId: this.captainId,
         potions: me.role === 'sorciere' || this.isMJ(id) ? this.potions : null,
-        waitingMJ: this.waitingMJ, winner: this.winner, serverNow: Date.now()
+        waitingMJ: this.waitingMJ, winner: this.winner, serverNow: Date.now(),
+        phaseSteps: this.phaseSteps.map((t, i) => ({
+          type: t,
+          state: i < this.phaseCursor || (i === this.phaseCursor && this.step && this.step.resolved && this.step.type === t) ? 'done' : i === this.phaseCursor ? 'now' : 'next'
+        }))
       },
+      media: this.mediaFor(me),
       players,
       compo: this.effectiveCompo(),
       customCompo: !!this.customCompo,

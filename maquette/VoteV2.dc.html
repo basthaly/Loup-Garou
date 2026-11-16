@@ -1,0 +1,204 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>Jour — vote, zones séparées</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@600;700&amp;family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#1F3A5F}a:hover{color:#0F2440}
+@media (max-width: 900px){ .zone-action{order:-1} }
+</style>
+</helmet>
+<div style="min-height: 100vh; background: #EEF2F7; color: #18202E; font-family: Inter, system-ui, sans-serif; font-size: 15px; line-height: 1.5">
+  <header style="background: #FFF4E5; border-bottom: 2px solid #E9C89A">
+    <div style="max-width: 1440px; margin: 0 auto; padding: 14px 24px; display: flex; flex-wrap: wrap; align-items: center; gap: 16px 28px">
+      <div style="display: flex; align-items: center; gap: 10px">
+        <svg aria-hidden="true" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#B5651D" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"></circle><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"></path></svg>
+        <span style="font-family: 'Cormorant Garamond', serif; font-size: 24px; font-weight: 700">Loup-Garou</span>
+      </div>
+      <div style="display: flex; align-items: baseline; gap: 10px">
+        <span style="font-family: 'Cormorant Garamond', serif; font-size: 34px; font-weight: 700; line-height: 1">Jour 2</span>
+        <span style="color: #7A4210">Partie K7Q2</span>
+      </div>
+      <ol aria-label="Déroulé du jour" style="list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px; flex: 1 1 420px">
+        <sc-for list="{{ steps }}" as="s" hint-placeholder-count="4">
+          <li style="border-radius: 999px; padding: 5px 12px; font-size: 13px; font-weight: 600; background: {{s.bg}}; color: {{s.fg}}; border: 1px solid {{s.border}}">{{s.label}}</li>
+        </sc-for>
+      </ol>
+      <div style="display: flex; flex-direction: column; align-items: flex-end">
+        <span style="font-size: 12px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; color: #7A4210">Temps restant</span>
+        <span style="font-variant-numeric: tabular-nums; font-weight: 700; font-size: 28px; line-height: 1">0:38</span>
+      </div>
+    </div>
+    <div style="background: #FBEBD3; border-top: 1px solid #E9C89A">
+      <div style="max-width: 1440px; margin: 0 auto; padding: 10px 24px; display: flex; gap: 12px; align-items: center">
+        <span style="font-size: 12px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; color: #7A4210; flex: none">Le MJ</span>
+        <p style="margin: 0; font-family: 'Cormorant Garamond', serif; font-size: 22px; font-weight: 600; line-height: 1.25">Hugo a été retrouvé mort, il était Voyante. Le village vote.</p>
+      </div>
+    </div>
+  </header>
+
+  <main style="max-width: 1440px; margin: 0 auto; padding: 20px 24px 40px; display: flex; flex-wrap: wrap; gap: 20px; align-items: flex-start">
+
+    <section aria-labelledby="v-moi" style="flex: 1 1 260px; min-width: 0; background: #FFFFFF; border: 1px solid #D5DCE6; border-radius: 18px; overflow: hidden">
+      <h2 id="v-moi" style="margin: 0; display: flex; align-items: center; gap: 10px; padding: 12px 16px; background: #F3F5F9; border-bottom: 1px solid #D5DCE6; font-size: 13px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; color: #3D4757">
+        <span style="width: 22px; height: 22px; border-radius: 50%; background: #D5DCE6; display: flex; align-items: center; justify-content: center; font-size: 12px">1</span>Moi
+      </h2>
+      <div style="padding: 16px; display: flex; flex-direction: column; gap: 14px">
+        <div style="aspect-ratio: 4 / 3; background: #2A3142; border-radius: 12px; position: relative; overflow: hidden">
+          <svg aria-hidden="true" viewBox="0 0 120 90" width="100%" height="100%"><circle cx="60" cy="38" r="16" fill="#4A5270"></circle><path d="M28 90c0-20 14-32 32-32s32 12 32 32z" fill="#4A5270"></path></svg>
+          <span style="position: absolute; left: 8px; bottom: 8px; background: rgba(12,14,20,0.85); color: #EEEAE2; border-radius: 6px; padding: 2px 8px; font-size: 13px; font-weight: 600">Bastien (toi)</span>
+        </div>
+        <div>
+          <div style="font-size: 12px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; color: #556072">Ton rôle · secret</div>
+          <div style="font-family: 'Cormorant Garamond', serif; font-size: 32px; font-weight: 700; color: #B3412A; line-height: 1.15">Loup-Garou</div>
+          <div style="color: #556072; font-size: 14px">Équipe des Loups · avec Inès</div>
+        </div>
+        <div style="display: flex; gap: 8px">
+          <button type="button" aria-label="Couper ma caméra" style="flex: 1; background: #FFFFFF; color: #18202E; border: 1px solid #1E7A50; border-radius: 10px; min-height: 44px; font: 600 13px Inter, sans-serif; cursor: pointer">Caméra active</button>
+          <button type="button" aria-label="Couper mon micro" style="flex: 1; background: #FFFFFF; color: #18202E; border: 1px solid #1E7A50; border-radius: 10px; min-height: 44px; font: 600 13px Inter, sans-serif; cursor: pointer">Micro actif</button>
+        </div>
+      </div>
+    </section>
+
+    <section aria-labelledby="v-village" style="flex: 999 1 520px; min-width: 0; background: #FFFFFF; border: 1px solid #D5DCE6; border-radius: 18px; overflow: hidden">
+      <h2 id="v-village" style="margin: 0; display: flex; align-items: center; gap: 10px; padding: 12px 16px; background: #F3F5F9; border-bottom: 1px solid #D5DCE6; font-size: 13px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; color: #3D4757">
+        <span style="width: 22px; height: 22px; border-radius: 50%; background: #D5DCE6; display: flex; align-items: center; justify-content: center; font-size: 12px">2</span>Le village
+      </h2>
+      <div style="padding: 16px; display: flex; flex-direction: column; gap: 18px">
+        <div style="display: flex; flex-direction: column; gap: 12px">
+          <div style="display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 8px">
+            <h3 style="margin: 0; display: flex; align-items: center; gap: 8px; font-size: 18px; font-weight: 700">
+              <span aria-hidden="true" style="width: 10px; height: 10px; border-radius: 50%; background: #1E7A50"></span>Vivants · 7
+            </h3>
+            <span style="color: #556072; font-size: 14px">4 sur 7 ont voté</span>
+          </div>
+          <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 12px">
+            <sc-for list="{{ alive }}" as="p" hint-placeholder-count="7">
+              <div style="aspect-ratio: 4 / 3; background: #2A3142; border-radius: 12px; position: relative; overflow: hidden; display: flex; align-items: center; justify-content: center; border: 2px solid {{p.border}}">
+                <sc-if value="{{ p.cam }}" hint-placeholder-val="{{ true }}">
+                  <svg aria-hidden="true" viewBox="0 0 120 90" width="100%" height="100%"><circle cx="60" cy="38" r="16" fill="#4A5270"></circle><path d="M28 90c0-20 14-32 32-32s32 12 32 32z" fill="#4A5270"></path></svg>
+                </sc-if>
+                <sc-if value="{{ p.noCam }}" hint-placeholder-val="{{ false }}">
+                  <span aria-hidden="true" style="width: 56px; height: 56px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 22px; color: #11131A; background: {{p.color}}">{{p.initial}}</span>
+                </sc-if>
+                <sc-if value="{{ p.captain }}" hint-placeholder-val="{{ false }}">
+                  <span style="position: absolute; top: 8px; left: 8px; display: flex; align-items: center; gap: 4px; background: #FFF4E5; color: #7A4210; border-radius: 6px; padding: 2px 8px; font-size: 12px; font-weight: 700">
+                    <svg aria-hidden="true" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#7A4210" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8l4 4 5-7 5 7 4-4-2 11H5z"></path></svg>Capitaine
+                  </span>
+                </sc-if>
+                <sc-if value="{{ p.voted }}" hint-placeholder-val="{{ false }}">
+                  <span style="position: absolute; top: 8px; right: 8px; display: flex; align-items: center; gap: 4px; background: #E3F1EA; color: #1E5B3F; border-radius: 6px; padding: 2px 8px; font-size: 12px; font-weight: 700">
+                    <svg aria-hidden="true" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#1E5B3F" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5 9-10"></path></svg>A voté
+                  </span>
+                </sc-if>
+                <span style="position: absolute; left: 8px; bottom: 8px; background: rgba(12,14,20,0.85); color: #EEEAE2; border-radius: 6px; padding: 2px 8px; font-size: 13px; font-weight: 600">{{p.name}}</span>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+        <div style="background: #E4E8EE; border: 1px dashed #A9B2C0; border-radius: 14px; padding: 14px; display: flex; flex-direction: column; gap: 10px">
+          <div style="display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 8px">
+            <h3 style="margin: 0; display: flex; align-items: center; gap: 8px; font-size: 16px; font-weight: 700; color: #3D4757">
+              <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#3D4757" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 21V10a5 5 0 0 1 10 0v11M5 21h14M12 10v5M10 12h4"></path></svg>
+              Cimetière · 3
+            </h3>
+            <span style="color: #556072; font-size: 13px">Ne votent pas · micros coupés</span>
+          </div>
+          <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 8px">
+            <sc-for list="{{ dead }}" as="d" hint-placeholder-count="3">
+              <div style="display: flex; align-items: center; gap: 10px; background: #F3F5F9; border-radius: 10px; padding: 8px 10px">
+                <span aria-hidden="true" style="width: 34px; height: 34px; flex: none; border-radius: 50%; background: #A9B2C0; color: #18202E; display: flex; align-items: center; justify-content: center; font-weight: 700">{{d.initial}}</span>
+                <div style="min-width: 0">
+                  <div style="font-weight: 600; color: #3D4757; text-decoration: line-through">{{d.name}}</div>
+                  <div style="font-size: 12px; color: #556072">{{d.info}}</div>
+                </div>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="zone-action" aria-labelledby="v-action" style="flex: 1 1 320px; min-width: 0; display: flex; flex-direction: column; gap: 16px">
+      <div style="background: #FFFFFF; border: 2px solid #1F3A5F; border-radius: 18px; overflow: hidden">
+        <h2 id="v-action" style="margin: 0; display: flex; align-items: center; gap: 10px; padding: 12px 16px; background: #1F3A5F; font-size: 13px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; color: #FFFFFF">
+          <span style="width: 22px; height: 22px; border-radius: 50%; background: #FFFFFF; color: #1F3A5F; display: flex; align-items: center; justify-content: center; font-size: 12px">3</span>À toi de voter
+        </h2>
+        <div style="padding: 16px; display: flex; flex-direction: column; gap: 12px">
+          <div style="font-size: 18px; font-weight: 700">Qui veux-tu éliminer ?</div>
+          <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px">
+            <sc-for list="{{ choices }}" as="c" hint-placeholder-count="6">
+              <button type="button" aria-pressed="{{c.pressed}}" style="background: {{c.bg}}; color: #18202E; border: 1px solid {{c.border}}; border-radius: 10px; padding: 10px 12px; font: 600 14px Inter, sans-serif; min-height: 44px; cursor: pointer; text-align: left">{{c.name}}</button>
+            </sc-for>
+          </div>
+          <div style="display: flex; gap: 8px; flex-wrap: wrap">
+            <button type="button" style="flex: 1 1 150px; background: #1F3A5F; color: #FFFFFF; border: none; border-radius: 12px; padding: 14px 20px; font: 700 16px Inter, sans-serif; min-height: 48px; cursor: pointer">Voter : Marc</button>
+            <button type="button" style="background: #FFFFFF; color: #18202E; border: 1px solid #D5DCE6; border-radius: 12px; padding: 14px 18px; font: 600 15px Inter, sans-serif; min-height: 48px; cursor: pointer">S'abstenir</button>
+          </div>
+          <div style="display: flex; gap: 8px; align-items: flex-start; background: #EEF2F7; border-radius: 10px; padding: 10px 12px; font-size: 14px; color: #3D4757">
+            <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#3D4757" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex: none; margin-top: 2px"><rect x="5" y="11" width="14" height="10" rx="2"></rect><path d="M8 11V7a4 4 0 0 1 8 0v4"></path></svg>
+            <span>Votes cachés, révélés tous en même temps. Le vote d'Alice (Capitaine) compte double.</span>
+          </div>
+        </div>
+      </div>
+      <div style="background: #FFFFFF; border: 1px solid #D5DCE6; border-radius: 18px; overflow: hidden">
+        <h2 style="margin: 0; display: flex; align-items: center; gap: 10px; padding: 12px 16px; background: #F3F5F9; border-bottom: 1px solid #D5DCE6; font-size: 13px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; color: #3D4757">
+          <span style="width: 22px; height: 22px; border-radius: 50%; background: #D5DCE6; display: flex; align-items: center; justify-content: center; font-size: 12px">4</span>Journal
+        </h2>
+        <ol style="list-style: none; margin: 0; padding: 12px 16px; display: flex; flex-direction: column; gap: 8px; font-size: 14px">
+          <sc-for list="{{ log }}" as="l" hint-placeholder-count="4">
+            <li style="display: flex; gap: 10px"><span style="color: #556072; flex: none; width: 52px">{{l.when}}</span><span>{{l.text}}</span></li>
+          </sc-for>
+        </ol>
+      </div>
+    </section>
+  </main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1080}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const st = (label, state) => ({
+      label,
+      bg: state === 'now' ? '#1F3A5F' : state === 'done' ? '#FBEBD3' : 'transparent',
+      fg: state === 'now' ? '#FFFFFF' : '#7A4210',
+      border: state === 'now' ? '#1F3A5F' : '#E9C89A'
+    });
+    const steps = [st('Aube ✓', 'done'), st('Débat ✓', 'done'), st('Vote', 'now'), st('Révélation', 'next')];
+    const colors = ['#E8A75D', '#8DB4F0', '#C7A6E8', '#7FC8A9', '#F08A6C'];
+    const raw = [
+      ['Bastien (toi)', true, false], ['Alice', true, true], ['Chloé', false, true], ['Emma', true, true],
+      ['Inès', true, false], ['Julien', true, true], ['Marc', true, false]
+    ];
+    const alive = raw.map((r, i) => ({
+      name: r[0], initial: r[0][0], color: colors[i % colors.length], cam: r[1], noCam: !r[1], voted: r[2],
+      captain: r[0] === 'Alice', border: r[0] === 'Bastien (toi)' ? '#1F3A5F' : 'transparent'
+    }));
+    const dead = [
+      { name: 'Léa', initial: 'L', info: 'Petite Fille · dévorée nuit 1' },
+      { name: 'David', initial: 'D', info: 'Villageois · éliminé jour 1' },
+      { name: 'Hugo', initial: 'H', info: 'Voyante · dévoré nuit 2' }
+    ];
+    const choices = ['Alice', 'Chloé', 'Emma', 'Inès', 'Julien', 'Marc'].map((n) => {
+      const sel = n === 'Marc';
+      return { name: n, pressed: sel ? 'true' : 'false', bg: sel ? '#E6EDF7' : '#FFFFFF', border: sel ? '#1F3A5F' : '#D5DCE6' };
+    });
+    const log = [
+      { when: 'Jour 1', text: 'David est éliminé. Il était Villageois.' },
+      { when: 'Nuit 2', text: 'Le village s’endort.' },
+      { when: 'Jour 2', text: 'Hugo est retrouvé mort. Il était Voyante.' },
+      { when: 'Jour 2', text: 'Le vote est ouvert.' }
+    ];
+    return { steps, alive, dead, choices, log };
+  }
+}
+</script>
+</body>
+</html>

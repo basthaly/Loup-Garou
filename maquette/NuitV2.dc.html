@@ -1,0 +1,206 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>Nuit — zones séparées</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@600;700&amp;family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#E8A75D}a:hover{color:#F5C58C}
+@media (max-width: 900px){ .zone-action{order:-1} }
+</style>
+</helmet>
+<div style="min-height: 100vh; background: #0F1117; color: #EEEAE2; font-family: Inter, system-ui, sans-serif; font-size: 15px; line-height: 1.5">
+  <header style="background: #1B1F3A; border-bottom: 2px solid #3B4380">
+    <div style="max-width: 1440px; margin: 0 auto; padding: 14px 24px; display: flex; flex-wrap: wrap; align-items: center; gap: 16px 28px">
+      <div style="display: flex; align-items: center; gap: 10px">
+        <svg aria-hidden="true" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#E8A75D" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"></path></svg>
+        <span style="font-family: 'Cormorant Garamond', serif; font-size: 24px; font-weight: 700">Loup-Garou</span>
+      </div>
+      <div style="display: flex; align-items: baseline; gap: 10px">
+        <span style="font-family: 'Cormorant Garamond', serif; font-size: 34px; font-weight: 700; line-height: 1">Nuit 2</span>
+        <span style="color: #B9BEDD">Partie K7Q2</span>
+      </div>
+      <ol aria-label="Ordre de la nuit" style="list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px; flex: 1 1 420px">
+        <sc-for list="{{ steps }}" as="s" hint-placeholder-count="5">
+          <li style="display: flex; align-items: center; gap: 6px; border-radius: 999px; padding: 5px 12px; font-size: 13px; font-weight: 600; background: {{s.bg}}; color: {{s.fg}}; border: 1px solid {{s.border}}">{{s.label}}</li>
+        </sc-for>
+      </ol>
+      <div style="display: flex; flex-direction: column; align-items: flex-end">
+        <span style="font-size: 12px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; color: #B9BEDD">Temps restant</span>
+        <span style="font-variant-numeric: tabular-nums; font-weight: 700; font-size: 28px; line-height: 1">0:42</span>
+      </div>
+    </div>
+    <div style="background: #161A31; border-top: 1px solid #2B3160">
+      <div style="max-width: 1440px; margin: 0 auto; padding: 10px 24px; display: flex; gap: 12px; align-items: center">
+        <span style="font-size: 12px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; color: #E8A75D; flex: none">Le MJ</span>
+        <p style="margin: 0; font-family: 'Cormorant Garamond', serif; font-size: 22px; font-weight: 600; line-height: 1.25">Les Loups-Garous se réveillent, se reconnaissent et désignent leur victime.</p>
+      </div>
+    </div>
+  </header>
+
+  <main style="max-width: 1440px; margin: 0 auto; padding: 20px 24px 40px; display: flex; flex-wrap: wrap; gap: 20px; align-items: flex-start">
+
+    <section aria-labelledby="z-moi" style="flex: 1 1 260px; max-width: 100%; min-width: 0; background: #181B24; border: 1px solid #2C3142; border-radius: 18px; overflow: hidden">
+      <h2 id="z-moi" style="margin: 0; display: flex; align-items: center; gap: 10px; padding: 12px 16px; background: #1F2330; border-bottom: 1px solid #2C3142; font-size: 13px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; color: #C9CCD6">
+        <span style="width: 22px; height: 22px; border-radius: 50%; background: #2C3142; display: flex; align-items: center; justify-content: center; font-size: 12px">1</span>Moi
+      </h2>
+      <div style="padding: 16px; display: flex; flex-direction: column; gap: 14px">
+        <div style="aspect-ratio: 4 / 3; background: #2E3446; border-radius: 12px; position: relative; overflow: hidden">
+          <svg aria-hidden="true" viewBox="0 0 120 90" width="100%" height="100%"><circle cx="60" cy="38" r="16" fill="#4A5270"></circle><path d="M28 90c0-20 14-32 32-32s32 12 32 32z" fill="#4A5270"></path></svg>
+          <span style="position: absolute; left: 8px; bottom: 8px; background: rgba(12,14,20,0.85); border-radius: 6px; padding: 2px 8px; font-size: 13px; font-weight: 600">Bastien (toi)</span>
+        </div>
+        <div>
+          <div style="font-size: 12px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; color: #A9A69F">Ton rôle</div>
+          <div style="font-family: 'Cormorant Garamond', serif; font-size: 32px; font-weight: 700; color: #F08A6C; line-height: 1.15">Loup-Garou</div>
+          <div style="color: #A9A69F; font-size: 14px">Équipe des Loups</div>
+        </div>
+        <div style="background: #232736; border-radius: 10px; padding: 10px 12px; font-size: 14px">Ta meute : <strong>Inès</strong></div>
+        <div style="display: flex; gap: 8px">
+          <button type="button" aria-label="Couper ma caméra" style="flex: 1; display: flex; align-items: center; justify-content: center; gap: 6px; background: #232736; color: #EEEAE2; border: 1px solid #7FC8A9; border-radius: 10px; min-height: 44px; font: 600 13px Inter, sans-serif; cursor: pointer">
+            <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#7FC8A9" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="7" width="13" height="10" rx="2"></rect><path d="M16 11l5-3v8l-5-3z"></path></svg>Caméra
+          </button>
+          <button type="button" aria-label="Couper mon micro" style="flex: 1; display: flex; align-items: center; justify-content: center; gap: 6px; background: #232736; color: #EEEAE2; border: 1px solid #7FC8A9; border-radius: 10px; min-height: 44px; font: 600 13px Inter, sans-serif; cursor: pointer">
+            <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#7FC8A9" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="3" width="6" height="11" rx="3"></rect><path d="M5 11a7 7 0 0 0 14 0M12 18v3"></path></svg>Micro
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <section aria-labelledby="z-village" style="flex: 999 1 520px; min-width: 0; background: #181B24; border: 1px solid #2C3142; border-radius: 18px; overflow: hidden">
+      <h2 id="z-village" style="margin: 0; display: flex; align-items: center; gap: 10px; padding: 12px 16px; background: #1F2330; border-bottom: 1px solid #2C3142; font-size: 13px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; color: #C9CCD6">
+        <span style="width: 22px; height: 22px; border-radius: 50%; background: #2C3142; display: flex; align-items: center; justify-content: center; font-size: 12px">2</span>Le village
+      </h2>
+      <div style="padding: 16px; display: flex; flex-direction: column; gap: 18px">
+        <div style="display: flex; flex-direction: column; gap: 12px">
+          <div style="display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 8px">
+            <h3 style="margin: 0; display: flex; align-items: center; gap: 8px; font-size: 18px; font-weight: 700">
+              <span aria-hidden="true" style="width: 10px; height: 10px; border-radius: 50%; background: #7FC8A9"></span>Vivants · 8
+            </h3>
+            <span style="color: #A9A69F; font-size: 14px">Seule ta meute est visible cette nuit</span>
+          </div>
+          <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 12px">
+            <sc-for list="{{ alive }}" as="p" hint-placeholder-count="8">
+              <div style="aspect-ratio: 4 / 3; border-radius: 12px; position: relative; overflow: hidden; display: flex; align-items: center; justify-content: center; background: {{p.bg}}; border: 2px solid {{p.border}}">
+                <sc-if value="{{ p.awake }}" hint-placeholder-val="{{ false }}">
+                  <svg aria-hidden="true" viewBox="0 0 120 90" width="100%" height="100%"><circle cx="60" cy="38" r="16" fill="#4A5270"></circle><path d="M28 90c0-20 14-32 32-32s32 12 32 32z" fill="#4A5270"></path></svg>
+                </sc-if>
+                <sc-if value="{{ p.asleep }}" hint-placeholder-val="{{ true }}">
+                  <div style="display: flex; flex-direction: column; align-items: center; gap: 4px; color: #6E7591; font-size: 12px; font-weight: 600">
+                    <svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#6E7591" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"></path></svg>
+                    Endormi
+                  </div>
+                </sc-if>
+                <sc-if value="{{ p.wolf }}" hint-placeholder-val="{{ false }}">
+                  <span style="position: absolute; top: 8px; left: 8px; background: #3A2420; color: #F7A58C; border-radius: 6px; padding: 2px 8px; font-size: 12px; font-weight: 700">Meute</span>
+                </sc-if>
+                <sc-if value="{{ p.target }}" hint-placeholder-val="{{ false }}">
+                  <span style="position: absolute; top: 8px; right: 8px; background: #F08A6C; color: #1A0E09; border-radius: 6px; padding: 2px 8px; font-size: 12px; font-weight: 700">Ta cible</span>
+                </sc-if>
+                <span style="position: absolute; left: 8px; bottom: 8px; background: rgba(12,14,20,0.85); border-radius: 6px; padding: 2px 8px; font-size: 13px; font-weight: 600">{{p.name}}</span>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+        <div style="background: #12141A; border: 1px dashed #3A3E4C; border-radius: 14px; padding: 14px; display: flex; flex-direction: column; gap: 10px">
+          <div style="display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 8px">
+            <h3 style="margin: 0; display: flex; align-items: center; gap: 8px; font-size: 16px; font-weight: 700; color: #B4B2AC">
+              <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#B4B2AC" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 21V10a5 5 0 0 1 10 0v11M5 21h14M12 10v5M10 12h4"></path></svg>
+              Cimetière · 2
+            </h3>
+            <span style="color: #8F8D88; font-size: 13px">Ils écoutent, mais ne parlent plus</span>
+          </div>
+          <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 8px">
+            <sc-for list="{{ dead }}" as="d" hint-placeholder-count="2">
+              <div style="display: flex; align-items: center; gap: 10px; background: #1C1F27; border-radius: 10px; padding: 8px 10px">
+                <span aria-hidden="true" style="width: 34px; height: 34px; flex: none; border-radius: 50%; background: #4A4D57; color: #C9CCD6; display: flex; align-items: center; justify-content: center; font-weight: 700">{{d.initial}}</span>
+                <div style="min-width: 0">
+                  <div style="font-weight: 600; color: #C9CCD6; text-decoration: line-through; text-decoration-color: #6E7591">{{d.name}}</div>
+                  <div style="font-size: 12px; color: #8F8D88">{{d.info}}</div>
+                </div>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="zone-action" aria-labelledby="z-action" style="flex: 1 1 320px; min-width: 0; display: flex; flex-direction: column; gap: 16px">
+      <div style="background: #181B24; border: 2px solid #F08A6C; border-radius: 18px; overflow: hidden">
+        <h2 id="z-action" style="margin: 0; display: flex; align-items: center; gap: 10px; padding: 12px 16px; background: #3A2420; font-size: 13px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; color: #F7A58C">
+          <span style="width: 22px; height: 22px; border-radius: 50%; background: #F08A6C; color: #1A0E09; display: flex; align-items: center; justify-content: center; font-size: 12px">3</span>À toi de jouer
+        </h2>
+        <div style="padding: 16px; display: flex; flex-direction: column; gap: 12px">
+          <div style="font-size: 18px; font-weight: 700">Choisis la victime</div>
+          <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px">
+            <sc-for list="{{ targets }}" as="t" hint-placeholder-count="6">
+              <button type="button" aria-pressed="{{t.pressed}}" style="background: {{t.bg}}; color: #EEEAE2; border: 1px solid {{t.border}}; border-radius: 10px; padding: 10px 12px; font: 600 14px Inter, sans-serif; min-height: 44px; cursor: pointer; text-align: left">{{t.name}}</button>
+            </sc-for>
+          </div>
+          <button type="button" style="background: #F08A6C; color: #1A0E09; border: none; border-radius: 12px; padding: 14px 20px; font: 700 16px Inter, sans-serif; min-height: 48px; cursor: pointer">Valider : Hugo</button>
+          <div style="display: flex; align-items: center; gap: 8px; background: #232736; border-radius: 10px; padding: 10px 12px; font-size: 14px">
+            <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#7FC8A9" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5 9-10"></path></svg>
+            <span>Inès a choisi <span style="color: #A9A69F">(révélé quand tu valides)</span></span>
+          </div>
+        </div>
+      </div>
+      <div style="background: #181B24; border: 1px solid #2C3142; border-radius: 18px; overflow: hidden">
+        <h2 style="margin: 0; display: flex; align-items: center; gap: 10px; padding: 12px 16px; background: #1F2330; border-bottom: 1px solid #2C3142; font-size: 13px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; color: #C9CCD6">
+          <span style="width: 22px; height: 22px; border-radius: 50%; background: #2C3142; display: flex; align-items: center; justify-content: center; font-size: 12px">4</span>Journal
+        </h2>
+        <ol style="list-style: none; margin: 0; padding: 12px 16px; display: flex; flex-direction: column; gap: 8px; font-size: 14px">
+          <sc-for list="{{ log }}" as="l" hint-placeholder-count="4">
+            <li style="display: flex; gap: 10px"><span style="color: #8F8D88; flex: none; width: 52px">{{l.when}}</span><span>{{l.text}}</span></li>
+          </sc-for>
+        </ol>
+      </div>
+    </section>
+  </main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1080}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const st = (label, state) => ({
+      label,
+      bg: state === 'now' ? '#F08A6C' : state === 'done' ? '#262B4A' : 'transparent',
+      fg: state === 'now' ? '#1A0E09' : state === 'done' ? '#B9BEDD' : '#8C92B8',
+      border: state === 'now' ? '#F08A6C' : '#3B4380'
+    });
+    const steps = [st('Salvateur ✓', 'done'), st('Voyante ✓', 'done'), st('Loups-Garous', 'now'), st('Sorcière', 'next'), st('Aube', 'next')];
+    const names = ['Bastien (toi)', 'Alice', 'Chloé', 'Emma', 'Hugo', 'Inès', 'Julien', 'Marc'];
+    const wolves = ['Bastien (toi)', 'Inès'];
+    const alive = names.map((n) => {
+      const wolf = wolves.indexOf(n) >= 0;
+      const target = n === 'Hugo';
+      return {
+        name: n, wolf, awake: wolf, asleep: !wolf, target,
+        bg: wolf ? '#2E3446' : '#161925',
+        border: target ? '#F08A6C' : wolf ? '#7A4A3D' : '#262A3A'
+      };
+    });
+    const dead = [
+      { name: 'Léa', initial: 'L', info: 'Petite Fille · dévorée nuit 1' },
+      { name: 'David', initial: 'D', info: 'Villageois · éliminé jour 1' }
+    ];
+    const targets = ['Alice', 'Chloé', 'Emma', 'Hugo', 'Julien', 'Marc'].map((n) => {
+      const sel = n === 'Hugo';
+      return { name: n, pressed: sel ? 'true' : 'false', bg: sel ? '#3A2420' : '#232736', border: sel ? '#F08A6C' : '#30354A' };
+    });
+    const log = [
+      { when: 'Nuit 1', text: 'Léa est retrouvée morte. Elle était Petite Fille.' },
+      { when: 'Jour 1', text: 'Alice est élue Capitaine.' },
+      { when: 'Jour 1', text: 'David est éliminé par le village. Il était Villageois.' },
+      { when: 'Nuit 2', text: 'Le village s’endort.' }
+    ];
+    return { steps, alive, dead, targets, log };
+  }
+}
+</script>
+</body>
+</html>

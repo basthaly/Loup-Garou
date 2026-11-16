@@ -1,5 +1,8 @@
 const path = require('path');
+const fs = require('fs');
+const os = require('os');
 const http = require('http');
+const https = require('https');
 const crypto = require('crypto');
 const express = require('express');
 const { Server } = require('socket.io');
@@ -7,12 +10,33 @@ const { Room } = require('./game');
 const { ROLES, EXTENSIONS } = require('./roles');
 
 const PORT = parseInt(process.env.PORT || '3000', 10);
+const USE_HTTPS = process.env.HTTPS === '1';
 const app = express();
-const server = http.createServer(app);
+const server = USE_HTTPS ? https.createServer(loadCert(), app) : http.createServer(app);
 const io = new Server(server);
 
+// Serveurs STUN/TURN transmis aux navigateurs (ICE_SERVERS = JSON pour ajouter un TURN).
+let ICE_SERVERS = [{ urls: 'stun:stun.l.google.com:19302' }];
+try { if (process.env.ICE_SERVERS) ICE_SERVERS = JSON.parse(process.env.ICE_SERVERS); } catch (e) { console.warn('ICE_SERVERS invalide, ignoré.'); }
+
+// HTTPS : la caméra n'est autorisée par les navigateurs qu'en HTTPS (ou sur localhost).
+// Certificat auto-signé généré une fois dans ./certs (le navigateur affichera un avertissement à accepter).
+function loadCert() {
+  const dir = path.join(__dirname, '..', 'certs');
+  const keyFile = path.join(dir, 'key.pem');
+  const certFile = path.join(dir, 'cert.pem');
+  if (!fs.existsSync(keyFile) || !fs.existsSync(certFile)) {
+    const selfsigned = require('selfsigned');
+    const pems = selfsigned.generate([{ name: 'commonName', value: 'loup-garou.local' }], { days: 825, keySize: 2048 });
+    fs.mkdirSync(dir, { recursive: true });
+    fs.writeFileSync(keyFile, pems.private);
+    fs.writeFileSync(certFile, pems.cert);
+  }
+  return { key: fs.readFileSync(keyFile), cert: fs.readFileSync(certFile) };
+}
+
 app.use(express.static(path.join(__dirname, '..', 'public')));
-app.get('/api/roles', (req, res) => res.json({ roles: ROLES, extensions: EXTENSIONS }));
+app.get('/api/roles', (req, res) => res.json({ roles: ROLES, extensions: EXTENSIONS, iceServers: ICE_SERVERS }));
 app.get('/health', (req, res) => res.json({ ok: true, rooms: rooms.size }));
 
 const rooms = new Map();          // code -> Room
@@ -40,6 +64,7 @@ function attach(socket, room, player) {
   sockets.set(socket.id, { code: room.code, playerId: player.id });
   socket.join(room.code);
   player.connected = true;
+  player.conn = crypto.randomBytes(4).toString('hex'); // change à chaque connexion : les autres recréent la liaison vidéo
   broadcast(room);
 }
 
@@ -105,6 +130,20 @@ io.on('connection', (socket) => {
   socket.on('start', handle(() => { const { room, id } = current(socket); room.start(id); }));
   socket.on('act', handle((payload) => { const { room, id } = current(socket); room.act(id, payload); }));
   socket.on('control', handle(() => { const { room, id } = current(socket); room.control(id); }));
+  socket.on('media', handle((m) => { const { room, id } = current(socket); room.setMedia(id, m); }));
+
+  // Relais de signalisation WebRTC entre deux joueurs du même salon.
+  socket.on('rtc', (msg) => {
+    const info = sockets.get(socket.id);
+    if (!info || !msg || typeof msg.to !== 'string') return;
+    for (const [sid, other] of sockets) {
+      if (other.code === info.code && other.playerId === msg.to) {
+        const s = io.sockets.sockets.get(sid);
+        if (s) s.emit('rtc', { from: info.playerId, data: msg.data });
+      }
+    }
+  });
+
   socket.on('restart', handle(() => { const { room, id } = current(socket); room.restart(id); }));
 
   socket.on('disconnect', () => {
@@ -128,7 +167,14 @@ setInterval(() => {
 }, 15 * 60 * 1000).unref();
 
 if (require.main === module) {
-  server.listen(PORT, () => console.log(`Loup-Garou : http://localhost:${PORT}`));
+  server.listen(PORT, () => {
+    const proto = USE_HTTPS ? 'https' : 'http';
+    console.log(`Loup-Garou : ${proto}://localhost:${PORT}`);
+    for (const list of Object.values(os.networkInterfaces())) {
+      for (const a of list || []) if (a.family === 'IPv4' && !a.internal) console.log(`  sur le réseau : ${proto}://${a.address}:${PORT}`);
+    }
+    if (!USE_HTTPS) console.log('  (caméra/micro : OK sur localhost ; pour les autres appareils, lance avec HTTPS=1)');
+  });
 }
 
 module.exports = { server, rooms };
