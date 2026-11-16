@@ -298,6 +298,7 @@ Toujours depuis le dossier `Loup-Garou/deploy` (après `ssh` puis `sudo -i`, tap
 | Pour… | Commande |
 | --- | --- |
 | Vérifier que tout tourne | `./status.sh` |
+| Voir les salons et les joueurs connectés | `./who.sh` (en continu : `watch -n 5 ./who.sh`) |
 | Mettre à jour vers la dernière version | `./update.sh` |
 | Voir ce qui se passe (journaux) | `docker compose logs -f app` (quitter avec `Ctrl + C`) |
 | Redémarrer | `docker compose restart` |
@@ -398,7 +399,7 @@ Vérifier que ça tourne : `docker compose ps` et `curl -k https://127.0.0.1:300
 | `public/app.js` | Interface |
 | `public/media.js` | Micro et caméra (LiveKit ou maillage direct) |
 | `Dockerfile`, `docker-compose.yml` | Le site seul dans Docker (PC ou serveur) |
-| `deploy/` | Installation complète sur serveur : Docker Compose, LiveKit, Caddy, `install.sh`, `status.sh`, `update.sh` |
+| `deploy/` | Installation complète sur serveur : Docker Compose, LiveKit, Caddy, `install.sh`, `status.sh`, `who.sh`, `update.sh` |
 | `test/` | Tests (`npm test`) |
 | `maquette/` | Maquettes Claude Design |
 

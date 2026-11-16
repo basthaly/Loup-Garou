@@ -1,6 +1,8 @@
 # Certificat HTTPS Let's Encrypt obtenu et renouvelé automatiquement pour {$DOMAIN}.
 {$DOMAIN} {
 	encode gzip
+	# Liste des joueurs connectés : seulement depuis le serveur (./who.sh).
+	respond /admin/* 404
 	reverse_proxy 127.0.0.1:3000
 }
 

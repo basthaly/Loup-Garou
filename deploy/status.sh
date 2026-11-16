@@ -16,7 +16,7 @@ for s in app livekit caddy; do
   else ko "conteneur $s arrêté → docker compose logs $s"; fi
 done
 if HEALTH="$(curl -fsS --max-time 5 http://127.0.0.1:3000/health)"; then
-  ok "site : répond ($(echo "$HEALTH" | sed -n 's/.*"rooms":\([0-9]*\).*/\1/p') partie(s) en cours)"
+  ok "site : répond ($(echo "$HEALTH" | sed -n 's/.*"rooms":\([0-9]*\).*/\1/p') salon(s), $(echo "$HEALTH" | sed -n 's/.*"players":\([0-9]*\).*/\1/p') joueur(s) connecté(s) → détail : ./who.sh)"
 else ko "site : ne répond pas sur 127.0.0.1:3000 → docker compose logs app"; fi
 if curl -fsS --max-time 5 http://127.0.0.1:7880 >/dev/null; then ok "serveur vidéo LiveKit : répond"
 else ko "serveur vidéo LiveKit : ne répond pas sur 127.0.0.1:7880 → docker compose logs livekit"; fi

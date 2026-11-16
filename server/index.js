@@ -40,7 +40,33 @@ function loadCert() {
 app.use(express.static(path.join(__dirname, '..', 'public')));
 app.use('/vendor', express.static(path.join(__dirname, '..', 'node_modules', 'livekit-client', 'dist')));
 app.get('/api/roles', (req, res) => res.json({ roles: ROLES, extensions: EXTENSIONS, iceServers: ICE_SERVERS, video: LK.enabled ? 'livekit' : 'mesh' }));
-app.get('/health', (req, res) => res.json({ ok: true, rooms: rooms.size }));
+const connectedCount = () => [...rooms.values()].reduce((n, r) => n + [...r.players.values()].filter((p) => p.connected).length, 0);
+app.get('/health', (req, res) => res.json({ ok: true, rooms: rooms.size, players: connectedCount() }));
+
+// Qui est connecté ? Réservé au serveur lui-même (deploy/who.sh) : jamais via Internet.
+app.get('/admin/who', (req, res) => {
+  const ip = req.socket.remoteAddress || '';
+  const local = ['127.0.0.1', '::1', '::ffff:127.0.0.1'].includes(ip) && !req.headers['x-forwarded-for'];
+  if (!local) return res.status(404).end();
+  const phase = (r) => ({ lobby: 'Salon', setup: 'Préparation', night: `Nuit ${r.night}`, day: `Jour ${r.day}`, end: 'Fin de partie' }[r.phase] || r.phase);
+  const ago = (t) => { const m = Math.round((Date.now() - t) / 60000); return m < 1 ? "à l'instant" : `il y a ${m} min`; };
+  const lines = [`${rooms.size} salon(s), ${connectedCount()} joueur(s) connecté(s)`];
+  for (const r of rooms.values()) {
+    lines.push('', `Salon ${r.code} · ${phase(r)} · dernière activité ${ago(r.lastActivity)}`);
+    for (const id of r.order) {
+      const p = r.players.get(id);
+      if (!p || p.kicked) continue;
+      const tags = [];
+      if (id === r.hostId) tags.push('hôte');
+      if (r.isMJ(id)) tags.push('MJ');
+      if (r.phase !== 'lobby' && !r.isMJ(id)) tags.push(p.alive ? 'vivant' : 'mort');
+      if (p.mic) tags.push('micro');
+      if (p.cam) tags.push('caméra');
+      lines.push(`  ${p.connected ? '●' : '○'} ${p.name}${p.connected ? '' : ' (déconnecté)'}${tags.length ? '  · ' + tags.join(', ') : ''}`);
+    }
+  }
+  res.type('text/plain; charset=utf-8').send(lines.join('\n') + '\n');
+});
 
 const rooms = new Map();          // code -> Room
 const sockets = new Map();        // socket.id -> { code, playerId }
