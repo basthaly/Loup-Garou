@@ -1,7 +1,18 @@
+# Site seul dans Docker (sur ton PC ou un serveur) : docker compose up -d --build
+# Pour un VPS complet (vidéo LiveKit + HTTPS automatique), utiliser deploy/docker-compose.yml.
 services:
   loup-garou:
     build: .
     container_name: loup-garou
+    restart: unless-stopped
     ports:
       - "3000:3000"
-    restart: unless-stopped
+    environment:
+      # Décommente pour jouer à plusieurs sur ton réseau (la caméra exige le HTTPS) :
+      # HTTPS: "1"
+      MIN_PLAYERS: "3"
+    volumes:
+      - certs:/app/certs
+
+volumes:
+  certs: {}

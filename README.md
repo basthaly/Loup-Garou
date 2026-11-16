@@ -3,7 +3,7 @@
 Jouer au Loup-Garou entre amis, chacun sur son écran, avec caméra et micro. Le site fait le maître du jeu (ou un joueur le fait), distribue les rôles, coupe les caméras la nuit et révèle les votes tous en même temps.
 
 **Sommaire**
-1. [Tester sur ton PC](#1-tester-sur-ton-pc)
+1. [Tester sur ton PC](#1-tester-sur-ton-pc) (avec Node.js ou avec Docker)
 2. [Jouer à plusieurs sur ton réseau (Wi-Fi)](#2-jouer-à-plusieurs-sur-ton-réseau-wi-fi)
 3. [Mettre en ligne sur un VPS (OVH)](#3-mettre-en-ligne-sur-un-vps-ovh)
 4. [Dépannage](#4-dépannage)
@@ -61,6 +61,25 @@ Ouvre plusieurs onglets sur http://localhost:3000 : chaque onglet est un joueur.
 
 > Les parties sont gardées en mémoire : arrêter le serveur termine les parties en cours.
 
+### Variante : avec Docker (sans installer Node.js)
+
+1. Installe **Docker Desktop** : https://www.docker.com/products/docker-desktop (Windows ou macOS), puis lance-le.
+2. Récupère le projet et démarre le conteneur :
+   ```bash
+   git clone https://github.com/basthaly/Loup-Garou
+   cd Loup-Garou
+   docker compose up -d --build
+   ```
+3. Ouvre **http://localhost:3000**.
+
+| Pour… | Commande (dans le dossier `Loup-Garou`) |
+| --- | --- |
+| Voir les journaux | `docker compose logs -f` (quitter avec `Ctrl + C`) |
+| Arrêter | `docker compose down` |
+| Mettre à jour | `git pull` puis `docker compose up -d --build` |
+
+Pour jouer à plusieurs sur ton Wi-Fi avec Docker, ouvre `docker-compose.yml`, enlève le `#` devant `HTTPS: "1"`, puis relance `docker compose up -d --build`. L'adresse à donner est `https://<IP de ton PC>:3000` (voir partie 2 pour trouver l'IP et passer l'avertissement).
+
 ---
 
 ## 2. Jouer à plusieurs sur ton réseau (Wi-Fi)
@@ -77,7 +96,7 @@ $env:HTTPS=1; npm start
 HTTPS=1 npm start
 ```
 
-Le terminal affiche l'adresse à donner aux autres, par exemple :
+Le terminal affiche l'adresse à donner aux autres (avec Docker, trouve l'IP de ton PC avec `ipconfig` sous Windows ou `ipconfig getifaddr en0` sous macOS), par exemple :
 
 ```
 Loup-Garou : https://localhost:3000
@@ -124,10 +143,41 @@ Tape `yes` à la première connexion, puis le mot de passe reçu (il ne s'affich
 sudo -i
 ```
 
-### Étape 3 — Installer
+### Étape 3 — Installer Docker
 
-Remplace `vps-1234abcd.vps.ovh.net` par le nom de **ton** serveur :
+Tout tourne dans Docker sur le VPS. Deux façons de l'installer, au choix :
 
+**A. Rapide** (script officiel de Docker) :
+```bash
+curl -fsSL https://get.docker.com | sh
+```
+
+**B. Pas à pas** (dépôt officiel Docker pour Ubuntu) :
+```bash
+apt update
+apt install -y ca-certificates curl
+install -m 0755 -d /etc/apt/keyrings
+curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc
+chmod a+r /etc/apt/keyrings/docker.asc
+echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu $(. /etc/os-release && echo "$VERSION_CODENAME") stable" > /etc/apt/sources.list.d/docker.list
+apt update
+apt install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+```
+
+Vérifie que Docker fonctionne :
+```bash
+docker run --rm hello-world
+docker compose version
+```
+Le premier affiche « Hello from Docker! », le second un numéro de version.
+
+> Si tu sautes cette étape, le script de l'étape 4 installe Docker tout seul (méthode A).
+
+### Étape 4 — Installer Loup-Garou
+
+Remplace `vps-1234abcd.vps.ovh.net` par le nom de **ton** serveur.
+
+**Avec le script (recommandé)** :
 ```bash
 apt update && apt install -y git
 git clone https://github.com/basthaly/Loup-Garou
@@ -135,13 +185,36 @@ cd Loup-Garou/deploy
 ./install.sh vps-1234abcd.vps.ovh.net
 ```
 
-L'installation prend quelques minutes (Docker, puis le site). À la fin :
+L'installation prend quelques minutes. À la fin :
 
 ```
 ✔ Loup-Garou est en ligne : https://vps-1234abcd.vps.ovh.net
 ```
 
-### Étape 4 — Jouer
+**À la main avec Docker Compose** (ce que fait le script, si tu préfères tout contrôler) :
+```bash
+apt update && apt install -y git
+git clone https://github.com/basthaly/Loup-Garou
+cd Loup-Garou/deploy
+
+# 1. Fichier de configuration : ton domaine et deux clés secrètes générées au hasard
+cat > .env <<FIN
+DOMAIN=vps-1234abcd.vps.ovh.net
+LIVEKIT_API_KEY=lg$(openssl rand -hex 6)
+LIVEKIT_API_SECRET=$(openssl rand -hex 32)
+FIN
+
+# 2. Configuration du serveur vidéo à partir du modèle
+. ./.env
+sed -e "s/__KEY__/$LIVEKIT_API_KEY/" -e "s/__SECRET__/$LIVEKIT_API_SECRET/" livekit.yaml.template > livekit.yaml
+
+# 3. Démarrage des trois conteneurs : le site, LiveKit et Caddy (HTTPS)
+docker compose up -d --build
+docker compose ps
+```
+`docker compose ps` doit montrer trois services `running` : `app`, `livekit` et `caddy`.
+
+### Étape 5 — Jouer
 
 Ouvre **https://vps-1234abcd.vps.ovh.net** et partage le lien avec tes amis. Le premier chargement peut prendre une minute, le temps d'obtenir le certificat HTTPS.
 
@@ -160,7 +233,7 @@ Toujours depuis le dossier `Loup-Garou/deploy` (après `ssh` puis `sudo -i`, tap
 ### Utiliser ton propre nom de domaine (facultatif)
 
 1. Chez ton registrar, crée un enregistrement DNS **A** qui pointe vers l'IP du VPS (indiquée dans l'e-mail OVH).
-2. Attends quelques minutes, puis relance : `./install.sh mon-domaine.fr`
+2. Attends quelques minutes, puis relance : `./install.sh mon-domaine.fr` (ou, à la main, change `DOMAIN=` dans `.env` puis `docker compose up -d`).
 
 ### Pare-feu
 
@@ -222,7 +295,8 @@ Affichés « Bientôt » : Voleur, Joueur de flûte et rôles de l'extension Per
 | `server/livekit.js` | Jetons et permissions du serveur vidéo |
 | `public/app.js` | Interface |
 | `public/media.js` | Micro et caméra (LiveKit ou maillage direct) |
-| `deploy/` | Installation sur VPS : Docker Compose, LiveKit, Caddy |
+| `Dockerfile`, `docker-compose.yml` | Le site seul dans Docker (PC ou serveur) |
+| `deploy/` | Installation complète sur VPS : Docker Compose, LiveKit, Caddy |
 | `test/` | Tests (`npm test`) |
 | `maquette/` | Maquettes Claude Design |
 
