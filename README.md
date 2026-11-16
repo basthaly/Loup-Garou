@@ -61,7 +61,8 @@ Ton propre nom de domaine : crée un enregistrement DNS `A` vers l'IP du VPS, pu
 - MJ automatique (le site) ou tenu par un joueur (il voit tout et fait avancer la partie)
 - Rôles distribués automatiquement selon le nombre de joueurs (modifiable par l'hôte), ou choisis par vote des joueurs
 - Votes (village, Capitaine, loups) secrets puis révélés en même temps
-- Interface en 4 zones : Moi, Le village (vivants / cimetière séparés), Action, Journal ; bandeau de phase nuit / jour
+- On joue en touchant directement les visages ; barre du bas avec sa caméra, son rôle, micro, caméra et l'action à valider ; journal et infos dans un panneau latéral
+- Mode clair / sombre au choix ; la nuit et le jour nuancent seulement les teintes
 - **Micro et caméra indépendants** (on peut parler sans se montrer), barre flottante sur téléphone, règles automatiques :
   - jour et salon : tout le monde se voit et s'entend
   - nuit : les joueurs endormis ne voient et n'entendent plus personne (seulement leur propre caméra) ; les rôles réveillés voient tout le monde, et les loups s'entendent entre eux
