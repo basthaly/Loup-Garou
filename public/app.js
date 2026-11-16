@@ -533,7 +533,7 @@
         ${helpButton()}${settingsButton()}
         ${me.isHost && r.phase !== 'end' ? '<button class="stop" data-act="abort">Arrêter</button>' : ''}</div>
         ${narr ? `<div class="narr"><div class="in"><p>${narr}</p></div></div>` : ''}</header>`;
-    return head + `<main class="stage">${promptHTML()}${centerHTML()}${gridHTML()}${cemeteryHTML()}</main>${dockHTML()}${drawerHTML()}${helpHTML()}`;
+    return head + `<main class="stage">${promptHTML()}${centerHTML()}${gridHTML()}${cemeteryHTML()}</main>${dockHTML()}${drawerHTML()}${helpHTML()}${revealHTML()}`;
   }
 
   function settingsButton() {
@@ -561,6 +561,25 @@
       <div class="drawer-head"><h2>Comment jouer</h2><button class="round" data-act="help" aria-label="Fermer">${icon('x', 18)}</button></div>
       ${mine}<section><h3>Déroulé · ${esc((GAMES[view.room.game] || GAMES.thiercelieux).short)}</h3><ol class="how rules">${(RULES_BY_GAME[view.room.game] || RULES).map((x) => `<li>${esc(x)}</li>`).join('')}</ol></section>${cards}</aside>
       <div class="scrim" data-act="help"></div>`;
+  }
+
+  // Début de partie : la carte apparaît en grand, avec comment la jouer ; « J'ai vu mon rôle » la referme.
+  let revealSeen = null;
+  function revealHTML() {
+    const st = view.step, me = view.me;
+    if (!st || st.type !== 'roles_reveal' || st.resolved || !st.isActor || st.submitted || !me.role) return '';
+    const d = ROLES[me.role] || {};
+    const first = revealSeen !== stepKey(st);
+    revealSeen = stepKey(st);
+    const camp = { loups: 'Camp des loups', village: 'Camp du village', solitaire: 'Tu joues seul', variable: 'Ton camp dépendra du rôle copié' }[d.team] || '';
+    return `<div class="reveal-scrim ${first ? 'anim' : ''}"></div>
+      <div class="reveal ${first ? 'anim' : ''} t-bg-${d.team}" role="dialog" aria-modal="true" aria-labelledby="rv-title">
+        <p class="hint">${isON() ? 'Ta carte' : 'Ton rôle'}</p>
+        <h1 id="rv-title" class="bigrole t-${d.team}">${esc(d.name || '')}</h1>
+        <p class="rv-camp">${camp}</p>
+        <ul class="how">${(d.how || [d.desc]).map((x) => `<li>${esc(x)}</li>`).join('')}</ul>
+        <button class="primary rv-ok" data-act="ready" autofocus>J'ai vu mon rôle</button>
+      </div>`;
   }
 
   function appearanceButton() {
@@ -595,7 +614,7 @@
       let t = night ? 'Le village dort…' : 'Patiente';
       if (me.isMJ) t = `En attente : ${st.actors.filter((a) => !st.done.includes(a)).map(nm).join(', ') || '—'}`;
       else if (!me.alive) t = 'Tu ne joues plus';
-      return `<div class="prompt muted-prompt"><h1>${t}</h1>${progressHTML(st, night ? 'ont agi' : 'ont voté')}</div>`;
+      return `<div class="prompt muted-prompt"><h1>${t}</h1>${progressHTML(st, night ? 'ont agi' : 'ont voté')}${isON() ? onNotesHTML() : ''}</div>`;
     }
     const mode = pickMode(st);
     let hint = mode ? (mode.max === 2 ? 'Touche deux joueurs' : 'Touche un joueur') : '';
@@ -614,8 +633,9 @@
     switch (st.type) {
       case 'roles_reveal': {
         const d = ROLES[me.role] || {};
-        return `<div class="prompt"><p class="hint">Ton rôle</p><h1 class="bigrole t-${d.team}">${esc(d.name || '')}</h1><p class="desc">${esc(d.desc || '')}</p>
-          <div><button class="ghost small-btn" data-act="help">${icon('help', 14)} Comment jouer ?</button></div>${progressHTML(st, 'prêts')}</div>`;
+        if (!st.submitted) return `<div class="prompt"><h1>Découvre ton rôle</h1>${progressHTML(st, 'prêts')}</div>`;
+        return `<div class="prompt"><p class="hint">Ton rôle</p><h1 class="bigrole t-${d.team}">${esc(d.name || '')}</h1>
+          <p class="hint">En attente des autres joueurs…</p>${progressHTML(st, 'prêts')}</div>`;
       }
       case 'compoVote': {
         const opts = Object.entries(ROLES).filter(([k, d]) => d.impl && k !== 'loup' && k !== 'villageois' && (d.ext === 'base' || r.settings.extensions[d.ext]));
@@ -656,7 +676,7 @@
         if (st.rounds && st.rounds.length) extra = `<p class="desc">Désaccord : ${st.rounds[st.rounds.length - 1].map((c) => `${nm(c.voter)} → ${c.target ? nm(c.target) : 'personne'}`).join(', ')}</p>`;
         break;
       case 'vote': case 'captain_vote':
-        extra = progressHTML(st, 'ont voté');
+        extra = progressHTML(st, 'ont voté') + (isON() ? onNotesHTML() : '');
         if (st.type === 'vote') hint = isON() ? 'Débattez, puis touche un joueur · éliminé dès 2 voix' : 'Débattez, puis touche un joueur · le vote se clôt quand tout le monde a voté';
         if (st.type === 'vote' && r.captainId) hint += ` · ${nm(r.captainId)} compte double`;
         break;
@@ -702,8 +722,13 @@
       default: return '';
     }
   }
-  function onResultHTML(st) {
-    const r = st.result;
+  function onResultHTML(st) { return onNoteHTML(st.result); }
+  // Rappel de ce que le joueur a appris cette nuit (reste affiché jusqu'au vote).
+  function onNotesHTML() {
+    const n = (view.me.notes || []).map(onNoteHTML).filter(Boolean);
+    return n.length ? `<div class="notes"><p class="hint">Ce que tu as vu cette nuit</p>${n.join('')}</div>` : '';
+  }
+  function onNoteHTML(r) {
     if (!r) return '';
     const card = (role) => `<span class="t-${teamOf(role)}">${esc(roleName(role))}</span>`;
     const parts = [];
@@ -794,7 +819,8 @@
     const on = Amb.prefs.on && Amb.prefs.vol > 0;
     const pop = ambOpen ? `<div class="amb-pop" role="dialog" aria-label="Musique d'ambiance">
         <div class="amb-head"><b>Ambiance</b><button class="ghost small-btn" data-act="amb-mute">${on ? 'Couper' : 'Activer'}</button></div>
-        <label class="amb-row">${icon('musicoff', 16)}<input type="range" min="0" max="100" value="${Math.round(Amb.prefs.vol * 100)}" data-act="amb-vol" aria-label="Volume de la musique">${icon('music', 16)}</label></div>` : '';
+        <label class="amb-row">${icon('musicoff', 16)}<input type="range" min="0" max="100" value="${Math.round(Amb.prefs.vol * 100)}" data-act="amb-vol" aria-label="Volume de la musique">${icon('music', 16)}</label>
+        <label class="check amb-storm"><input type="checkbox" data-act="amb-storm" ${Amb.prefs.storm ? 'checked' : ''}> Tonnerre (léger et rare)</label></div>` : '';
     return `<span class="amb-wrap"><button class="round ${on ? '' : 'off'}" data-act="amb" aria-expanded="${ambOpen}" aria-label="Musique d'ambiance">${icon(on ? 'music' : 'musicoff', 20)}</button>${pop}</span>`;
   }
 
@@ -1202,6 +1228,7 @@
       ui.cv = cur;
       return;
     }
+    if (el.dataset.act === 'amb-storm') { Amb.toggleStorm(); return; }
     if (el.dataset.act === 'game') { send('switchGame', { game: el.value }); return; }
     if (el.dataset.act === 'dev') { Media.choose(el.dataset.kind, el.value); return; }
     if (el.dataset.act === 'sound') { localStorage.setItem('lg-sound', el.checked ? '1' : '0'); if (el.checked) chime(); return; }

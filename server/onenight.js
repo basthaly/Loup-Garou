@@ -91,7 +91,7 @@ class OneNightRoom extends Room {
     this.game = 'onenight';
     this.NIGHT = NIGHT;
     this.DAY = ['vote'];
-    Object.assign(this.settings, { mjMode: 'site', mjId: null, distribution: 'auto', extensions: {}, debateSeconds: 300, nightSeconds: 15 });
+    Object.assign(this.settings, { mjMode: 'site', mjId: null, distribution: 'auto', extensions: {}, debateSeconds: 300, nightSeconds: 20 });
   }
 
   resetGame() {
@@ -100,13 +100,13 @@ class OneNightRoom extends Room {
     this.doppelRole = null;
     this.nightLog = [];
     this.lastVote = null;
-    for (const p of (this.players || new Map()).values()) Object.assign(p, { card: null, startRole: null, known: {}, knownCenter: {}, knownSelf: null });
+    for (const p of (this.players || new Map()).values()) Object.assign(p, { card: null, startRole: null, known: {}, knownCenter: {}, knownSelf: null, notes: [] });
   }
 
   addPlayer(name) {
     if (this.gamePlayers().length >= MAX) throw new Error(`${MAX} joueurs maximum pour une nuit.`);
     const p = super.addPlayer(name);
-    Object.assign(p, { card: null, startRole: null, known: {}, knownCenter: {}, knownSelf: null });
+    Object.assign(p, { card: null, startRole: null, known: {}, knownCenter: {}, knownSelf: null, notes: [] });
     return p;
   }
 
@@ -229,8 +229,7 @@ class OneNightRoom extends Room {
 
   act(id, payload) {
     const s = this.step;
-    if (!s || s.resolved) throw new Error("Rien à faire pour l'instant.");
-    if (!s.actors.includes(id)) throw new Error("Ce n'est pas ton tour.");
+    if (!s || s.resolved || !s.actors.includes(id)) throw new Error('Trop tard : ton tour est passé.');
     payload = payload || {};
     const p = this.players.get(id);
     if (s.type === 'roles_reveal' || s.type === 'vote') {
@@ -310,8 +309,15 @@ class OneNightRoom extends Room {
         throw new Error('Action inconnue.');
     }
     s.inputs[id] = payload;
+    this.note(p, s);
     // Pas de fin anticipée la nuit : chaque rôle dure le même temps.
     this.changed();
+  }
+
+  // Ce que le joueur a appris cette nuit : rappelé pendant le reste de la nuit et le débat.
+  note(p, s) {
+    const r = (s.priv || {})[p.id];
+    if (r && !p.notes.includes(r)) p.notes.push(r);
   }
 
   doppel(p, targetId, s) {
@@ -340,13 +346,14 @@ class OneNightRoom extends Room {
     for (const a of s.actors) {
       if (a in s.inputs) continue;
       const p = this.players.get(a);
-      if (s.type === 'n_double' && this.others(a).length) this.doppel(p, pick(this.others(a)), s);
-      if (s.type === 'n_soulard' && this.center.length) this.drunk(p, crypto.randomInt(this.center.length), s);
+      if (s.type === 'n_double' && this.others(a).length) { this.doppel(p, pick(this.others(a)), s); this.note(p, s); }
+      if (s.type === 'n_soulard' && this.center.length) { this.drunk(p, crypto.randomInt(this.center.length), s); this.note(p, s); }
     }
     if (s.type === 'n_insomniaque') {
       for (const a of s.actors) {
         const p = this.players.get(a);
         p.knownSelf = p.card;
+        p.notes.push({ self: p.card });
         this.nightLog.push(`${p.name} (Insomniaque) voit sa carte : ${ROLES[p.card].name}.`);
       }
     }
@@ -476,7 +483,7 @@ class OneNightRoom extends Room {
         id, name: me.name, isHost: id === this.hostId, isMJ: false, canControl: id === this.hostId,
         alive: true, role: started ? me.startRole : null, lover: null, canVote: true, conn: me.conn, seesAll: end,
         seen: [], wolves: [], isWolf: false, knownSelf: me.knownSelf, finalRole: end ? this.finalRole(me.card) : null,
-        won: winners.includes(id)
+        won: winners.includes(id), notes: me.notes || []
       },
       room: {
         code: this.code, game: this.game, phase: this.phase, hostId: this.hostId, settings: this.settings, night: this.night, day: this.day,

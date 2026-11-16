@@ -586,3 +586,25 @@ details.night-log ol { margin: 6px 0 0; padding-left: 20px; display: flex; flex-
   .center-row { gap: 8px; }
   .center-title { flex-basis: 100%; }
 }
+
+.notes { display: flex; flex-direction: column; gap: 6px; align-items: flex-start; }
+.notes .hint { margin: 4px 0 0; color: var(--muted); font-size: 14px; }
+.muted-prompt .secret { color: var(--text); }
+
+/* ---------- Découverte du rôle : la carte en grand ---------- */
+.reveal-scrim { position: fixed; inset: 0; z-index: 11; background: rgba(5,7,12,.62); -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); }
+.reveal { position: fixed; z-index: 12; left: 50%; top: 50%; transform: translate(-50%, -50%); width: min(460px, calc(100vw - 32px)); max-height: calc(100dvh - 48px); overflow-y: auto; padding: 28px 26px 22px; border-radius: 24px; background: var(--zone); border: 1px solid var(--border); box-shadow: 0 30px 80px rgba(0,0,0,.5); display: flex; flex-direction: column; gap: 10px; text-align: left; }
+.reveal .hint { margin: 0; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: .06em; font-size: 12px; }
+.reveal .bigrole { font-size: 48px; line-height: 1.05; margin: 0; }
+.reveal .rv-camp { margin: 0 0 6px; color: var(--muted); font-weight: 600; }
+.reveal ul.how { gap: 8px; font-size: 16px; }
+.reveal .rv-ok { margin-top: 12px; min-height: 52px; font-size: 17px; border-radius: 14px; }
+.reveal.t-bg-loups { border-top: 4px solid var(--wolf); }
+.reveal.t-bg-village { border-top: 4px solid var(--village); }
+.reveal.t-bg-solitaire, .reveal.t-bg-variable { border-top: 4px solid var(--solo); }
+.reveal-scrim.anim { animation: fade .3s ease; }
+.reveal.anim { animation: cardin .55s cubic-bezier(.2,.8,.2,1); }
+@keyframes cardin { from { opacity: 0; transform: translate(-50%, -46%) scale(.92) rotateX(12deg); } to { opacity: 1; transform: translate(-50%, -50%); } }
+@media (max-width: 700px) { .reveal { padding: 24px 20px 18px; } .reveal .bigrole { font-size: 40px; } }
+@media (prefers-reduced-motion: reduce) { .reveal.anim { animation: fade .2s ease; } }
+.amb-storm { font-size: 14px; min-height: 32px; }

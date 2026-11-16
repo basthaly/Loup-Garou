@@ -3,7 +3,7 @@
    Volume bas par défaut pour qu'on s'entende ; chaque joueur peut couper ou régler à son goût (mémorisé). */
 window.LGAmbience = (() => {
   const KEY = 'lg-ambience';
-  const read = () => { try { return Object.assign({ on: true, vol: 0.4 }, JSON.parse(localStorage.getItem(KEY) || '{}')); } catch (e) { return { on: true, vol: 0.4 }; } };
+  const read = () => { try { return Object.assign({ on: true, vol: 0.4, storm: true }, JSON.parse(localStorage.getItem(KEY) || '{}')); } catch (e) { return { on: true, vol: 0.4, storm: true }; } };
   const prefs = read();
   const save = () => { try { localStorage.setItem(KEY, JSON.stringify(prefs)); } catch (e) { /* stockage indisponible */ } };
   const MAX_GAIN = 0.22; // curseur au maximum : reste discret sous les voix
@@ -60,7 +60,16 @@ window.LGAmbience = (() => {
     const crickets = ctx.createGain(); crickets.gain.value = 0;
     crickets.connect(master);
 
-    layers = { padGain, padFilter, voices, windGain, crickets, chord: 0 };
+    // Pluie fine : souffle aigu filtré, plus quelques gouttes.
+    const rain = ctx.createBufferSource(); rain.buffer = noiseBuffer(3, false); rain.loop = true;
+    const rHp = ctx.createBiquadFilter(); rHp.type = 'highpass'; rHp.frequency.value = 1400;
+    const rLp = ctx.createBiquadFilter(); rLp.type = 'lowpass'; rLp.frequency.value = 7000;
+    const rainGain = ctx.createGain(); rainGain.gain.value = 0;
+    rain.connect(rHp).connect(rLp).connect(rainGain).connect(master); rain.start();
+    const drops = ctx.createGain(); drops.gain.value = 0;
+    drops.connect(master);
+
+    layers = { padGain, padFilter, voices, windGain, crickets, rainGain, drops, chord: 0 };
   }
 
   function chirp() {
@@ -75,6 +84,35 @@ window.LGAmbience = (() => {
       g.gain.setValueAtTime(0, s); g.gain.linearRampToValueAtTime(0.05, s + 0.01); g.gain.linearRampToValueAtTime(0, s + 0.05);
     }
     o.start(t); o.stop(t + n * 0.07 + 0.1);
+  }
+
+  function drop() {
+    if (!ctx || mood !== 'night') return;
+    const t = ctx.currentTime;
+    const o = ctx.createOscillator(); o.type = 'sine';
+    const f = 1800 + Math.random() * 2200;
+    o.frequency.setValueAtTime(f, t); o.frequency.exponentialRampToValueAtTime(f * 0.6, t + 0.04);
+    const g = ctx.createGain(); g.gain.setValueAtTime(0.025, t); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.05);
+    o.connect(g).connect(layers.drops); o.start(t); o.stop(t + 0.06);
+  }
+
+  // Tonnerre lointain : grondement grave et doux, sans claquement, rare (certains n'aiment pas l'orage).
+  let lastThunder = 0;
+  function thunder() {
+    if (!ctx || mood !== 'night' || !prefs.storm) return;
+    if (Date.now() - lastThunder < 150000) return;
+    lastThunder = Date.now();
+    const t = ctx.currentTime;
+    const src = ctx.createBufferSource(); src.buffer = noiseBuffer(7, true);
+    const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 160;
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.linearRampToValueAtTime(0.35, t + 1.4);
+    g.gain.linearRampToValueAtTime(0.2, t + 2.6);
+    g.gain.linearRampToValueAtTime(0.28, t + 3.4);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + 6.5);
+    src.connect(lp).connect(g).connect(master);
+    src.start(t); src.stop(t + 7);
   }
 
   function owl() {
@@ -106,6 +144,9 @@ window.LGAmbience = (() => {
     loop(nextChord, 11000, 15000);
     loop(chirp, 700, 2600);
     loop(owl, 25000, 50000);
+    loop(drop, 150, 900);
+    lastThunder = Date.now(); // pas de tonnerre dans les premières minutes
+    loop(thunder, 180000, 420000);
   }
   function clear() { timers.forEach(clearTimeout); timers = []; }
 
@@ -121,6 +162,8 @@ window.LGAmbience = (() => {
     const t = ctx.currentTime;
     const night = m === 'night';
     layers.crickets.gain.setTargetAtTime(night ? 1 : 0, t, 1.5);
+    layers.rainGain.gain.setTargetAtTime(night ? 0.05 : 0, t, 3);
+    layers.drops.gain.setTargetAtTime(night ? 1 : 0, t, 3);
     layers.windGain.gain.setTargetAtTime(night ? 0.35 : 0.15, t, 2);
     layers.padFilter.frequency.setTargetAtTime(night ? 480 : 900, t, 2);
     layers.chord = -1;
@@ -153,5 +196,6 @@ window.LGAmbience = (() => {
     if (prefs.on && !ctx && wanted) { try { build(); schedule(); setMood('night'); } catch (e) { /* pas d'audio */ } }
     apply(true);
   }
-  return { update, setVolume, toggle, prefs };
+  function toggleStorm() { prefs.storm = !prefs.storm; save(); }
+  return { update, setVolume, toggle, toggleStorm, prefs };
 })();

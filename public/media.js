@@ -139,6 +139,19 @@ window.LGMedia = (() => {
     try { m.src.disconnect(); } catch (e) { /* déjà déconnectée */ }
     meters.delete(id);
   }
+  // Garde-fou : le son normal d'un joueur déformé reste coupé, même si le transport vidéo
+  // recrée ou réactive son élément audio (micro allumé en cours de route, reconnexion…).
+  let tick = 0;
+  setInterval(() => {
+    if (!view || !view.media) return;
+    const any = Object.values(view.media).some((m) => m.recv && m.recv.distort);
+    if (!any && !distorted.size && !pool.querySelector('audio[data-distort]')) return;
+    if (++tick % 5 === 0) distortSync();
+    // Son d'origine coupé dès que la règle demande la voix déformée, que l'effet soit prêt ou non.
+    pool.querySelectorAll('audio[data-pid]').forEach((el) => {
+      if (rule(el.dataset.pid).recv.distort && (!el.muted || el.volume > 0)) { el.dataset.distort = '1'; el.muted = true; el.volume = 0; }
+    });
+  }, 100);
   setInterval(() => {
     if (!view) return;
     const now = Date.now();
@@ -249,8 +262,8 @@ window.LGMedia = (() => {
     let restored = false;
     pool.querySelectorAll('audio').forEach((el) => {
       const t = el.srcObject && el.srcObject.getAudioTracks ? el.srcObject.getAudioTracks() : [];
-      const hide = t.some((x) => tracks.has(x));
-      if (hide) { el.dataset.distort = '1'; el.muted = true; } else if (el.dataset.distort) { delete el.dataset.distort; el.muted = false; restored = true; }
+      const hide = t.some((x) => tracks.has(x)) || (el.dataset.pid && rule(el.dataset.pid).recv.distort);
+      if (hide) { el.dataset.distort = '1'; el.muted = true; el.volume = 0; } else if (el.dataset.distort) { delete el.dataset.distort; el.muted = false; el.volume = 1; restored = true; }
     });
     // Fin de l'effet : le transport réapplique les règles normales (le maillage recoupe ce qui n'est pas autorisé).
     if (restored && transport) transport.applyLocal();
@@ -393,6 +406,7 @@ window.LGMedia = (() => {
         track.attach(videoEl(id));
       } else {
         const el = track.attach();
+        el.dataset.pid = id;
         pool.appendChild(el);
         e.audio.push(el);
         meter(id, track.mediaStreamTrack);
@@ -530,6 +544,7 @@ window.LGMedia = (() => {
       const peer = { id, conn, myConn: view.me.conn, pc, audioT: null, videoT: null, pending: [], stream: new MediaStream(), sent: {} };
       peers.set(id, peer);
       peer.audioEl = document.createElement('audio');
+      peer.audioEl.dataset.pid = id;
       peer.audioEl.autoplay = true;
       peer.audioEl.srcObject = peer.stream;
       pool.appendChild(peer.audioEl);
