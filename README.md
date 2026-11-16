@@ -126,7 +126,7 @@ Pour jouer avec des amis où qu'ils soient, et à nombreux. Le script installe t
 Chez OVH, un **VPS-1** suffit. À la commande, choisis l'image **Ubuntu 24.04**.
 
 Tu reçois un e-mail avec :
-- le **nom du serveur**, du type `vps-1234abcd.vps.ovh.net` ;
+- l'**adresse IP** du serveur, par exemple `51.210.12.34` (aussi visible dans l'espace client OVH) ;
 - l'**utilisateur** (en général `ubuntu`) et le **mot de passe**.
 
 ### Étape 2 — Se connecter au VPS
@@ -134,10 +134,10 @@ Tu reçois un e-mail avec :
 Depuis ton PC (PowerShell sous Windows, Terminal sous macOS) :
 
 ```bash
-ssh ubuntu@vps-1234abcd.vps.ovh.net
+ssh ubuntu@51.210.12.34
 ```
 
-Tape `yes` à la première connexion, puis le mot de passe reçu (il ne s'affiche pas pendant la saisie, c'est normal). Passe ensuite administrateur :
+(remplace `51.210.12.34` par l'IP de **ton** serveur). Tape `yes` à la première connexion, puis le mot de passe reçu (il ne s'affiche pas pendant la saisie, c'est normal). Passe ensuite administrateur :
 
 ```bash
 sudo -i
@@ -175,20 +175,31 @@ Le premier affiche « Hello from Docker! », le second un numéro de version.
 
 ### Étape 4 — Installer Loup-Garou
 
-Remplace `vps-1234abcd.vps.ovh.net` par le nom de **ton** serveur.
+#### Quelle adresse pour le site ?
+
+Le HTTPS est obligatoire (sinon pas de caméra), et un certificat HTTPS gratuit demande un **nom**, pas une IP brute. Trois possibilités :
+
+| Tu veux utiliser… | Commande | Adresse du site |
+| --- | --- | --- |
+| **Juste l'IP** du serveur (le plus simple) | `./install.sh` | `https://51-210-12-34.sslip.io` |
+| Une IP précise | `./install.sh 51.210.12.34` | `https://51-210-12-34.sslip.io` |
+| **Ton nom de domaine** | `./install.sh loupgarou.mon-domaine.fr` | `https://loupgarou.mon-domaine.fr` |
+
+- **Avec l'IP** : le script détecte l'IP tout seul et utilise [sslip.io](https://sslip.io), un service gratuit où `51-210-12-34.sslip.io` pointe vers `51.210.12.34`. Rien à configurer.
+- **Avec ton domaine** : crée d'abord, chez ton registrar (OVH, Gandi…), un enregistrement DNS **A** qui pointe vers l'IP du serveur, et attends quelques minutes qu'il soit actif.
 
 **Avec le script (recommandé)** :
 ```bash
 apt update && apt install -y git
 git clone https://github.com/basthaly/Loup-Garou
 cd Loup-Garou/deploy
-./install.sh vps-1234abcd.vps.ovh.net
+./install.sh
 ```
 
-L'installation prend quelques minutes. À la fin :
+L'installation prend quelques minutes. À la fin, le script affiche l'adresse du site :
 
 ```
-✔ Loup-Garou est en ligne : https://vps-1234abcd.vps.ovh.net
+✔ Loup-Garou est en ligne : https://51-210-12-34.sslip.io
 ```
 
 **À la main avec Docker Compose** (ce que fait le script, si tu préfères tout contrôler) :
@@ -197,9 +208,10 @@ apt update && apt install -y git
 git clone https://github.com/basthaly/Loup-Garou
 cd Loup-Garou/deploy
 
-# 1. Fichier de configuration : ton domaine et deux clés secrètes générées au hasard
+# 1. Fichier de configuration : l'adresse du site (ton IP avec des tirets + .sslip.io, ou ton domaine)
+#    et deux clés secrètes générées au hasard
 cat > .env <<FIN
-DOMAIN=vps-1234abcd.vps.ovh.net
+DOMAIN=51-210-12-34.sslip.io
 LIVEKIT_API_KEY=lg$(openssl rand -hex 6)
 LIVEKIT_API_SECRET=$(openssl rand -hex 32)
 FIN
@@ -216,7 +228,7 @@ docker compose ps
 
 ### Étape 5 — Jouer
 
-Ouvre **https://vps-1234abcd.vps.ovh.net** et partage le lien avec tes amis. Le premier chargement peut prendre une minute, le temps d'obtenir le certificat HTTPS.
+Ouvre l'adresse affichée à la fin de l'installation (par exemple **https://51-210-12-34.sslip.io**) et partage le lien avec tes amis. Le premier chargement peut prendre une minute, le temps d'obtenir le certificat HTTPS.
 
 ### Commandes utiles sur le VPS
 
@@ -230,10 +242,10 @@ Toujours depuis le dossier `Loup-Garou/deploy` (après `ssh` puis `sudo -i`, tap
 | Tout arrêter | `docker compose down` |
 | Relancer après un arrêt | `docker compose up -d` |
 
-### Utiliser ton propre nom de domaine (facultatif)
+### Passer à ton propre nom de domaine plus tard
 
-1. Chez ton registrar, crée un enregistrement DNS **A** qui pointe vers l'IP du VPS (indiquée dans l'e-mail OVH).
-2. Attends quelques minutes, puis relance : `./install.sh mon-domaine.fr` (ou, à la main, change `DOMAIN=` dans `.env` puis `docker compose up -d`).
+1. Chez ton registrar, crée un enregistrement DNS **A** qui pointe vers l'IP du VPS.
+2. Attends quelques minutes, puis relance : `./install.sh loupgarou.mon-domaine.fr` (ou, à la main, change `DOMAIN=` dans `.env` puis `docker compose up -d`).
 
 ### Pare-feu
 

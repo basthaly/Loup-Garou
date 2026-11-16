@@ -1,12 +1,27 @@
 #!/usr/bin/env bash
 # Installation sur un VPS Debian/Ubuntu (ex. OVH VPS-1). À lancer en root depuis le dossier deploy/ :
-#   ./install.sh vps-xxxxxxxx.vps.ovh.net
+#   ./install.sh                      → utilise l'adresse IP du serveur (détectée automatiquement)
+#   ./install.sh 51.210.12.34         → une adresse IP précise
+#   ./install.sh mon-domaine.fr       → ton nom de domaine (enregistrement DNS A vers l'IP du serveur)
 set -euo pipefail
 cd "$(dirname "$0")"
 
-DOMAIN="${1:-}"
-if [ -z "$DOMAIN" ]; then
-  read -rp "Nom de domaine du serveur (ex. vps-1234abcd.vps.ovh.net) : " DOMAIN
+ADDR="${1:-}"
+if [ -z "$ADDR" ]; then
+  ADDR="$(curl -fsS -4 https://api.ipify.org || true)"
+  [ -n "$ADDR" ] && echo "Adresse IP du serveur détectée : $ADDR"
+fi
+if [ -z "$ADDR" ]; then
+  read -rp "Adresse IP ou nom de domaine du serveur : " ADDR
+fi
+
+# Un certificat HTTPS gratuit (Let's Encrypt) demande un nom, pas une IP brute.
+# Pour une IP, on utilise le service gratuit sslip.io : 51-210-12-34.sslip.io pointe vers 51.210.12.34.
+if [[ "$ADDR" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+  DOMAIN="${ADDR//./-}.sslip.io"
+  echo "Adresse du site : https://$DOMAIN (pointe vers $ADDR)"
+else
+  DOMAIN="$ADDR"
 fi
 
 if ! command -v docker >/dev/null 2>&1; then
