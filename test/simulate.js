@@ -42,6 +42,12 @@ function react(s) {
     case 'voleur': payload = { take: st.mustTake || Math.random() < 0.6 ? Math.floor(Math.random() * 2) : null }; break;
     case 'infect': payload = { infect: Math.random() < 0.5 }; break;
     case 'soeurs': payload = {}; break;
+    case 'n_double': case 'n_voleur': payload = { target: rnd(st.options) }; break;
+    case 'n_voyante': payload = Math.random() < 0.5 ? { center: [0, 2] } : { target: rnd(st.options) }; break;
+    case 'n_noiseuse': payload = Math.random() < 0.2 ? { targets: null } : { targets: [...st.options].sort(() => Math.random() - 0.5).slice(0, 2) }; break;
+    case 'n_soulard': payload = { center: Math.floor(Math.random() * 3) }; break;
+    case 'n_loups': payload = st.lone ? { center: 1 } : {}; break;
+    case 'n_sbire': case 'n_macons': case 'n_insomniaque': payload = {}; break;
     case 'sorciere': payload = { save: Math.random() < 0.5, kill: st.potions && st.potions.death && Math.random() < 0.3 ? rnd(others).id : null }; break;
     case 'captain_vote': payload = { target: rnd(alive).id }; break;
     case 'vote': payload = { target: Math.random() < 0.1 ? null : rnd(others).id }; break;
@@ -53,7 +59,7 @@ function react(s) {
 async function game(url, n, opts) {
   const host = bot(url);
   await new Promise((r) => host.on('connect', r));
-  const c = await emit(host, 'create', { name: 'Bot0' });
+  const c = await emit(host, 'create', { name: 'Bot0', game: opts.game });
   if (!c.ok) throw new Error(c.error);
   const bots = [host];
   for (let i = 1; i < n; i++) {
@@ -64,10 +70,11 @@ async function game(url, n, opts) {
     bots.push(b);
   }
   await new Promise((r) => setTimeout(r, 50));
-  const patch = { distribution: opts.vote ? 'vote' : 'auto' };
+  const patch = opts.game === 'onenight' ? {} : { distribution: opts.vote ? 'vote' : 'auto' };
   if (opts.mj) { patch.mjMode = 'joueur'; patch.mjId = bots[n - 1].view.me.id; bots[n - 1].isMJBot = true; }
   const st = await emit(host, 'settings', patch);
   if (!st.ok) throw new Error(st.error);
+  if (opts.preset !== undefined) { const r = await emit(host, 'preset', { index: opts.preset }); if (!r.ok) throw new Error(r.error); }
   for (const role of opts.roles || []) {
     const r = await emit(host, 'compo', { role, delta: 1 });
     if (!r.ok) throw new Error(`${role} : ${r.error}`);
@@ -107,6 +114,8 @@ async function game(url, n, opts) {
     ['loupblanc', 'infect', 'flute', 'soeur', 'renard', 'chevalier'], ['ange', 'enfant', 'grandloup', 'voleur', 'flute']
   ];
   for (let rep = 0; rep < 4; rep++) extra.forEach((roles, i) => cases.push([8 + ((i + rep) % 5) * 2, { roles }]));
+  // Loup-Garou pour une nuit : chaque nombre de joueurs, les deux decks proposés.
+  for (let n = 3; n <= 10; n++) cases.push([n, { game: 'onenight', preset: 0 }], [n, { game: 'onenight', preset: 1 }]);
   for (const [n, opts] of cases) {
     const r = await game(url, n, opts);
     results[r.winner] = (results[r.winner] || 0) + 1;

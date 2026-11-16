@@ -8,19 +8,29 @@
   let ROLES = null;
   let EXTS = null;
   let RULES = [];
+  let RULES_BY_GAME = {};
+  const GAMES = {
+    thiercelieux: { name: 'Loup-Garou de Thiercelieux', short: 'Thiercelieux', sub: 'Plusieurs nuits · 8 à 18 joueurs', icon: 'moon' },
+    onenight: { name: 'Loup-Garou pour une nuit', short: 'Une nuit', sub: 'Une seule nuit · 3 à 10 joueurs · 10 min', icon: 'cards' }
+  };
+  const isON = () => !!view && view.room.game === 'onenight';
   let helpOpen = false;
   let helpAnim = false;
+  let ambOpen = false;
+  const Amb = window.LGAmbience;
   let offset = 0;
-  let ui = { key: null, sel: [], cv: null, save: false, kill: null };
+  let ui = { key: null, sel: [], cv: null, save: false, kill: null, csel: [] };
 
   const COLORS = ['#E8A75D', '#8DB4F0', '#C7A6E8', '#7FC8A9', '#F08A6C'];
   const DAY_STEPS = ['dawn', 'captain_vote', 'debate', 'vote', 'hunter', 'successor'];
-  const TEAM = { loups: 'Loups', village: 'Village', solitaire: 'Solitaire' };
+  const TEAM = { loups: 'Loups', village: 'Village', solitaire: 'Solitaire', variable: 'Variable' };
   const STEP_LABEL = {
     compoVote: 'Vote des rôles', roles_reveal: 'Rôles', cupidon: 'Cupidon', salvateur: 'Salvateur', voyante: 'Voyante',
     loups: 'Loups-Garous', sorciere: 'Sorcière', dawn: 'Aube', captain_vote: 'Capitaine', debate: 'Débat', vote: 'Vote',
     voleur: 'Voleur', soeurs: 'Sœurs', enfant: 'Enfant Sauvage', renard: 'Renard', infect: 'Infect', grandloup: 'Grand Méchant Loup',
-    loupblanc: 'Loup Blanc', flute: 'Flûte', hunter: 'Chasseur', successor: 'Capitaine'
+    loupblanc: 'Loup Blanc', flute: 'Flûte', hunter: 'Chasseur', successor: 'Capitaine',
+    n_double: 'Double', n_loups: 'Loups', n_sbire: 'Sbire', n_macons: 'Francs-Maçons', n_voyante: 'Voyante', n_voleur: 'Voleur',
+    n_noiseuse: 'Noiseuse', n_soulard: 'Soûlard', n_insomniaque: 'Insomniaque'
   };
   const ICON = {
     moon: '<path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"/>',
@@ -42,6 +52,9 @@
     cards: '<rect x="3" y="5" width="12" height="16" rx="2"/><path d="M9 3h10a2 2 0 0 1 2 2v14"/>',
     scroll: '<path d="M8 6h12M8 12h12M8 18h12M4 6h0M4 12h0M4 18h0"/>',
     x: '<path d="M6 6l12 12M18 6L6 18"/>',
+    music: '<path d="M9 18V5l11-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="17" cy="16" r="3"/>',
+    musicoff: '<path d="M9 18V5l11-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="17" cy="16" r="3"/><path d="M3 3l18 18"/>',
+    gear: '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/>',
     help: '<circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.6.3-1 .9-1 1.6v.6M12 17h0"/>',
     potion: '<path d="M9 3h6M10 3v5L5 17a3 3 0 0 0 2.6 4.5h8.8A3 3 0 0 0 19 17l-5-9V3"/><path d="M7.5 14h9"/>',
     poison: '<path d="M12 3a7 7 0 0 0-4 12.7V19h8v-3.3A7 7 0 0 0 12 3z"/><path d="M9 19v2M15 19v2M12 19v2"/><circle cx="9.5" cy="11" r="1.2"/><circle cx="14.5" cy="11" r="1.2"/>',
@@ -69,6 +82,7 @@
   let animT = null;
   const freshDead = new Set();
   let drawerOpen = false;
+  let drawerKind = 'settings';
   let drawerAnim = false;
   // Apparence choisie (clair / sombre), indépendante de la phase : la nuit et le jour ne font que nuancer les teintes.
   const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
@@ -78,6 +92,7 @@
     ROLES = d.roles;
     EXTS = d.extensions;
     RULES = d.rules || [];
+    RULES_BY_GAME = d.rulesByGame || {};
     Media.init(socket, d, render);
     render();
   });
@@ -96,7 +111,7 @@
     if (!v) return;
     offset = v.room.serverNow - Date.now();
     const k = stepKey(v.step);
-    if (k !== ui.key) ui = { key: k, sel: [], cv: null, save: false, kill: null };
+    if (k !== ui.key) ui = { key: k, sel: [], cv: null, save: false, kill: null, csel: [] };
     setView(v);
   });
 
@@ -145,11 +160,41 @@
   // ---------- Rendu ----------
   // Une liste déroulante ouverte se refermerait au moindre rendu : on attend qu'elle soit refermée.
   let pendingRender = false;
-  $app.addEventListener('focusout', (e) => { if (e.target.tagName === 'SELECT' && pendingRender) { pendingRender = false; setTimeout(render, 0); } });
+  $app.addEventListener('focusout', (e) => { if ((e.target.tagName === 'SELECT' || e.target.type === 'range') && pendingRender) { pendingRender = false; setTimeout(render, 0); } });
+
+  // Les vignettes prennent la place disponible selon l'écran et le nombre de joueurs (sans gros plan).
+  function layoutGrid() {
+    const g = $app.querySelector('.stage-grid');
+    if (!g || !g.children.length) return;
+    const n = g.children.length;
+    const W = g.clientWidth;
+    const top = g.getBoundingClientRect().top + window.scrollY;
+    const dock = document.querySelector('.dock');
+    const cem = $app.querySelector('.cemetery-row');
+    const H = Math.max(180, window.innerHeight - top - (dock ? dock.offsetHeight : 0) - (cem ? cem.offsetHeight + 18 : 0) - 20);
+    const gap = parseFloat(getComputedStyle(g).columnGap) || 12;
+    let best = { w: 0, cols: 1 };
+    for (let cols = 1; cols <= n; cols++) {
+      const rows = Math.ceil(n / cols);
+      const w = Math.min((W - gap * (cols - 1)) / cols, ((H - gap * (rows - 1)) / rows) * 4 / 3);
+      if (w > best.w) best = { w, cols };
+    }
+    const mobile = window.innerWidth <= 700;
+    const lobby = g.classList.contains('lobby-grid');
+    // Téléphone : jamais plus petit que 2 vignettes par ligne (3 dans le salon) ; la page défile si besoin.
+    const minW = mobile ? Math.min(W, (W - gap * (lobby ? 2 : 1)) / (lobby ? 3 : 2)) : 190;
+    const maxW = mobile ? 360 : 440;
+    const w = Math.max(minW, Math.min(maxW, best.w));
+    const cols = w > best.w ? Math.max(1, Math.min(n, Math.floor((W + gap) / (w + gap)))) : best.cols;
+    g.style.gridTemplateColumns = `repeat(${cols}, ${Math.floor(Math.min(w, (W - gap * (cols - 1)) / cols))}px)`;
+    g.style.justifyContent = 'center';
+  }
+  let resizeT = null;
+  window.addEventListener('resize', () => { clearTimeout(resizeT); resizeT = setTimeout(layoutGrid, 120); });
   function render() {
     if (!ROLES) return;
     const ae = document.activeElement;
-    if (ae && ae.tagName === 'SELECT' && $app.contains(ae)) { pendingRender = true; return; }
+    if (ae && (ae.tagName === 'SELECT' || ae.type === 'range') && $app.contains(ae)) { pendingRender = true; return; }
     // Animation d'entrée seulement quand l'écran change vraiment (nouvelle étape), pas à chaque mise à jour.
     const key = view ? `${view.room.phase}:${ui.key}` : `home:${home.step}`;
     if (key !== lastAnimKey) {
@@ -159,6 +204,7 @@
       animT = setTimeout(() => $app.classList.remove('enter'), 700);
     }
     if (!view) {
+      if (Amb) Amb.update('home', true);
       document.body.dataset.theme = 'night';
       document.body.dataset.dead = '';
       updateThemeColor();
@@ -166,6 +212,7 @@
       return;
     }
     document.body.dataset.theme = isDayCtx() ? 'day' : 'night';
+    if (Amb) Amb.update(view.room.phase, !isDayCtx());
     document.body.dataset.dead = !view.me.alive && !view.me.isMJ && view.room.phase !== 'end' ? '1' : '';
     document.body.dataset.screen = view.room.phase === 'lobby' ? 'lobby' : 'game';
     updateThemeColor();
@@ -179,6 +226,7 @@
     }
     $app.querySelectorAll('details').forEach((d) => { if (opened.includes(d.querySelector('summary').textContent)) d.open = true; });
     Media.mount($app);
+    layoutGrid();
   }
 
   function updateThemeColor() {
@@ -206,8 +254,13 @@
     const nameField = `<label for="f-name">Ton pseudo</label>
       <input type="text" id="f-name" maxlength="20" value="${esc(name)}" autocomplete="nickname" enterkeyhint="go">`;
     let body;
-    if (home.step === 'create') {
-      body = `${back}<h1 class="h">Créer un salon</h1>${nameField}<button class="primary" data-act="create">Créer le salon</button>`;
+    if (home.step === 'game') {
+      body = `${back}<h1 class="h">À quoi on joue ?</h1>
+        ${Object.entries(GAMES).map(([k, g]) => `<button class="game-pick" data-act="pick-game" data-game="${k}">
+          <span class="gp-icon">${icon(g.icon, 26)}</span><span><b>${g.name}</b><small>${g.sub}</small></span></button>`).join('')}`;
+    } else if (home.step === 'create') {
+      const g = GAMES[home.game] || GAMES.thiercelieux;
+      body = `${back}<h1 class="h">Créer un salon</h1><p class="muted small game-tag">${icon(g.icon, 14)} ${g.name}</p>${nameField}<button class="primary" data-act="create">Créer le salon</button>`;
     } else if (home.step === 'join') {
       body = `${back}<h1 class="h">Rejoindre un salon</h1>
         <label for="f-code">Code du salon</label>
@@ -222,7 +275,7 @@
       const join = info.canJoin ? `${nameField}<button class="primary" data-act="join">Rejoindre</button>`
         : away.length ? '' : '<div class="note">Partie en cours, complète.</div>';
       body = `${back}<h1 class="h">Salon <span class="code">${esc(info.code)}</span></h1>
-        <p class="muted small">${info.canJoin ? 'Salon' : 'Partie en cours'} · ${here.length} connecté${here.length > 1 ? 's' : ''}</p>
+        <p class="muted small">${esc((GAMES[info.game] || GAMES.thiercelieux).name)} · ${info.canJoin ? 'salon' : 'partie en cours'} · ${here.length} connecté${here.length > 1 ? 's' : ''}</p>
         ${join}${reclaim}`;
     } else {
       const resume = last ? `<button class="resume" data-act="resume">
@@ -247,11 +300,14 @@
     const voted = st && !st.resolved && st.done.includes(p.id) && ['vote', 'captain_vote', 'debate', 'compoVote', 'roles_reveal'].includes(st.type);
     const tl = [];
     if (p.isMJ) tl.push('<span class="chip">MJ</span>');
-    if (p.role && view.room.phase !== 'lobby') tl.push(`<span class="chip t-${teamOf(p.role)}">${esc(roleName(p.role))}</span>`);
+    if (p.role && view.room.phase !== 'lobby') tl.push(`<span class="chip t-${teamOf(p.role)}">${p.seenRole ? icon('lock', 10) + ' ' : ''}${esc(roleName(p.role))}</span>`);
     if (opts.wolfMate) tl.push('<span class="chip wolf">Meute</span>');
     if (p.captain) tl.push(`<span class="chip cap">${icon('crown', 12, '#7A4210')} Capitaine</span>`);
     if (p.idiotRevealed) tl.push('<span class="chip">Ne vote plus</span>');
     if (p.charmed) tl.push('<span class="chip charm">Charmé</span>');
+    if (p.startRole && p.startRole !== p.role) tl.push(`<span class="chip" title="Carte au départ">était ${esc(roleName(p.startRole))}</span>`);
+    if (isON() && view.room.phase === 'end') tl.push(p.won ? '<span class="chip ok">Gagné</span>' : '<span class="chip">Perdu</span>');
+    if (isON() && view.room.phase === 'end' && !p.alive) tl.push('<span class="chip danger">Éliminé</span>');
     if (p.infected) tl.push('<span class="chip wolf">Loup</span>');
     if (opts.danger) tl.push(`<span class="chip danger">${icon('alert', 12)} En danger</span>`);
     if (!p.connected) tl.push('<span class="chip">Déconnecté</span>');
@@ -309,32 +365,40 @@
     return warn;
   }
 
-  function settingsHTML() {
-    const s = view.room.settings, host = view.me.isHost;
+  // Paramètres de la partie (salon) : le jeu, avec ou sans MJ, les règles et les durées.
+  function gameSettingsHTML() {
+    const s = view.room.settings, host = view.me.isHost, r = view.room;
     const dis = host ? '' : 'disabled';
-    const radio = (name, val, title, desc) => `
-      <label class="choice ${s[name] === val ? 'on' : ''}"><input type="radio" name="${name}" value="${val}" data-set="${name}" ${s[name] === val ? 'checked' : ''} ${dis}>
+    const choice = (on, attrs, title, desc) => `<label class="choice ${on ? 'on' : ''}"><input type="radio" ${attrs} ${on ? 'checked' : ''} ${dis}>
       <span><span style="display:block;font-weight:600">${title}</span>${desc ? `<span class="muted" style="font-size:14px">${desc}</span>` : ''}</span></label>`;
+    const sel = (key, label, opts) => `<div class="row" style="justify-content:space-between"><label for="f-${key}">${label}</label>
+      <select id="f-${key}" data-set="${key}" style="width:auto" ${dis}>${opts.map(([v, l]) => `<option value="${v}" ${s[key] === v ? 'selected' : ''}>${l}</option>`).join('')}</select></div>`;
     const check = (label, val, path) => `<label class="check"><input type="checkbox" data-set="${path}" ${val ? 'checked' : ''} ${dis}> ${label}</label>`;
+    const games = Object.entries(GAMES).map(([k, g]) => choice(r.game === k, `name="game" value="${k}" data-act="game"`, g.name, g.sub)).join('');
+    let out = `<section><h3>Jeu${host ? '' : ' · choisi par l\'hôte'}</h3>${games}</section>`;
+    if (isON()) {
+      out += `<section><h3>Durées</h3>
+        ${sel('debateSeconds', 'Débat et vote', [[180, '3 min'], [300, '5 min'], [420, '7 min'], [600, '10 min']])}
+        ${sel('nightSeconds', 'Temps par rôle, la nuit', [[10, '10 s'], [15, '15 s'], [20, '20 s'], [30, '30 s']])}</section>`;
+      return out;
+    }
     const mjSelect = s.mjMode === 'joueur' ? `<select id="f-mj" data-set="mjId" aria-label="Qui est le MJ ?" ${dis}><option value="">— choisir le MJ —</option>${view.players.map((p) => `<option value="${p.id}" ${s.mjId === p.id ? 'selected' : ''}>${esc(p.name)}</option>`).join('')}</select>` : '';
-    return `<div class="label">Maître du jeu</div>
-      ${radio('mjMode', 'site', 'Le site', '')}
-      ${radio('mjMode', 'joueur', 'Un joueur', 'Ne joue pas, voit tout')}
-      ${mjSelect}
-      <div class="label">Rôles</div>
-      ${radio('distribution', 'auto', 'Automatique', '')}
-      ${radio('distribution', 'vote', 'Vote des joueurs', '')}
-      <div class="label">Extensions</div>
-      <label class="check"><input type="checkbox" checked disabled> Jeu de base</label>
-      ${check('Nouvelle Lune', s.extensions.nouvelleLune, 'ext.nouvelleLune')}
-      ${check('Personnages', s.extensions.personnages, 'ext.personnages')}
-      <div class="label">Règles</div>
+    out += `<section><h3>Maître du jeu</h3>
+      ${choice(s.mjMode === 'site', 'name="mjMode" value="site" data-set="mjMode"', 'Sans MJ', 'Le site mène la partie')}
+      ${choice(s.mjMode === 'joueur', 'name="mjMode" value="joueur" data-set="mjMode"', 'Avec un MJ', 'Un joueur mène, voit tout et ne joue pas')}
+      ${mjSelect}</section>
+      <section><h3>Règles</h3>
       ${check("Révéler le rôle d'un joueur mort", s.revealOnDeath, 'revealOnDeath')}
       ${check('Les morts voient tous les rôles', s.deadSeeRoles, 'deadSeeRoles')}
-      <div class="row" style="justify-content:space-between"><label for="f-debate">Temps de vote du village</label>
-        <select id="f-debate" data-set="debateSeconds" style="width:auto" ${dis}>
-          ${[[60, '1 min'], [120, '2 min'], [180, '3 min'], [300, '5 min'], [600, '10 min']].map(([v, l]) => `<option value="${v}" ${s.debateSeconds === v ? 'selected' : ''}>${l}</option>`).join('')}
-        </select></div>`;
+      ${sel('debateSeconds', 'Temps de vote du village', [[60, '1 min'], [120, '2 min'], [180, '3 min'], [300, '5 min'], [600, '10 min']])}</section>`;
+    return out;
+  }
+
+  function extensionsHTML() {
+    const s = view.room.settings, dis = view.me.isHost ? '' : 'disabled';
+    const check = (label, val, path) => `<label class="check"><input type="checkbox" data-set="${path}" ${val ? 'checked' : ''} ${dis}> ${label}</label>`;
+    return `<section><h3>Extensions</h3><div class="ext-row"><label class="check"><input type="checkbox" checked disabled> Jeu de base</label>
+      ${check('Nouvelle Lune', s.extensions.nouvelleLune, 'ext.nouvelleLune')}${check('Personnages', s.extensions.personnages, 'ext.personnages')}</div></section>`;
   }
 
   // Salon : même logique que le jeu (visages au centre, barre en bas), réglages dans le panneau.
@@ -350,14 +414,21 @@
     const head = `<header class="band"><div class="in">
         <span class="ph-title">Salon</span><span class="code">${r.code}</span>
         <button class="share" data-act="copy" data-link="${esc(link)}">${icon('share', 16)} Inviter</button>
-        <span class="grow"></span>${helpButton()}${appearanceButton()}<button class="stop leave" data-act="leave" aria-label="Quitter le salon">${icon('x', 16)}<span class="lbl">Quitter</span></button>
+        <span class="grow"></span>${helpButton()}${settingsButton()}<button class="stop leave" data-act="leave" aria-label="Quitter le salon">${icon('x', 16)}<span class="lbl">Quitter</span></button>
       </div></header>`;
     const title = nGame < r.minPlayers ? 'En attente des joueurs' : host ? 'Prêt à lancer' : "En attente de l'hôte";
-    const summary = `<div class="lobby-summary">
-        <span class="pill">MJ : ${mj}</span>
-        <span class="pill">${s.distribution === 'auto' ? `${csize} cartes · ${wolves} loup${wolves > 1 ? 's' : ''}` : 'Rôles votés'}</span>
+    const summary = isON() ? `<div class="lobby-summary">
+        <span class="pill">${icon('cards', 14)} Une nuit</span>
+        <span class="pill">${csize} cartes · ${wolves} loup${wolves > 1 ? 's' : ''}</span>
+        <span class="pill">Débat : ${Math.round(s.debateSeconds / 60)} min</span>
+        <button class="ghost small-btn" data-act="drawer" data-kind="roles">${icon('cards', 14)} Deck</button>
+        <button class="ghost small-btn" data-act="drawer" data-kind="settings">${icon('gear', 14)} Paramètres</button>
+      </div>` : `<div class="lobby-summary">
+        <span class="pill">${s.mjMode === 'site' ? 'Sans MJ' : `MJ : ${mj}`}</span>
+        <span class="pill">${csize} cartes · ${wolves} loup${wolves > 1 ? 's' : ''}</span>
         <span class="pill">Vote : ${Math.round(s.debateSeconds / 60)} min</span>
-        <button class="ghost small-btn" data-act="drawer">${icon('sliders', 14)} ${host ? 'Réglages' : 'Détails'}</button>
+        <button class="ghost small-btn" data-act="drawer" data-kind="roles">${icon('cards', 14)} Rôles</button>
+        <button class="ghost small-btn" data-act="drawer" data-kind="settings">${icon('gear', 14)} Paramètres</button>
       </div>`;
     const prompt = `<div class="prompt"><h1>${title}</h1><p class="hint">${view.players.length} connecté${view.players.length > 1 ? 's' : ''}</p>${summary}
       ${warn.map((w) => `<div class="warn">${w}</div>`).join('')}</div>`;
@@ -368,6 +439,7 @@
   function compoHTML(n) {
     const s = view.room.settings, host = view.me.isHost;
     const compo = view.compo;
+    if (isON()) return compoONHTML(n);
     const counts = { loups: 0, village: 0, solitaire: 0 };
     for (const [r, k] of Object.entries(compo)) counts[teamOf(r)] += k;
     const size = Object.values(compo).reduce((a, b) => a + b, 0);
@@ -393,19 +465,43 @@
     return summary + groups;
   }
 
+  // Une nuit : decks prêts selon le nombre de joueurs, ou composition libre.
+  function compoONHTML(n) {
+    const host = view.me.isHost, compo = view.compo;
+    const size = Object.values(compo).reduce((a, b) => a + b, 0);
+    const same = (c) => Object.keys(c).length === Object.keys(compo).length && Object.entries(c).every(([k, v]) => compo[k] === v);
+    const presets = (view.presets || []).map((p) => `<button class="preset ${same(p.compo) ? 'on' : ''}" data-act="preset" data-i="${p.id}" ${host ? '' : 'disabled'}>
+        <b>${esc(p.name)}</b><small>${Object.entries(p.compo).map(([k, v]) => `${v > 1 ? v + ' ' : ''}${esc(roleName(k))}`).join(' · ')}</small></button>`).join('');
+    const counts = { loups: 0, village: 0, solitaire: 0, variable: 0 };
+    for (const [r, k] of Object.entries(compo)) counts[teamOf(r)] = (counts[teamOf(r)] || 0) + k;
+    const roles = Object.entries(ROLES).filter(([, d]) => d.game === 'onenight').map(([key, d]) => {
+      const k = compo[key] || 0;
+      const ctrl = host ? `<div class="stepper"><button data-act="compo" data-role="${key}" data-delta="-1" aria-label="Retirer ${esc(d.name)}">−</button><span>${k}</span><button data-act="compo" data-role="${key}" data-delta="1" aria-label="Ajouter ${esc(d.name)}">+</button></div>` : `<div class="stepper"><span>${k}</span></div>`;
+      return `<div class="role ${k ? 'on' : ''}"><div class="head"><span>${esc(d.name)}</span><small class="t-${d.team}">${TEAM[d.team]}</small></div><p>${esc(d.desc)}</p>${ctrl}</div>`;
+    }).join('');
+    return `<div class="row"><strong>${size} cartes · ${n} joueurs + 3 au centre</strong>
+        <span class="pill t-loups">${counts.loups} Loups</span><span class="pill t-village">${counts.village} Village</span>
+        ${counts.solitaire + counts.variable ? `<span class="pill t-solitaire">${counts.solitaire + counts.variable} Autre</span>` : ''}</div>
+      ${presets ? `<div class="label">Decks prêts pour ${Math.min(10, Math.max(3, n))} joueurs</div><div class="presets">${presets}</div>` : ''}
+      <div class="label">Composition libre</div><div class="roles">${roles}</div>`;
+  }
+
   // ----- Jeu (option A : on choisit directement sur les visages) -----
   const VERB = {
     voyante: 'Sonder', salvateur: 'Protéger', loups: 'Dévorer', vote: 'Voter contre', captain_vote: 'Élire', hunter: 'Tirer sur', successor: 'Nommer',
-    sorciere: 'Empoisonner', enfant: 'Prendre pour modèle', renard: 'Flairer', grandloup: 'Dévorer aussi', loupblanc: 'Tuer', flute: 'Charmer'
+    sorciere: 'Empoisonner', enfant: 'Prendre pour modèle', renard: 'Flairer', grandloup: 'Dévorer aussi', loupblanc: 'Tuer', flute: 'Charmer',
+    n_double: 'Copier', n_voyante: 'Regarder', n_voleur: 'Voler', n_noiseuse: 'Échanger'
   };
   const QUESTION = {
     voyante: 'Qui veux-tu sonder ?', salvateur: 'Qui protéger cette nuit ?', loups: 'Qui dévorer ?', vote: 'Qui veux-tu éliminer ?',
     captain_vote: 'Qui élire Capitaine ?', hunter: 'Qui emporter avec toi ?', successor: 'Qui sera le nouveau Capitaine ?',
     cupidon: 'Désigne deux amoureux', sorciere: 'Sauver, empoisonner ?', roles_reveal: 'Ton rôle', compoVote: 'Quels rôles veux-tu ?', debate: 'Débat',
     voleur: 'Échanger ta carte ?', soeurs: 'Concertez-vous', enfant: 'Qui sera ton modèle ?', renard: 'Qui flairer ?', infect: 'Infecter la victime ?',
-    grandloup: 'Une autre victime ?', loupblanc: 'Tuer un loup ?', flute: 'Qui charmer ?'
+    grandloup: 'Une autre victime ?', loupblanc: 'Tuer un loup ?', flute: 'Qui charmer ?',
+    n_double: 'Qui copier ?', n_loups: 'Les loups', n_sbire: 'Voici les loups', n_macons: 'Les Francs-Maçons', n_voyante: 'Que regarder ?',
+    n_voleur: 'Voler une carte ?', n_noiseuse: 'Échanger deux cartes ?', n_soulard: 'Prends une carte du centre', n_insomniaque: 'Ta carte'
   };
-  const TWO = ['cupidon', 'flute'];
+  const TWO = ['cupidon', 'flute', 'n_noiseuse'];
 
   // Ce que le joueur peut toucher dans la grille pour l'étape en cours.
   function pickMode(st) {
@@ -425,7 +521,7 @@
   function gameHTML() {
     const r = view.room, st = view.step, me = view.me;
     const day = isDayCtx();
-    const title = r.phase === 'end' ? 'Fin de partie' : r.phase === 'setup' ? 'Préparation' : day ? `Jour ${Math.max(1, r.day)}` : `Nuit ${r.night}`;
+    const title = r.phase === 'end' ? 'Fin de partie' : r.phase === 'setup' ? 'Préparation' : isON() ? (day ? 'Le jour' : 'La nuit') : day ? `Jour ${Math.max(1, r.day)}` : `Nuit ${r.night}`;
     const steps = r.phase === 'end' ? '' : `<ol class="steps" aria-label="Déroulé de la phase">${r.phaseSteps.map((s) =>
       `<li class="${s.state}">${esc(STEP_LABEL[s.type] || s.type)}${s.state === 'done' ? ' ✓' : ''}</li>`).join('')}</ol>`;
     const timer = st && !st.resolved && st.deadline ? `<span class="timer" data-deadline="${st.deadline}">${fmt(st.deadline - Date.now() - offset)}</span>` : '';
@@ -434,10 +530,14 @@
     const spect = document.body.dataset.dead === '1' ? `<span class="pill spect-pill">${icon('ear', 14)} Spectateur</span>` : '';
     const head = `<header class="band"><div class="in">
         <span class="ph-title">${title}</span>${steps}${spect}<span class="grow"></span>${timer}
-        ${helpButton()}${appearanceButton()}
+        ${helpButton()}${settingsButton()}
         ${me.isHost && r.phase !== 'end' ? '<button class="stop" data-act="abort">Arrêter</button>' : ''}</div>
         ${narr ? `<div class="narr"><div class="in"><p>${narr}</p></div></div>` : ''}</header>`;
-    return head + `<main class="stage">${promptHTML()}${gridHTML()}${cemeteryHTML()}</main>${dockHTML()}${drawerHTML()}${helpHTML()}`;
+    return head + `<main class="stage">${promptHTML()}${centerHTML()}${gridHTML()}${cemeteryHTML()}</main>${dockHTML()}${drawerHTML()}${helpHTML()}`;
+  }
+
+  function settingsButton() {
+    return `<button class="appear" data-act="drawer" data-kind="settings" aria-label="Paramètres" title="Paramètres">${icon('gear', 18)}</button>`;
   }
 
   function helpButton() {
@@ -459,7 +559,7 @@
         <ul class="how">${(ROLES[k].how || [ROLES[k].desc]).map((x) => `<li>${esc(x)}</li>`).join('')}</ul></details>`).join('')}</section>` : '';
     return `<aside class="drawer sheet open ${helpAnim ? 'slide' : ''}" role="dialog" aria-modal="true" aria-label="Comment jouer">
       <div class="drawer-head"><h2>Comment jouer</h2><button class="round" data-act="help" aria-label="Fermer">${icon('x', 18)}</button></div>
-      ${mine}<section><h3>Déroulé</h3><ol class="how rules">${RULES.map((x) => `<li>${esc(x)}</li>`).join('')}</ol></section>${cards}</aside>
+      ${mine}<section><h3>Déroulé · ${esc((GAMES[view.room.game] || GAMES.thiercelieux).short)}</h3><ol class="how rules">${(RULES_BY_GAME[view.room.game] || RULES).map((x) => `<li>${esc(x)}</li>`).join('')}</ol></section>${cards}</aside>
       <div class="scrim" data-act="help"></div>`;
   }
 
@@ -477,7 +577,14 @@
   // Bandeau de consigne au-dessus des visages : la question, ou le résultat.
   function promptHTML() {
     const st = view.step, me = view.me, r = view.room;
-    if (r.phase === 'end') return `<div class="prompt"><h1>${esc(r.winner ? r.winner.text : 'Fin de partie')}</h1></div>`;
+    if (r.phase === 'end') {
+      if (!isON()) return `<div class="prompt"><h1>${esc(r.winner ? r.winner.text : 'Fin de partie')}</h1></div>`;
+      const lv = view.lastVote;
+      const votes = lv ? `<div class="votes">${lv.choices.map((c) => `<span class="vote-card">${nm(c.voter)} → <b>${c.target ? nm(c.target) : 'personne'}</b></span>`).join('')}</div>` : '';
+      const log = view.nightLog && view.nightLog.length ? `<details class="night-log"><summary>Ce qui s'est passé cette nuit</summary><ol>${view.nightLog.map((l) => `<li>${esc(l)}</li>`).join('')}</ol></details>` : '';
+      return `<div class="prompt"><p class="hint">${me.won ? 'Tu as gagné !' : 'Tu as perdu'} · ta carte finale : <span class="t-${teamOf(me.finalRole)}">${esc(roleName(me.finalRole))}</span></p>
+        <h1>${esc(r.winner ? r.winner.text : 'Fin de partie')}</h1>${votes}${log}</div>`;
+    }
     if (!st) return '';
     if (st.resolved) {
       const next = r.waitingMJ ? (me.canControl ? '' : '<p class="hint">En attente du MJ…</p>') : st.nextAt ? `<p class="hint">Suite dans <span data-deadline="${st.nextAt}"></span></p>` : '';
@@ -493,6 +600,17 @@
     const mode = pickMode(st);
     let hint = mode ? (mode.max === 2 ? 'Touche deux joueurs' : 'Touche un joueur') : '';
     let extra = '';
+    if (isON() && st.type !== 'vote' && st.type !== 'roles_reveal') {
+      const info = onPromptExtra(st);
+      if (st.type === 'n_voyante') hint = 'Touche un joueur, ou deux cartes du centre';
+      if (st.type === 'n_soulard') hint = 'Touche une carte du centre : elle devient la tienne, sans la voir';
+      if (st.type === 'n_loups' && st.lone) hint = 'Touche une carte du centre, ou passe';
+      if (st.type === 'n_insomniaque' || st.type === 'n_sbire' || st.type === 'n_macons' || (st.type === 'n_loups' && !st.lone)) hint = '';
+      if (st.doppel) hint = `Double · ${hint}`;
+      const body = st.submitted && !st.result ? '<p class="hint">C\'est fait. Garde les yeux fermés…</p>' : '';
+      return `<div class="prompt"><div class="prompt-row"><div><h1>${QUESTION[st.type] || 'À toi'}</h1>${hint && !st.submitted ? `<p class="hint">${hint}</p>` : ''}</div></div>
+        ${info ? `<p class="desc">${info}</p>` : ''}${onResultHTML(st)}${body}</div>`;
+    }
     switch (st.type) {
       case 'roles_reveal': {
         const d = ROLES[me.role] || {};
@@ -514,9 +632,7 @@
       }
       case 'voleur': {
         hint = st.mustTake ? 'Deux loups : prends-en un' : 'Prends une carte ou garde la tienne';
-        const sel = ui.sel[0];
-        extra = `<div class="cards">${(st.cards || []).map((c, i) => `<button class="card-pick ${sel === String(i) ? 'on' : ''}" data-act="take" data-i="${i}" aria-pressed="${sel === String(i)}">
-          <small class="t-${teamOf(c)}">${TEAM[teamOf(c)]}</small><b>${esc(roleName(c))}</b></button>`).join('')}</div>`;
+        hint += ' · touche une carte du centre';
         break;
       }
       case 'soeurs': {
@@ -541,11 +657,64 @@
         break;
       case 'vote': case 'captain_vote':
         extra = progressHTML(st, 'ont voté');
-        if (st.type === 'vote') hint = 'Débattez, puis touche un joueur · le vote se clôt quand tout le monde a voté';
+        if (st.type === 'vote') hint = isON() ? 'Débattez, puis touche un joueur · éliminé dès 2 voix' : 'Débattez, puis touche un joueur · le vote se clôt quand tout le monde a voté';
         if (st.type === 'vote' && r.captainId) hint += ` · ${nm(r.captainId)} compte double`;
         break;
     }
     return `<div class="prompt"><div class="prompt-row"><div><h1>${QUESTION[st.type] || 'À toi'}</h1>${hint ? `<p class="hint">${hint}</p>` : ''}</div></div>${extra}</div>`;
+  }
+
+  // Cartes au centre, matérialisées : face cachée, retournées quand on les connaît (et toutes à la fin).
+  function centerPickable(st) {
+    if (!st || st.resolved || !st.isActor || st.submitted) return 0;
+    if (st.type === 'voleur') return 1;
+    return st.centerPick || 0;
+  }
+  function centerHTML() {
+    const c = view.center;
+    if (!c || !c.cards || !c.cards.length) return '';
+    const st = view.step;
+    const can = centerPickable(st);
+    const voleur = st && st.type === 'voleur' && can;
+    const sel = voleur ? ui.sel : ui.csel.map(String);
+    const res = st && st.result && st.result.center ? st.result.center : [];
+    const cards = c.cards.map((role, i) => {
+      const on = sel.includes(String(i));
+      const touched = res.some((x) => x.i === i);
+      const face = role ? `<small class="t-${teamOf(role)}">${TEAM[teamOf(role)]}</small><b>${esc(roleName(role))}</b>` : `<span class="card-back" aria-hidden="true">${icon('moon', 22)}</span>`;
+      const label = role ? roleName(role) : `Carte ${i + 1}, face cachée`;
+      const cls = `ccard ${role ? 'up' : 'down'} ${on ? 'on' : ''} ${touched ? 'touched' : ''} ${can ? 'pickable' : ''}`;
+      return can ? `<button class="${cls}" data-act="${voleur ? 'take' : 'pickc'}" data-i="${i}" aria-pressed="${on}" aria-label="${esc(label)}">${face}<span class="cnum">${i + 1}</span></button>`
+        : `<div class="${cls}" aria-label="${esc(label)}">${face}<span class="cnum">${i + 1}</span></div>`;
+    }).join('');
+    return `<div class="center-row ${can ? 'picking' : ''}"><span class="center-title">${icon('cards', 16)} ${esc(c.label || 'Au centre')}</span><div class="ccards">${cards}</div></div>`;
+  }
+
+  // Une nuit : ce que voit le joueur réveillé (coéquipiers, résultat de son action).
+  function onPromptExtra(st) {
+    const me = view.me;
+    const r = st.result;
+    const list = (ids) => ids.length ? ids.map(nm).join(', ') : 'personne';
+    switch (st.type) {
+      case 'n_loups': return st.mates && st.mates.length ? `Ta meute : <strong>${list(st.mates)}</strong>` : 'Tu es le seul loup : tu peux regarder une carte du centre.';
+      case 'n_sbire': return st.wolves && st.wolves.length ? `Les loups : <strong>${list(st.wolves)}</strong>` : "Aucun loup parmi les joueurs.";
+      case 'n_macons': return st.mates && st.mates.length ? `L'autre Franc-Maçon : <strong>${list(st.mates)}</strong>` : "Tu es seul : l'autre carte est au centre.";
+      default: return '';
+    }
+  }
+  function onResultHTML(st) {
+    const r = st.result;
+    if (!r) return '';
+    const card = (role) => `<span class="t-${teamOf(role)}">${esc(roleName(role))}</span>`;
+    const parts = [];
+    if (r.copied) parts.push(`Tu deviens ${card(r.copied)}`);
+    else if (r.players) parts.push(...r.players.map((x) => `${nm(x.id)} est ${card(x.role)}`));
+    if (r.center) parts.push(...r.center.filter((x) => x.role).map((x) => `Carte ${x.i + 1} : ${card(x.role)}`));
+    if (r.center && r.center.some((x) => !x.role)) parts.push('Carte échangée, sans la regarder');
+    if (r.took) parts.push(`Ta nouvelle carte : ${card(r.took)}`);
+    if (r.swapped) parts.push(`${nm(r.swapped[0])} et ${nm(r.swapped[1])} ont échangé leurs cartes`);
+    if (r.self) parts.push(`Ta carte est maintenant : ${card(r.self)}`);
+    return parts.length ? `<div class="secret">${icon('lock', 14)} ${parts.join(' · ')}</div>` : '';
   }
 
   function gridHTML() {
@@ -554,7 +723,7 @@
     const sel = picked(st);
     const tally = st && st.resolved && st.result && st.result.tally ? st.result.tally : null;
     const mj = view.players.find((p) => p.isMJ && p.id !== me.id);
-    const alive = view.players.filter((p) => !p.isMJ && p.alive);
+    const alive = view.players.filter((p) => !p.isMJ && (p.alive || (isON() && r.phase === 'end')));
     const night = r.phase === 'night' && !isDayCtx();
     const witch = st && st.type === 'sorciere' && st.isActor && !st.resolved && !st.submitted;
     const tiles = (mj ? [mj] : []).concat(alive).map((p) => {
@@ -586,6 +755,7 @@
   }
 
   function cemeteryHTML() {
+    if (isON()) return '';
     const dead = view.players.filter((p) => !p.isMJ && !p.alive);
     if (!dead.length) return '';
     const causes = { loups: 'mort(e)', sorciere: 'mort(e)', loupblanc: 'mort(e)', rouille: 'mort(e)', vote: 'éliminé(e)', bouc: 'sacrifié(e)', chasseur: 'abattu(e)', chagrin: 'chagrin', exclu: 'exclu(e)' };
@@ -605,7 +775,7 @@
     const d = me.role ? ROLES[me.role] : null;
     const L = Media.local;
     const roleBtn = me.isMJ ? '<span class="dock-role"><small>Rôle</small><b>Maître du jeu</b></span>'
-      : d ? `<button class="dock-role" data-act="help" aria-label="Comment jouer ${esc(d.name)} ?"><small>${me.alive || r.phase === 'end' ? 'Ton rôle' : 'Tu étais'}</small><b class="t-${d.team}">${esc(d.name)}<span class="qmark" aria-hidden="true">?</span></b></button>` : '';
+      : d ? `<button class="dock-role" data-act="help" aria-label="Comment jouer ${esc(d.name)} ?"><small>${isON() ? (r.phase === 'end' ? 'Au départ' : 'Ta carte au départ') : me.alive || r.phase === 'end' ? 'Ton rôle' : 'Tu étais'}</small><b class="t-${d.team}">${esc(d.name)}<span class="qmark" aria-hidden="true">?</span></b></button>` : '';
     const mic = `<button class="round ${L.audioTrack ? (L.mic ? 'on' : 'off') : ''}" data-act="media-mic" aria-pressed="${!!(L.audioTrack && L.mic)}" aria-label="${L.audioTrack && L.mic ? 'Couper le micro' : 'Activer le micro'}" ${L.busy.audio ? 'disabled' : ''}>${icon(L.audioTrack && L.mic ? 'mic' : 'micoff', 20)}</button>`;
     const cam = `<button class="round ${L.cam ? 'on' : ''}" data-act="media-cam" aria-pressed="${L.cam}" aria-label="${L.cam ? 'Couper la caméra' : 'Activer la caméra'}" ${L.busy.video ? 'disabled' : ''}>${icon(L.cam ? 'cam' : 'camoff', 20)}</button>`;
     const self = `<div class="dock-self has-video-host" data-speak="${me.id}"><span class="avatar" style="background:${colorOf(me.id)}" aria-hidden="true">${esc(me.name[0])}</span><div class="vslot" data-vslot="me"></div></div>`;
@@ -613,10 +783,19 @@
     const hint = myTurn ? `<div class="dock-hint"><span class="pulse-dot" aria-hidden="true"></span>À toi : ${esc(QUESTION[st.type] || 'ton action')}</div>` : '';
     return `<nav class="dock ${myTurn ? 'my-turn' : ''}" aria-label="Commandes">${hint}<div class="in">
       <div class="dock-me">${self}${roleBtn}</div>
-      <div class="dock-media">${mic}${cam}</div>
+      <div class="dock-media">${mic}${cam}${ambButton()}</div>
       <div class="dock-actions">${actionButtons()}</div>
-      <button class="round" data-act="drawer" aria-label="${r.phase === 'lobby' ? 'Réglages' : 'Journal et infos'}">${icon(r.phase === 'lobby' ? 'sliders' : 'scroll', 20)}</button>
+      <button class="round" data-act="drawer" data-kind="${r.phase === 'lobby' ? 'roles' : 'journal'}" aria-label="${r.phase === 'lobby' ? (isON() ? 'Deck' : 'Rôles') : 'Mon rôle et journal'}">${icon(r.phase === 'lobby' ? 'cards' : 'scroll', 20)}</button>
     </div>${L.error ? `<div class="dock-error">${esc(L.error)}</div>` : ''}</nav>`;
+  }
+
+  function ambButton() {
+    if (!Amb || view.room.phase === 'lobby') return '';
+    const on = Amb.prefs.on && Amb.prefs.vol > 0;
+    const pop = ambOpen ? `<div class="amb-pop" role="dialog" aria-label="Musique d'ambiance">
+        <div class="amb-head"><b>Ambiance</b><button class="ghost small-btn" data-act="amb-mute">${on ? 'Couper' : 'Activer'}</button></div>
+        <label class="amb-row">${icon('musicoff', 16)}<input type="range" min="0" max="100" value="${Math.round(Amb.prefs.vol * 100)}" data-act="amb-vol" aria-label="Volume de la musique">${icon('music', 16)}</label></div>` : '';
+    return `<span class="amb-wrap"><button class="round ${on ? '' : 'off'}" data-act="amb" aria-expanded="${ambOpen}" aria-label="Musique d'ambiance">${icon(on ? 'music' : 'musicoff', 20)}</button>${pop}</span>`;
   }
 
   function actionButtons() {
@@ -654,9 +833,33 @@
         return `${sent}<button class="ghost" data-act="infect" data-v="0">Dévorer</button><button class="wolf attn" data-act="infect" data-v="1">Infecter ${nm(st.victim)}</button>`;
       case 'soeurs':
         return st.submitted ? sent : '<button class="primary attn" data-act="ready">Terminé</button>';
+      case 'n_loups': case 'n_sbire': case 'n_macons': case 'n_insomniaque': {
+        if (st.submitted) return sent;
+        if (st.type === 'n_loups' && st.lone) {
+          const i = ui.csel[0];
+          return `<button class="ghost" data-act="ready">Passer</button><button class="wolf attn" data-act="submit" ${i != null ? '' : 'disabled'}>${i != null ? `Regarder la carte ${+i + 1}` : 'Touche une carte'}</button>`;
+        }
+        return '<button class="primary attn" data-act="ready">Vu</button>';
+      }
+      case 'n_voyante': {
+        if (st.submitted) return sent;
+        const ok = ui.csel.length === 2 || sel.length === 1;
+        const label = ui.csel.length === 2 ? `Regarder les cartes ${ui.csel.map((i) => +i + 1).join(' et ')}` : sel.length ? `Regarder ${nm(sel[0])}` : 'Un joueur ou deux cartes';
+        return `<button class="ghost" data-act="abstain">Passer</button><button class="primary attn" data-act="submit" ${ok ? '' : 'disabled'}>${label}</button>`;
+      }
+      case 'n_soulard': {
+        if (st.submitted) return sent;
+        const i = ui.csel[0];
+        return `<button class="primary attn" data-act="submit" ${i != null ? '' : 'disabled'}>${i != null ? `Prendre la carte ${+i + 1}` : 'Touche une carte du centre'}</button>`;
+      }
+      case 'n_noiseuse': {
+        if (st.submitted) return sent;
+        const ok = sel.length === 2;
+        return `<button class="ghost" data-act="pass2">Passer</button><button class="primary attn" data-act="submit" ${ok ? '' : 'disabled'}>${ok ? `Échanger ${nm(sel[0])} et ${nm(sel[1])}` : 'Choisis deux joueurs'}</button>`;
+      }
       default: {
         const abst = st.type === 'vote' || st.type === 'captain_vote' ? '<button class="ghost" data-act="abstain">S\'abstenir</button>'
-          : ['renard', 'loupblanc'].includes(st.type) ? '<button class="ghost" data-act="abstain">Passer</button>' : '';
+          : ['renard', 'loupblanc', 'n_voleur'].includes(st.type) ? '<button class="ghost" data-act="abstain">Passer</button>' : '';
         const cls = ['loups', 'grandloup', 'loupblanc'].includes(st.type) ? 'wolf' : 'primary';
         return `${sent}${abst}<button class="${cls} ${st.submitted ? '' : 'attn'}" data-act="submit" ${sel.length ? '' : 'disabled'}>${sel.length ? `${VERB[st.type] || 'Valider'} ${nm(sel[0])}` : 'Touche un joueur'}</button>${ctrl}`;
       }
@@ -697,14 +900,16 @@
   function drawerHTML() {
     const me = view.me, r = view.room;
     const lobby = r.phase === 'lobby';
+    const kind = drawerKind === 'roles' && !lobby ? 'journal' : drawerKind === 'journal' && lobby ? 'roles' : drawerKind;
     let top = '';
-    if (lobby) {
+    if (kind === 'roles') {
       const nGame = view.players.filter((p) => !p.isMJ).length;
-      top = `<section><h3>Partie${me.isHost ? '' : ' · choisie par l\'hôte'}</h3>${settingsHTML()}</section>
-        <section><h3>Composition</h3>${compoHTML(nGame)}</section>`;
-    } else if (me.role && !me.isMJ) {
+      top = `${isON() ? '' : extensionsHTML()}<section><h3>${isON() ? 'Deck' : 'Composition'}${me.isHost ? '' : ' · choisie par l\'hôte'}</h3>${compoHTML(nGame)}</section>`;
+    } else if (kind === 'journal' && me.role && !me.isMJ) {
       const d = ROLES[me.role];
       const extra = [];
+      if (me.knownSelf && me.knownSelf !== me.role) extra.push(`Ta carte a changé : tu es maintenant <strong class="t-${teamOf(me.knownSelf)}">${esc(roleName(me.knownSelf))}</strong>.`);
+      if (isON() && r.phase !== 'end') extra.push('Attention : ta carte a pu être échangée pendant la nuit sans que tu le saches.');
       if (me.infected) extra.push('Infecté : tu chasses avec les loups et gardes ton pouvoir.');
       if (me.role === 'enfant') extra.push(me.wild ? 'Ton modèle est mort : tu es devenu loup.' : me.model ? `Ton modèle : <strong>${nm(me.model)}</strong>` : 'Choisis ton modèle la première nuit.');
       if (me.charmed) extra.push('Tu es charmé par le Joueur de flûte.');
@@ -719,18 +924,27 @@
       if (r.powersLost) extra.push('Les villageois ont perdu leurs pouvoirs.');
       top = `<section><h3>Mon rôle</h3><div class="bigrole t-${d.team}">${esc(d.name)}</div><p class="desc">${esc(d.desc)}</p>${extra.map((x) => `<div class="note">${x}</div>`).join('')}</section>`;
     }
-    const manage = (me.isHost || me.isMJ) && r.phase !== 'end';
+    const manage = kind === 'settings' && (me.isHost || me.isMJ) && r.phase !== 'end';
     const players = manage ? `<section><h3>Joueurs</h3>${view.players.filter((p) => p.id !== me.id && !p.kicked).map((p) => `
       <div class="prow"><span>${esc(p.name)}${p.connected ? '' : ' · déconnecté'}</span><span class="row">
         ${me.isHost && p.connected ? `<button class="ghost small-btn" data-act="giveHost" data-id="${p.id}">Nommer hôte</button>` : ''}
         <button class="ghost small-btn" data-act="kick" data-id="${p.id}">Exclure</button></span></div>`).join('') || '<p class="muted small">Personne d\'autre pour l\'instant.</p>'}</section>` : '';
-    const log = view.log.length ? `<section><h3>Journal</h3><ol class="log">${view.log.slice().reverse().map((l) => `<li class="${l.pub ? '' : 'priv'}"><span class="when">${esc(l.when || '')}</span><span>${esc(l.text)}</span></li>`).join('')}</ol></section>` : '';
-    const devs = `<section><h3>Micro et caméra</h3>${deviceSelect('audio')}${deviceSelect('video')}</section>`;
-    const prefs = `<section><h3>Préférences</h3><label class="check"><input type="checkbox" data-act="sound" ${soundOn() ? 'checked' : ''}> Son et vibration quand c'est à toi</label></section>`;
-    return `<aside class="drawer ${lobby ? 'wide' : ''} ${drawerOpen ? 'open' : ''} ${drawerAnim ? 'slide' : ''}" aria-hidden="${!drawerOpen}" aria-label="${lobby ? 'Réglages' : 'Infos'}">
-      <div class="drawer-head"><h2>${lobby ? 'Réglages' : 'Infos'}</h2><button class="round" data-act="drawer" aria-label="Fermer">${icon('x', 18)}</button></div>
-      ${devs}${top}${players}${log}${prefs}</aside>
-      ${drawerOpen ? '<div class="scrim" data-act="drawer"></div>' : ''}`;
+    const log = kind === 'journal' && view.log.length ? `<section><h3>Journal</h3><ol class="log">${view.log.slice().reverse().map((l) => `<li class="${l.pub ? '' : 'priv'}"><span class="when">${esc(l.when || '')}</span><span>${esc(l.text)}</span></li>`).join('')}</ol></section>` : '';
+    let body = top + log;
+    if (kind === 'settings') {
+      const dark = document.body.dataset.appearance === 'dark';
+      body = `${lobby ? gameSettingsHTML() : ''}
+        <section><h3>Micro et caméra</h3>${deviceSelect('audio')}${deviceSelect('video')}</section>
+        <section><h3>Affichage et son</h3>
+          <div class="seg" role="group" aria-label="Apparence"><button class="${dark ? '' : 'on'}" data-act="appearance-set" data-v="light" aria-pressed="${!dark}">${icon('sun', 16)} Clair</button><button class="${dark ? 'on' : ''}" data-act="appearance-set" data-v="dark" aria-pressed="${dark}">${icon('moon', 16)} Sombre</button></div>
+          <label class="check"><input type="checkbox" data-act="sound" ${soundOn() ? 'checked' : ''}> Son et vibration quand c'est à toi</label></section>
+        ${players}`;
+    }
+    const title = { roles: isON() ? 'Deck' : 'Rôles', settings: 'Paramètres', journal: 'Mon rôle et journal' }[kind];
+    return `<aside class="drawer ${lobby && kind === 'roles' ? 'wide' : ''} ${drawerOpen ? 'open' : ''} ${drawerAnim ? 'slide' : ''}" aria-hidden="${!drawerOpen}" aria-label="${title}">
+      <div class="drawer-head"><h2>${title}</h2><button class="round" data-act="drawer-close" aria-label="Fermer">${icon('x', 18)}</button></div>
+      ${body}</aside>
+      ${drawerOpen ? '<div class="scrim" data-act="drawer-close"></div>' : ''}`;
   }
 
   // Liste des micros / caméras (les noms n'apparaissent qu'une fois l'accès autorisé).
@@ -822,14 +1036,16 @@
 
   // ---------- Événements ----------
   $app.addEventListener('click', (e) => {
+    if (ambOpen && !e.target.closest('.amb-wrap')) { ambOpen = false; render(); }
     const el = e.target.closest('[data-act]');
     if (!el || el.disabled) return;
     const act = el.dataset.act;
     const st = view && view.step;
     switch (act) {
-      case 'home-create': home = { step: 'create', code: '', info: null }; render(); focus('f-name'); break;
+      case 'home-create': home = { step: 'game', code: '', info: null }; render(); break;
+      case 'pick-game': home = { step: 'create', game: el.dataset.game, code: '', info: null }; render(); focus('f-name'); break;
       case 'home-join': home = { step: 'join', code: '', info: null }; render(); focus('f-code'); break;
-      case 'home-back': home = { step: home.step === 'joinInfo' ? 'join' : 'choose', code: home.code, info: null }; render(); break;
+      case 'home-back': home = { step: home.step === 'joinInfo' ? 'join' : home.step === 'create' ? 'game' : 'choose', code: home.code, info: null }; render(); break;
       case 'lookup': {
         const code = document.getElementById('f-code').value.trim().toUpperCase();
         if (code.length !== 4) { toast('Le code fait 4 caractères.'); break; }
@@ -852,7 +1068,7 @@
       case 'create': case 'join': {
         const name = document.getElementById('f-name').value.trim();
         localStorage.setItem('lg-name', name);
-        send(act, { name, code: home.code }, (r) => { save(r.code, r.token, name); history.replaceState(null, '', '/'); });
+        send(act, { name, code: home.code, game: home.game }, (r) => { save(r.code, r.token, name); history.replaceState(null, '', '/'); });
         break;
       }
       case 'reclaim': {
@@ -886,6 +1102,7 @@
       case 'sel': ui.sel = [el.dataset.id]; render(); break;
       case 'pick': {
         const id = el.dataset.id;
+        if (st.type === 'n_voyante') ui.csel = [];
         if (TWO.includes(st.type)) {
           const cur = picked(st).slice();
           const max = (pickMode(st) || { max: 2 }).max;
@@ -906,7 +1123,18 @@
         render();
         setTimeout(() => { helpAnim = false; }, 400);
         break;
+      case 'drawer-close':
+        drawerOpen = false;
+        render();
+        break;
+      case 'appearance-set':
+        document.body.dataset.appearance = el.dataset.v;
+        localStorage.setItem('lg-appearance', el.dataset.v);
+        render();
+        break;
       case 'drawer':
+        if (drawerOpen && el.dataset.kind && el.dataset.kind !== drawerKind) { drawerKind = el.dataset.kind; drawerAnim = false; render(); break; }
+        if (el.dataset.kind) drawerKind = el.dataset.kind;
         drawerOpen = !drawerOpen;
         if (drawerOpen) Media.refreshDevices();
         drawerAnim = drawerOpen;
@@ -931,6 +1159,18 @@
       case 'save': ui.save = !ui.save; render(); break;
       case 'skip': send('act', { save: false, kill: null }); break;
       case 'take': ui.sel = ui.sel[0] === el.dataset.i ? [] : [el.dataset.i]; render(); break;
+      case 'pickc': {
+        const i = el.dataset.i;
+        const max = centerPickable(st);
+        ui.csel = ui.csel.includes(i) ? ui.csel.filter((x) => x !== i) : ui.csel.concat(i).slice(-max);
+        if (ui.csel.length) ui.sel = []; // Voyante : un joueur OU des cartes
+        render();
+        break;
+      }
+      case 'pass2': send('act', { targets: null }); break;
+      case 'amb': ambOpen = !ambOpen; render(); break;
+      case 'amb-mute': Amb.toggle(); render(); break;
+      case 'preset': send('preset', { index: +el.dataset.i }); break;
       case 'keep': send('act', { take: null }); break;
       case 'infect': send('act', { infect: el.dataset.v === '1' }); break;
       case 'abstain': send('act', { target: null }); break;
@@ -939,6 +1179,8 @@
         if (st.type === 'compoVote') payload = { roles: ui.cv || (Array.isArray(st.myInput) ? st.myInput : []) };
         else if (TWO.includes(st.type)) payload = { targets: ui.sel };
         else if (st.type === 'voleur') payload = { take: +ui.sel[0] };
+        else if (st.type === 'n_voyante' && ui.csel.length === 2) payload = { center: ui.csel.map(Number) };
+        else if (st.type === 'n_soulard' || st.type === 'n_loups') payload = { center: +ui.csel[0] };
         else if (st.type === 'sorciere') payload = { save: ui.save, kill: ui.kill };
         else payload = { target: ui.sel[0] || st.myInput };
         send('act', payload);
@@ -947,9 +1189,12 @@
     }
   });
 
+  $app.addEventListener('input', (e) => {
+    if (e.target.dataset.act === 'amb-vol') Amb.setVolume(+e.target.value / 100);
+  });
   $app.addEventListener('change', (e) => {
     const el = e.target;
-    if (el.tagName === 'SELECT') setTimeout(() => el.blur(), 0);
+    if (el.tagName === 'SELECT' || el.type === 'range') setTimeout(() => el.blur(), 0);
     if (el.dataset.act === 'cv') {
       const st = view.step;
       let cur = (ui.cv || (Array.isArray(st.myInput) ? st.myInput : [])).slice();
@@ -957,6 +1202,7 @@
       ui.cv = cur;
       return;
     }
+    if (el.dataset.act === 'game') { send('switchGame', { game: el.value }); return; }
     if (el.dataset.act === 'dev') { Media.choose(el.dataset.kind, el.value); return; }
     if (el.dataset.act === 'sound') { localStorage.setItem('lg-sound', el.checked ? '1' : '0'); if (el.checked) chime(); return; }
     const key = el.dataset.set;
@@ -964,7 +1210,7 @@
     let patch;
     if (key.startsWith('ext.')) patch = { extensions: { [key.slice(4)]: el.checked } };
     else if (el.type === 'checkbox') patch = { [key]: el.checked };
-    else if (key === 'debateSeconds') patch = { debateSeconds: +el.value };
+    else if (key === 'debateSeconds' || key === 'nightSeconds') patch = { [key]: +el.value };
     else patch = { [key]: el.value || null };
     send('settings', patch);
   });

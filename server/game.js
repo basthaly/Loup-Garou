@@ -72,6 +72,9 @@ const pick = (arr) => arr[crypto.randomInt(arr.length)];
 class Room {
   constructor(code, onChange) {
     this.code = code;
+    this.game = 'thiercelieux';
+    this.NIGHT = NIGHT_TYPES;
+    this.DAY = DAY_STEPS;
     this.onChange = onChange || (() => {});
     this.players = new Map();
     this.order = [];
@@ -102,6 +105,7 @@ class Room {
     this.winner = null;
     this.compoVoteResult = null;
     this.extraCards = [];
+    this.thiefId = null;
     this.wolfDied = false;
     this.infectUsed = false;
     this.foxLost = false;
@@ -191,7 +195,7 @@ class Room {
   // Infos publiques d'un salon (écran « Rejoindre ») : qui est déconnecté, peut-on entrer ?
   publicInfo() {
     return {
-      code: this.code, phase: this.phase, canJoin: this.phase === 'lobby',
+      code: this.code, game: this.game, phase: this.phase, canJoin: this.phase === 'lobby',
       players: this.order.map((id) => this.players.get(id)).filter((p) => p && !p.kicked)
         .map((p) => ({ id: p.id, name: p.name, connected: p.connected }))
     };
@@ -371,7 +375,7 @@ class Room {
   // ---------- Machine à étapes ----------
   startStep(step) {
     this.startStepHook(step);
-    const idx = this.phaseSteps.indexOf(step.type);
+    const idx = this.phaseSteps.indexOf(step.phaseType || step.type);
     if (idx >= 0) this.phaseCursor = idx;
     clearTimeout(this.timer);
     this.waitingMJ = false;
@@ -380,14 +384,21 @@ class Room {
     step.round = step.round || 1;
     step.rounds = step.rounds || [];
     if (step.type === 'check') { this.step = step; return this.resolveStep(); }
-    // Sans acteur (rôle mort ou absent), on attend quelques secondes pour ne rien dévoiler.
-    const secs = step.actors.length ? (step.seconds || this.settings.nightSeconds) : (NIGHT_TYPES.includes(step.type) || !step.seconds ? 6 + crypto.randomInt(5) : step.seconds);
+    const secs = this.stepSeconds(step);
     step.deadline = Date.now() + secs * 1000 * F;
     this.step = step;
     if (step.type === 'dawn') return this.resolveStep();
     this.timer = setTimeout(() => this.resolveStep(), secs * 1000 * F);
     this.changed();
   }
+
+  // Sans acteur (rôle mort ou absent), on attend quelques secondes pour ne rien dévoiler.
+  stepSeconds(step) {
+    if (step.actors.length) return step.seconds || this.settings.nightSeconds;
+    return this.NIGHT.includes(step.type) || !step.seconds ? 6 + crypto.randomInt(5) : step.seconds;
+  }
+  narration(type) { return NARRATION[type] || ''; }
+  showDelay(type) { return SHOW_DELAY[type] || 0; }
 
   act(id, payload) {
     const s = this.step;
@@ -507,6 +518,7 @@ class Room {
       }
       case 'voleur': {
         const thief = this.players.get(s.actors[0]);
+        if (thief) this.thiefId = thief.id;
         let take = Object.values(inputs)[0];
         if (take === undefined && this.extraCards.length && this.extraCards.every((r) => WOLF_ROLES.includes(r))) take = crypto.randomInt(2);
         if (thief && (take === 0 || take === 1) && this.extraCards[take]) {
@@ -730,7 +742,7 @@ class Room {
     }
     if (triggers.length) this.queue.unshift(...triggers);
     s.resolved = true;
-    this.afterResolve(SHOW_DELAY[s.type] || 0);
+    this.afterResolve(this.showDelay(s.type));
   }
 
   afterResolve(delay) {
@@ -972,10 +984,10 @@ class Room {
     if (!s.alive) return r.alive ? NONE : FULL;      // un mort ne parle qu'aux morts
     if (!r.alive) return FULL;                         // les morts suivent tout
     const st = this.step;
-    if (this.phase === 'day' || (st && DAY_STEPS.includes(st.type))) return FULL;
+    if (this.phase === 'day' || (st && this.DAY.includes(st.type))) return FULL;
     // La nuit : les joueurs réveillés (acteurs de l'étape) voient tout le monde
     // et s'entendent entre eux ; les autres dorment et ne voient ni n'entendent personne.
-    const awake = st && NIGHT_TYPES.includes(st.type) ? st.actors : [];
+    const awake = st && this.NIGHT.includes(st.type) ? st.actors : [];
     if (awake.includes(r.id)) return { audio: awake.includes(s.id), video: true, blur: false };
     // Petite Fille : pendant le tour des loups, elle entrouvre les yeux et voit tout le village, flou,
     // et entend les loups de loin : voix très déformée et faible (traitée dans son navigateur).
@@ -1058,7 +1070,7 @@ class Room {
         foxLost: me.role === 'renard' && this.foxLost
       },
       room: {
-        code: this.code, phase: this.phase, hostId: this.hostId, settings: this.settings, night: this.night, day: this.day,
+        code: this.code, game: this.game, phase: this.phase, hostId: this.hostId, settings: this.settings, night: this.night, day: this.day,
         minPlayers: MIN_PLAYERS, recommended: RECOMMENDED_PLAYERS, maxPlayers: MAX_PLAYERS, captainId: this.captainId,
         potions: me.role === 'sorciere' || this.isMJ(id) ? this.potions : null,
         waitingMJ: this.waitingMJ, winner: this.winner, serverNow: Date.now(), powersLost: this.powersLost,
@@ -1071,6 +1083,7 @@ class Room {
       players,
       compo: this.effectiveCompo(),
       expectedCards: this.cardsNeeded(),
+      center: this.centerView(me, omniscient),
       customCompo: !!this.customCompo,
       compoVoteResult: this.compoVoteResult,
       log: this.log.filter((l) => l.pub || omniscient).slice(-40),
@@ -1079,15 +1092,22 @@ class Room {
     return view;
   }
 
+  // Cartes au centre (Voleur) : face cachée pour tous, visibles par le Voleur qui les a vues, et à la fin.
+  centerView(me, omniscient) {
+    if (!this.extraCards.length || this.phase === 'lobby') return null;
+    const known = omniscient || this.phase === 'end' || me.id === this.thiefId;
+    return { cards: this.extraCards.map((c) => (known ? c : null)), label: 'Au centre' };
+  }
+
   stepView(me, omniscient) {
     const s = this.step;
     if (!s) return null;
     const isActor = s.actors.includes(me.id);
-    const night = NIGHT_TYPES.includes(s.type);
+    const night = this.NIGHT.includes(s.type);
     // La nuit, seuls les acteurs (et les omniscients) savent qui agit.
     const showProgress = !night || omniscient || isActor;
     const v = {
-      type: s.type, narration: NARRATION[s.type] || '', deadline: s.deadline, nextAt: s.nextAt || null,
+      type: s.type, narration: this.narration(s.type), deadline: s.deadline, nextAt: s.nextAt || null,
       resolved: s.resolved, round: s.round, isActor,
       submitted: isActor && me.id in s.inputs,
       myInput: isActor ? s.inputs[me.id] : undefined,
@@ -1125,4 +1145,4 @@ class Room {
   }
 }
 
-module.exports = { Room, MIN_PLAYERS };
+module.exports = { Room, MIN_PLAYERS, FULL, NONE, shuffle, pick, F };

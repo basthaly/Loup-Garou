@@ -8,6 +8,7 @@ const express = require('express');
 const { Server } = require('socket.io');
 const { Room } = require('./game');
 const { ROLES, RULES, EXTENSIONS } = require('./roles');
+const ON = require('./onenight');
 const LK = require('./livekit');
 
 const PORT = parseInt(process.env.PORT || '3000', 10);
@@ -39,7 +40,7 @@ function loadCert() {
 
 app.use(express.static(path.join(__dirname, '..', 'public')));
 app.use('/vendor', express.static(path.join(__dirname, '..', 'node_modules', 'livekit-client', 'dist')));
-app.get('/api/roles', (req, res) => res.json({ roles: ROLES, rules: RULES, extensions: EXTENSIONS, iceServers: ICE_SERVERS, video: LK.enabled ? 'livekit' : 'mesh' }));
+app.get('/api/roles', (req, res) => res.json({ roles: Object.assign({}, ROLES, ON.ROLES), rules: RULES, rulesByGame: { thiercelieux: RULES, onenight: ON.RULES }, extensions: Object.assign({}, EXTENSIONS, { onenight: 'Loup-Garou pour une nuit' }), iceServers: ICE_SERVERS, video: LK.enabled ? 'livekit' : 'mesh' }));
 const connectedCount = () => [...rooms.values()].reduce((n, r) => n + [...r.players.values()].filter((p) => p.connected).length, 0);
 app.get('/health', (req, res) => res.json({ ok: true, rooms: rooms.size, players: connectedCount() }));
 
@@ -121,9 +122,9 @@ function handle(fn) {
 }
 
 io.on('connection', (socket) => {
-  socket.on('create', handle(({ name }) => {
+  socket.on('create', handle(({ name, game }) => {
     const code = newCode();
-    const room = new Room(code, broadcast);
+    const room = game === 'onenight' ? new ON.OneNightRoom(code, broadcast) : new Room(code, broadcast);
     rooms.set(code, room);
     const p = room.addPlayer(name);
     attach(socket, room, p);
@@ -199,6 +200,29 @@ io.on('connection', (socket) => {
 
   socket.on('settings', handle((patch) => { const { room, id } = current(socket); room.updateSettings(id, patch); }));
   socket.on('compo', handle(({ role, delta }) => { const { room, id } = current(socket); room.changeCompo(id, role, delta); }));
+  // Changer de jeu sans recréer le salon : mêmes joueurs, même code, même hôte.
+  socket.on('switchGame', handle(({ game }) => {
+    const { room, id } = current(socket);
+    if (id !== room.hostId) throw new Error("Seul l'hôte peut changer de jeu.");
+    if (room.phase !== 'lobby') throw new Error('Termine la partie avant de changer de jeu.');
+    if (room.game === game || !['thiercelieux', 'onenight'].includes(game)) return {};
+    const next = game === 'onenight' ? new ON.OneNightRoom(room.code, broadcast) : new Room(room.code, broadcast);
+    const players = [...room.players.values()];
+    if (game === 'onenight' && players.length > 10) throw new Error('Loup-Garou pour une nuit : 10 joueurs maximum.');
+    clearTimeout(room.timer);
+    for (const p of players) {
+      Object.assign(p, { alive: true, role: null, lover: null, seen: {}, death: null, card: null, startRole: null, known: {}, knownCenter: {}, knownSelf: null });
+      next.players.set(p.id, p);
+    }
+    next.order = room.order.slice();
+    next.hostId = room.hostId;
+    next.resetGame();
+    next.addLog(`Jeu choisi : ${game === 'onenight' ? 'Loup-Garou pour une nuit' : 'Loup-Garou de Thiercelieux'}.`, true);
+    rooms.set(room.code, next);
+    broadcast(next);
+    return {};
+  }));
+  socket.on('preset', handle(({ index }) => { const { room, id } = current(socket); if (!room.applyPreset) throw new Error('Pas de deck pour ce jeu.'); room.applyPreset(id, index); }));
   socket.on('compoReset', handle(() => { const { room, id } = current(socket); room.resetCompo(id); }));
   socket.on('start', handle(() => { const { room, id } = current(socket); room.start(id); }));
   socket.on('act', handle((payload) => { const { room, id } = current(socket); room.act(id, payload); }));

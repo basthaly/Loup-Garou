@@ -164,27 +164,72 @@ window.LGMedia = (() => {
   // Son très filtré (comme à travers un mur), effet robot (modulation en anneau) et volume faible.
   // L'élément <audio> d'origine est coupé ; Chrome en a besoin pour faire circuler le son, il reste en place.
   const distorted = new Map(); // id -> { track, nodes }
+  // Baisse la hauteur de la voix (technique des deux têtes de lecture à retard croissant, fondues l'une dans l'autre).
+  function pitchDown(ctx, input, ratio, win) {
+    const sr = ctx.sampleRate;
+    const period = win / (1 - ratio);
+    const len = Math.max(64, Math.round(period * sr));
+    const saw = ctx.createBuffer(1, len, sr);
+    const fade = ctx.createBuffer(1, len, sr);
+    const a = saw.getChannelData(0), f = fade.getChannelData(0);
+    for (let i = 0; i < len; i++) { const x = i / len; a[i] = x; f[i] = Math.sin(Math.PI * x) ** 2; }
+    const out = ctx.createGain();
+    const srcs = [];
+    const t = ctx.currentTime + 0.05;
+    for (const off of [0, period / 2]) {
+      const delay = ctx.createDelay(1);
+      delay.delayTime.value = 0;
+      const mod = ctx.createBufferSource(); mod.buffer = saw; mod.loop = true;
+      const depth = ctx.createGain(); depth.gain.value = win;
+      mod.connect(depth).connect(delay.delayTime);
+      const env = ctx.createBufferSource(); env.buffer = fade; env.loop = true;
+      const g = ctx.createGain(); g.gain.value = 0;
+      env.connect(g.gain);
+      input.connect(delay).connect(g).connect(out);
+      mod.start(t, off); env.start(t, off);
+      srcs.push(mod, env);
+    }
+    return { out, srcs };
+  }
+
   function distortChain(track) {
     const ctx = meterCtx();
     if (!ctx) return null;
     try {
       const src = ctx.createMediaStreamSource(new MediaStream([track]));
-      const hp = ctx.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 450;
-      const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 1300; lp.Q.value = 4;
+      // 1. Voix beaucoup plus grave.
+      const low = pitchDown(ctx, src, 0.58, 0.09);
+      // 2. Étouffée, comme entendue de loin à travers un mur.
+      const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 850; lp.Q.value = 1.5;
+      const hp = ctx.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 120;
+      low.out.connect(hp).connect(lp);
+      // 3. Brouillée : une part d'effet robot qui ondule, et un léger souffle.
       const ring = ctx.createGain(); ring.gain.value = 0;
-      const osc = ctx.createOscillator(); osc.type = 'sine'; osc.frequency.value = 38;
-      const wob = ctx.createOscillator(); wob.frequency.value = 0.7;      // la « hauteur » de l'effet ondule
-      const wobGain = ctx.createGain(); wobGain.gain.value = 14;
+      const osc = ctx.createOscillator(); osc.frequency.value = 23;
+      const wob = ctx.createOscillator(); wob.frequency.value = 0.4;
+      const wobGain = ctx.createGain(); wobGain.gain.value = 9;
       wob.connect(wobGain).connect(osc.frequency);
       osc.connect(ring.gain);
-      const out = ctx.createGain(); out.gain.value = 0.45;
-      src.connect(hp).connect(lp).connect(ring).connect(out).connect(ctx.destination);
-      osc.start(); wob.start();
-      return { src, osc, wob, out };
+      const dry = ctx.createGain(); dry.gain.value = 0.55;
+      const wet = ctx.createGain(); wet.gain.value = 0.6;
+      lp.connect(dry); lp.connect(ring).connect(wet);
+      const noiseBuf = ctx.createBuffer(1, ctx.sampleRate * 2, ctx.sampleRate);
+      const nd = noiseBuf.getChannelData(0);
+      let last = 0;
+      for (let i = 0; i < nd.length; i++) { last = (last + 0.02 * (Math.random() * 2 - 1)) / 1.02; nd[i] = last * 3.5; }
+      const noise = ctx.createBufferSource(); noise.buffer = noiseBuf; noise.loop = true;
+      const ng = ctx.createGain(); ng.gain.value = 0.05;
+      noise.connect(ng);
+      // 4. Faible : on entend de loin.
+      const out = ctx.createGain(); out.gain.value = 0.22;
+      dry.connect(out); wet.connect(out); ng.connect(out);
+      out.connect(ctx.destination);
+      osc.start(); wob.start(); noise.start();
+      return { src, osc, wob, out, extra: [...low.srcs, noise] };
     } catch (e) { return null; }
   }
   function stopChain(d) {
-    try { d.osc.stop(); d.wob.stop(); d.src.disconnect(); d.out.disconnect(); } catch (e) { /* déjà arrêté */ }
+    try { d.osc.stop(); d.wob.stop(); (d.extra || []).forEach((n) => n.stop()); d.src.disconnect(); d.out.disconnect(); } catch (e) { /* déjà arrêté */ }
   }
   function distortSync() {
     if (!view) { for (const [id, d] of distorted) { stopChain(d); distorted.delete(id); } return; }

@@ -2,6 +2,10 @@
 
 Jouer au Loup-Garou entre amis, chacun sur son écran, avec caméra et micro. Le site fait le maître du jeu (ou un joueur le fait), distribue les rôles, coupe les caméras la nuit et révèle les votes tous en même temps.
 
+Deux jeux au choix en créant le salon :
+- **Loup-Garou de Thiercelieux** : plusieurs nuits, 8 à 18 joueurs conseillés.
+- **Loup-Garou pour une nuit** : une seule nuit et un seul vote, de 3 à 10 joueurs, une dizaine de minutes.
+
 **Sommaire**
 1. [Tester sur ton PC](#1-tester-sur-ton-pc) (avec Node.js ou avec Docker)
 2. [Jouer à plusieurs sur ton réseau (Wi-Fi)](#2-jouer-à-plusieurs-sur-ton-réseau-wi-fi)
@@ -355,7 +359,7 @@ Vérifier que ça tourne : `docker compose ps` et `curl -k https://127.0.0.1:300
 **Partie**
 - Salon avec code à 4 lettres et lien d'invitation.
 - Maître du jeu : le site (automatique) ou un joueur, qui voit tout et ne joue pas.
-- Rôles distribués automatiquement selon le nombre de joueurs (modifiables par l'hôte), ou choisis par vote des joueurs.
+- Rôles distribués automatiquement selon le nombre de joueurs, modifiables par l'hôte.
 - Votes secrets (village, Capitaine, loups), révélés tous en même temps. Le vote du village s'ouvre directement (temps réglable) et se clôt dès que tout le monde a voté.
 - On joue en touchant directement les visages ; la barre du bas regroupe sa caméra, son rôle, le micro, la caméra et l'action à valider.
 - L'hôte peut exclure un joueur, arrêter la partie ou nommer un autre hôte ; s'il part, la main passe automatiquement.
@@ -363,8 +367,10 @@ Vérifier que ça tourne : `docker compose ps` et `curl -k https://127.0.0.1:300
 - Bouton « ? » (en haut, ou en touchant son rôle en bas) : comment se joue sa carte, le déroulé d'une partie et les cartes en jeu.
 - Indicateur de voix : la vignette de celui qui parle s'entoure de vert, avec des barres qui suivent sa voix.
 - Mode clair / sombre au choix ; la nuit et le jour nuancent seulement les teintes.
-- Micro et caméra mémorisés : ils se rallument tout seuls à la connexion suivante. Choix du micro et de la caméra dans le panneau (bouton en bas à droite).
-- Panneau de réglages large sur ordinateur, plein écran sur téléphone.
+- Micro et caméra mémorisés : ils se rallument tout seuls à la connexion suivante. Choix du micro et de la caméra dans **Paramètres** (engrenage en haut).
+- Deux panneaux : **Rôles** (ou **Deck**) pour la composition, bouton en bas à droite ; **Paramètres** (engrenage en haut) pour le jeu, avec ou sans MJ, les durées, le micro, la caméra, l'apparence et les joueurs.
+- On change de jeu depuis le salon (Paramètres), sans recréer de salon : mêmes joueurs, même code.
+- Panneaux larges sur ordinateur, plein écran sur téléphone.
 
 **Rôles disponibles** (tous jouables)
 
@@ -378,6 +384,24 @@ Vérifier que ça tourne : `docker compose ps` et `curl -k https://127.0.0.1:300
 - Sorcière : le joueur en danger porte un badge, sa potion de vie apparaît sur sa vignette, le poison sur les autres ; bouton Passer.
 - Si l'Ancien est éliminé par le village, les villageois perdent leurs pouvoirs.
 - Solitaires : le Joueur de flûte gagne quand tous les vivants sont charmés, le Loup-Garou Blanc s'il reste seul, l'Ange s'il est éliminé au premier vote.
+
+**Loup-Garou pour une nuit**
+
+| Camp | Rôles |
+| --- | --- |
+| Loups | Loup-Garou (×2), Sbire |
+| Village | Franc-Maçon (×2), Voyante, Voleur, Noiseuse, Soûlard, Insomniaque, Villageois (×3), Chasseur |
+| Autres | Double (prend le camp du rôle copié), Tanneur (gagne s'il est éliminé) |
+
+- Cartes = joueurs + 3. Les 3 cartes du centre sont affichées face cachée, et se retournent quand on les regarde (Voyante, loup seul) puis toutes à la fin.
+- Decks prêts à jouer pour chaque nombre de joueurs (2 au choix), ou composition libre.
+- Chaque rôle a le même temps la nuit (réglable), qu'il soit joué ou au centre : le temps ne trahit rien.
+- Fin de partie : cartes finales et de départ de chacun, gagnants, votes et tout ce qui s'est passé la nuit.
+
+**Ambiance**
+- Musique d'ambiance générée par le site pendant la partie (nuit : nappe grave, vent, grillons, hibou ; jour : plus claire). Volume bas par défaut.
+- Bouton note de musique en bas : couper ou régler le volume, pour soi seulement (mémorisé).
+- Les vignettes s'adaptent à la taille de l'écran et au nombre de joueurs.
 
 **Caméra et micro** (indépendants : on peut parler sans se montrer)
 - Salon et jour : tout le monde se voit et s'entend.
@@ -395,6 +419,8 @@ Vérifier que ça tourne : `docker compose ps` et `curl -k https://127.0.0.1:300
 | --- | --- |
 | `server/game.js` | Moteur : phases, étapes, votes, morts, victoire, règles audio/vidéo |
 | `server/roles.js` | Rôles et composition automatique |
+| `server/onenight.js` | Loup-Garou pour une nuit : rôles, decks, nuit unique, vote, victoire |
+| `public/ambience.js` | Musique d'ambiance générée (Web Audio) |
 | `server/index.js` | Serveur web et Socket.IO |
 | `server/livekit.js` | Jetons et permissions du serveur vidéo |
 | `public/app.js` | Interface |
