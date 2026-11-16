@@ -36,7 +36,8 @@
     sliders: '<path d="M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12M20 18h0"/><circle cx="16" cy="6" r="2"/><circle cx="10" cy="12" r="2"/><circle cx="18" cy="18" r="2"/>',
     cards: '<rect x="3" y="5" width="12" height="16" rx="2"/><path d="M9 3h10a2 2 0 0 1 2 2v14"/>',
     scroll: '<path d="M8 6h12M8 12h12M8 18h12M4 6h0M4 12h0M4 18h0"/>',
-    x: '<path d="M6 6l12 12M18 6L6 18"/>'
+    x: '<path d="M6 6l12 12M18 6L6 18"/>',
+    share: '<path d="M12 3v12M7 8l5-5 5 5M5 13v6a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-6"/>'
   };
   const icon = (n, size = 16, color = 'currentColor') =>
     `<svg aria-hidden="true" width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="${color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${ICON[n]}</svg>`;
@@ -96,8 +97,10 @@
         if (before && before.alive && !p.alive) { freshDead.add(p.id); setTimeout(() => freshDead.delete(p.id), 2500); }
       }
     }
+    const prev = view;
     view = v;
     Media.update(v);
+    if (v) notify(prev, v);
     render();
   }
   function stepKey(st) { return st ? `${st.type}:${st.round}:${st.deadline}` : null; }
@@ -151,7 +154,7 @@
     document.body.dataset.dead = !view.me.alive && !view.me.isMJ && view.room.phase !== 'end' ? '1' : '';
     document.body.dataset.screen = view.room.phase === 'lobby' ? 'lobby' : 'game';
     updateThemeColor();
-    $app.innerHTML = view.room.phase === 'lobby' ? lobbyHTML() + mediaBarHTML() : gameHTML();
+    $app.innerHTML = view.room.phase === 'lobby' ? lobbyHTML() : gameHTML();
     Media.mount($app);
   }
 
@@ -237,10 +240,10 @@
       <div class="vslot" data-vslot="${slot}"></div>
       <div class="tl">${tl.join('')}</div><div class="tr">${tr.join('')}</div>
       ${opts.picked ? `<span class="picked-mark">${icon('check', 18)} ${st && st.type === 'vote' ? 'Ton vote' : 'Choisi'}</span>` : ''}
-      <span class="nm">${p.mic ? '' : icon('micoff', 13)}${esc(p.name)}${isMe ? ' (toi)' : ''}</span>`;
+      <span class="nm">${p.mic ? '<span class="vu" aria-hidden="true"><i></i><i></i><i></i></span>' : icon('micoff', 13)}${esc(p.name)}${isMe ? ' (toi)' : ''}</span>`;
     const cls = `tile has-video-host ${isMe ? 'me' : ''} ${asleep ? 'asleep' : ''} ${opts.wolfMate ? 'wolfmate' : ''} ${opts.pick ? 'pickable' : ''} ${opts.picked ? 'picked' : ''}`;
-    if (opts.pick) return `<button class="${cls}" data-act="pick" data-id="${p.id}" aria-pressed="${!!opts.picked}" aria-label="${esc((st && VERB[st.type]) || 'Choisir')} ${esc(p.name)}">${inner}</button>`;
-    return `<div class="${cls}">${inner}${kick}</div>`;
+    if (opts.pick) return `<button class="${cls}" data-speak="${p.id}" data-act="pick" data-id="${p.id}" aria-pressed="${!!opts.picked}" aria-label="${esc((st && VERB[st.type]) || 'Choisir')} ${esc(p.name)}">${inner}</button>`;
+    return `<div class="${cls}" data-speak="${p.id}">${inner}${kick}</div>`;
   }
 
   // Micro et caméra indépendants : on peut parler sans se montrer.
@@ -266,38 +269,30 @@
   }
 
   // ----- Salon -----
-  function lobbyHTML() {
-    const r = view.room, s = r.settings, me = view.me, host = me.isHost;
-    const dis = host ? '' : 'disabled';
-    const nGame = view.players.filter((p) => !p.isMJ).length;
-    const radio = (name, val, title, desc) => `
-      <label class="choice ${s[name] === val ? 'on' : ''}"><input type="radio" name="${name}" value="${val}" data-set="${name}" ${s[name] === val ? 'checked' : ''} ${dis}>
-      <span><span style="display:block;font-weight:600">${title}</span>${desc ? `<span class="muted" style="font-size:14px">${desc}</span>` : ''}</span></label>`;
-    const check = (label, val, path) => `<label class="check"><input type="checkbox" data-set="${path}" ${val ? 'checked' : ''} ${dis}> ${label}</label>`;
-    const mjSelect = s.mjMode === 'joueur' ? `<label for="f-mj" class="muted" style="font-size:14px">Qui est le MJ ?</label>
-      <select id="f-mj" data-set="mjId" ${dis}><option value="">— choisir —</option>${view.players.map((p) => `<option value="${p.id}" ${s.mjId === p.id ? 'selected' : ''}>${esc(p.name)}</option>`).join('')}</select>` : '';
+  function lobbyWarnings(nGame) {
+    const r = view.room, s = r.settings;
     const warn = [];
     if (nGame < r.minPlayers) warn.push(`Minimum ${r.minPlayers} joueurs.`);
     else if (nGame < r.recommended) warn.push(`${r.recommended} joueurs ou plus conseillés.`);
     const csize = Object.values(view.compo).reduce((a, b) => a + b, 0);
     if (s.distribution === 'auto' && csize !== nGame) warn.push(`${csize} cartes pour ${nGame} joueurs.`);
     if (s.mjMode === 'joueur' && !s.mjId) warn.push('Choisis le MJ.');
-    const link = `${location.origin}/?code=${r.code}`;
-    const head = `<header class="band"><div class="in">${brand()}
-        <div class="phase"><span class="ph-title">Salon</span><span class="ph-sub">${nGame} joueur${nGame > 1 ? 's' : ''}${s.mjMode === 'joueur' && s.mjId ? ' + MJ' : ''}</span></div>
-        <span class="grow"></span>
-        <div class="row"><span class="ph-sub">Code</span><span class="code">${r.code}</span>
-          <button data-act="copy" data-link="${esc(link)}">Copier le lien</button><button data-act="leave">Quitter</button>${appearanceButton()}</div>
-      </div></header>`;
-    const moi = zone('person', 'Moi', `${tileHTML(P(me.id), { slot: 'me' })}${mediaControlsHTML()}`, 'z-moi');
-    const others = view.players.filter((p) => p.id !== me.id);
-    const players = zone('village', 'Joueurs', `<div class="grid">${others.map((p) => tileHTML(p)).join('') || '<p class="muted" style="margin:0">En attente de joueurs…</p>'}</div>`, 'z-village', `${view.players.length} connecté${view.players.length > 1 ? 's' : ''}`);
-    const settings = `
-      <div class="label">Maître du jeu</div>
+    return warn;
+  }
+
+  function settingsHTML() {
+    const s = view.room.settings, host = view.me.isHost;
+    const dis = host ? '' : 'disabled';
+    const radio = (name, val, title, desc) => `
+      <label class="choice ${s[name] === val ? 'on' : ''}"><input type="radio" name="${name}" value="${val}" data-set="${name}" ${s[name] === val ? 'checked' : ''} ${dis}>
+      <span><span style="display:block;font-weight:600">${title}</span>${desc ? `<span class="muted" style="font-size:14px">${desc}</span>` : ''}</span></label>`;
+    const check = (label, val, path) => `<label class="check"><input type="checkbox" data-set="${path}" ${val ? 'checked' : ''} ${dis}> ${label}</label>`;
+    const mjSelect = s.mjMode === 'joueur' ? `<select id="f-mj" data-set="mjId" aria-label="Qui est le MJ ?" ${dis}><option value="">— choisir le MJ —</option>${view.players.map((p) => `<option value="${p.id}" ${s.mjId === p.id ? 'selected' : ''}>${esc(p.name)}</option>`).join('')}</select>` : '';
+    return `<div class="label">Maître du jeu</div>
       ${radio('mjMode', 'site', 'Le site', '')}
       ${radio('mjMode', 'joueur', 'Un joueur', 'Ne joue pas, voit tout')}
       ${mjSelect}
-      <div class="label">Distribution des rôles</div>
+      <div class="label">Rôles</div>
       ${radio('distribution', 'auto', 'Automatique', '')}
       ${radio('distribution', 'vote', 'Vote des joueurs', '')}
       <div class="label">Extensions</div>
@@ -307,17 +302,38 @@
       <div class="label">Règles</div>
       ${check("Révéler le rôle d'un joueur mort", s.revealOnDeath, 'revealOnDeath')}
       ${check('Les morts voient tous les rôles', s.deadSeeRoles, 'deadSeeRoles')}
-      <div class="row" style="justify-content:space-between"><label for="f-debate">Durée du débat</label>
+      <div class="row" style="justify-content:space-between"><label for="f-debate">Temps de vote du village</label>
         <select id="f-debate" data-set="debateSeconds" style="width:auto" ${dis}>
           ${[[60, '1 min'], [120, '2 min'], [180, '3 min'], [300, '5 min'], [600, '10 min']].map(([v, l]) => `<option value="${v}" ${s.debateSeconds === v ? 'selected' : ''}>${l}</option>`).join('')}
-        </select></div>
-      ${warn.map((w) => `<div class="warn">${w}</div>`).join('')}
-      ${host ? '<button class="primary" data-act="start">Lancer la partie</button>' : '<div class="note">En attente de l\'hôte.</div>'}`;
-    return head + `<main class="zones lobby">
-        <div class="z-col-left">${moi}</div>
-        <div class="z-col-mid">${players}${zone('cards', 'Composition des rôles', compoHTML(nGame))}</div>
-        <div class="z-col-right">${zone('sliders', 'Réglages', settings, 'z-action v-accent')}</div>
-      </main>`;
+        </select></div>`;
+  }
+
+  // Salon : même logique que le jeu (visages au centre, barre en bas), réglages dans le panneau.
+  function lobbyHTML() {
+    const r = view.room, s = r.settings, me = view.me, host = me.isHost;
+    const nGame = view.players.filter((p) => !p.isMJ).length;
+    const warn = lobbyWarnings(nGame);
+    const link = `${location.origin}/?code=${r.code}`;
+    const compo = view.compo;
+    const csize = Object.values(compo).reduce((a, b) => a + b, 0);
+    const wolves = Object.entries(compo).filter(([k]) => teamOf(k) === 'loups').reduce((a, [, n]) => a + n, 0);
+    const mj = s.mjMode === 'site' ? 'le site' : (s.mjId && P(s.mjId) ? esc(P(s.mjId).name) : 'à choisir');
+    const head = `<header class="band"><div class="in">
+        <span class="ph-title">Salon</span><span class="code">${r.code}</span>
+        <button class="share" data-act="copy" data-link="${esc(link)}">${icon('share', 16)} Inviter</button>
+        <span class="grow"></span>${appearanceButton()}<button class="stop leave" data-act="leave" aria-label="Quitter le salon">${icon('x', 16)}<span class="lbl">Quitter</span></button>
+      </div></header>`;
+    const title = nGame < r.minPlayers ? 'En attente des joueurs' : host ? 'Prêt à lancer' : "En attente de l'hôte";
+    const summary = `<div class="lobby-summary">
+        <span class="pill">MJ : ${mj}</span>
+        <span class="pill">${s.distribution === 'auto' ? `${csize} cartes · ${wolves} loup${wolves > 1 ? 's' : ''}` : 'Rôles votés'}</span>
+        <span class="pill">Vote : ${Math.round(s.debateSeconds / 60)} min</span>
+        <button class="ghost small-btn" data-act="drawer">${icon('sliders', 14)} ${host ? 'Réglages' : 'Détails'}</button>
+      </div>`;
+    const prompt = `<div class="prompt"><h1>${title}</h1><p class="hint">${view.players.length} connecté${view.players.length > 1 ? 's' : ''}</p>${summary}
+      ${warn.map((w) => `<div class="warn">${w}</div>`).join('')}</div>`;
+    const tiles = view.players.map((p) => tileHTML(p)).join('');
+    return head + `<main class="stage lobby-stage">${prompt}<div class="stage-grid lobby-grid">${tiles}</div></main>${dockHTML()}${drawerHTML()}`;
   }
 
   function compoHTML(n) {
@@ -426,8 +442,7 @@
       let t = night ? 'Le village dort…' : 'Patiente';
       if (me.isMJ) t = `En attente : ${st.actors.filter((a) => !st.done.includes(a)).map(nm).join(', ') || '—'}`;
       else if (!me.alive) t = 'Tu ne joues plus';
-      else if (st.type === 'debate') t = 'Débat';
-      return `<div class="prompt muted-prompt"><h1>${t}</h1>${progressHTML(st, st.type === 'debate' ? 'prêts' : night ? 'ont agi' : 'ont voté')}</div>`;
+      return `<div class="prompt muted-prompt"><h1>${t}</h1>${progressHTML(st, night ? 'ont agi' : 'ont voté')}</div>`;
     }
     const mode = pickMode(st);
     let hint = mode ? (mode.max === 2 ? 'Touche deux joueurs' : 'Touche un joueur') : '';
@@ -443,7 +458,6 @@
         extra = `<div class="checks">${opts.map(([k, d]) => `<label class="check"><input type="checkbox" data-act="cv" data-role="${k}" ${cur.includes(k) ? 'checked' : ''}> ${esc(d.name)}</label>`).join('')}</div>`;
         break;
       }
-      case 'debate': hint = ''; extra = progressHTML(st, 'prêts'); break;
       case 'sorciere': {
         hint = st.potions.death ? 'Touche un joueur pour l\'empoisonner (facultatif)' : '';
         const victim = st.victim ? `Les loups ont choisi <strong>${nm(st.victim)}</strong>.` : 'Les loups n\'ont choisi personne.';
@@ -456,6 +470,7 @@
         break;
       case 'vote': case 'captain_vote':
         extra = progressHTML(st, 'ont voté');
+        if (st.type === 'vote') hint = 'Débattez, puis touche un joueur · le vote se clôt quand tout le monde a voté';
         if (st.type === 'vote' && r.captainId) hint += ` · ${nm(r.captainId)} compte double`;
         break;
     }
@@ -477,7 +492,7 @@
         wolfMate: night && me.role === 'loup' && p.role === 'loup' && p.id !== me.id, noKick: true
       });
     }).join('');
-    return `<div class="stage-grid ${mode ? 'picking' : ''}">${tiles}</div>`;
+    return `<div class="stage-grid ${mode ? 'picking' : ''} ${sel.length ? 'has-pick' : ''}">${tiles}</div>`;
   }
 
   function cemeteryHTML() {
@@ -488,7 +503,7 @@
       const d = p.death || {};
       const isMe = p.id === view.me.id;
       const info = [p.role ? roleName(p.role) : null, d.when ? d.when.toLowerCase() : causes[d.cause]].filter(Boolean).join(' · ');
-      return `<span class="dchip has-video-host ${isMe ? 'me' : ''} ${freshDead.has(p.id) ? 'fresh' : ''}">
+      return `<span class="dchip has-video-host ${isMe ? 'me' : ''} ${freshDead.has(p.id) ? 'fresh' : ''}" data-speak="${p.id}">
         <span class="dav"><span class="avatar" aria-hidden="true">${esc(p.name[0])}</span><span class="vslot" data-vslot="${isMe ? 'me2' : p.id}"></span></span>
         <span class="dname">${esc(p.name)}${isMe ? ' (toi)' : ''}</span><span class="dinfo">${esc(info)}</span></span>`;
     }).join('')}</div>`;
@@ -503,17 +518,20 @@
       : d ? `<button class="dock-role" data-act="drawer" aria-label="Voir mon rôle"><small>${me.alive || r.phase === 'end' ? 'Ton rôle' : 'Tu étais'}</small><b class="t-${d.team}">${esc(d.name)}</b></button>` : '';
     const mic = `<button class="round ${L.audioTrack ? (L.mic ? 'on' : 'off') : ''}" data-act="media-mic" aria-pressed="${!!(L.audioTrack && L.mic)}" aria-label="${L.audioTrack && L.mic ? 'Couper le micro' : 'Activer le micro'}" ${L.busy.audio ? 'disabled' : ''}>${icon(L.audioTrack && L.mic ? 'mic' : 'micoff', 20)}</button>`;
     const cam = `<button class="round ${L.cam ? 'on' : ''}" data-act="media-cam" aria-pressed="${L.cam}" aria-label="${L.cam ? 'Couper la caméra' : 'Activer la caméra'}" ${L.busy.video ? 'disabled' : ''}>${icon(L.cam ? 'cam' : 'camoff', 20)}</button>`;
-    const self = `<div class="dock-self has-video-host"><span class="avatar" style="background:${colorOf(me.id)}" aria-hidden="true">${esc(me.name[0])}</span><div class="vslot" data-vslot="me"></div></div>`;
-    return `<nav class="dock" aria-label="Commandes"><div class="in">
+    const self = `<div class="dock-self has-video-host" data-speak="${me.id}"><span class="avatar" style="background:${colorOf(me.id)}" aria-hidden="true">${esc(me.name[0])}</span><div class="vslot" data-vslot="me"></div></div>`;
+    const myTurn = st && !st.resolved && st.isActor && !st.submitted;
+    const hint = myTurn ? `<div class="dock-hint"><span class="pulse-dot" aria-hidden="true"></span>À toi : ${esc(QUESTION[st.type] || 'ton action')}</div>` : '';
+    return `<nav class="dock ${myTurn ? 'my-turn' : ''}" aria-label="Commandes">${hint}<div class="in">
       <div class="dock-me">${self}${roleBtn}</div>
       <div class="dock-media">${mic}${cam}</div>
       <div class="dock-actions">${actionButtons()}</div>
-      <button class="round" data-act="drawer" aria-label="Journal et infos">${icon('scroll', 20)}</button>
+      <button class="round" data-act="drawer" aria-label="${r.phase === 'lobby' ? 'Réglages' : 'Journal et infos'}">${icon(r.phase === 'lobby' ? 'sliders' : 'scroll', 20)}</button>
     </div>${L.error ? `<div class="dock-error">${esc(L.error)}</div>` : ''}</nav>`;
   }
 
   function actionButtons() {
     const st = view.step, me = view.me, r = view.room;
+    if (r.phase === 'lobby') return me.isHost ? '<button class="primary" data-act="start">Lancer la partie</button>' : '<span class="waiting">En attente de l\'hôte</span>';
     if (r.phase === 'end') return me.isHost ? '<button class="primary" data-act="restart">Nouvelle partie</button>' : '';
     if (!st) return '';
     const ctrl = controlButton();
@@ -521,8 +539,7 @@
     const sel = picked(st);
     const sent = st.submitted ? `<span class="sent">${icon('check', 14)} Envoyé</span>` : '';
     switch (st.type) {
-      case 'roles_reveal': return st.submitted ? sent + ctrl : `<button class="primary" data-act="ready">J'ai vu mon rôle</button>${ctrl}`;
-      case 'debate': return st.submitted ? sent + ctrl : `<button class="primary" data-act="ready">Prêt à voter</button>${ctrl}`;
+      case 'roles_reveal': return st.submitted ? sent + ctrl : `<button class="primary attn" data-act="ready">J'ai vu mon rôle</button>${ctrl}`;
       case 'compoVote': return `${sent}<button class="primary" data-act="submit">Envoyer</button>${ctrl}`;
       case 'cupidon': return `${sent}<button class="primary" data-act="submit" ${sel.length === 2 ? '' : 'disabled'}>${sel.length === 2 ? `Unir ${nm(sel[0])} et ${nm(sel[1])}` : 'Choisis deux joueurs'}</button>`;
       case 'sorciere': {
@@ -532,7 +549,7 @@
       default: {
         const abst = st.type === 'vote' || st.type === 'captain_vote' ? '<button class="ghost" data-act="abstain">S\'abstenir</button>' : '';
         const cls = st.type === 'loups' ? 'wolf' : 'primary';
-        return `${sent}${abst}<button class="${cls}" data-act="submit" ${sel.length ? '' : 'disabled'}>${sel.length ? `${VERB[st.type] || 'Valider'} ${nm(sel[0])}` : 'Touche un joueur'}</button>${ctrl}`;
+        return `${sent}${abst}<button class="${cls} ${st.submitted ? '' : 'attn'}" data-act="submit" ${sel.length ? '' : 'disabled'}>${sel.length ? `${VERB[st.type] || 'Valider'} ${nm(sel[0])}` : 'Touche un joueur'}</button>${ctrl}`;
       }
     }
   }
@@ -542,8 +559,8 @@
     if (!me.canControl || r.phase === 'end' || !st) return '';
     if (r.waitingMJ) return '<button class="primary" data-act="control">Continuer</button>';
     if (!st.resolved) {
-      if (!me.isMJ && !['compoVote', 'roles_reveal', 'captain_vote', 'debate', 'vote'].includes(st.type)) return '';
-      return `<button class="ghost" data-act="control">${st.type === 'debate' ? 'Ouvrir le vote' : 'Clore l\'étape'}</button>`;
+      if (!me.isMJ && !['compoVote', 'roles_reveal', 'captain_vote', 'vote'].includes(st.type)) return '';
+      return `<button class="ghost" data-act="control">${st.type === 'vote' ? 'Clore le vote' : 'Clore l\'étape'}</button>`;
     }
     return '';
   }
@@ -565,11 +582,16 @@
     return '<h1>Étape terminée</h1>';
   }
 
-  // Panneau latéral : mon rôle, les joueurs (exclusion pour l'hôte), le journal.
+  // Panneau latéral : réglages (salon), mon rôle, les joueurs (hôte : passer la main, exclure), le journal.
   function drawerHTML() {
     const me = view.me, r = view.room;
-    let role = '';
-    if (me.role && !me.isMJ) {
+    const lobby = r.phase === 'lobby';
+    let top = '';
+    if (lobby) {
+      const nGame = view.players.filter((p) => !p.isMJ).length;
+      top = `<section><h3>Réglages${me.isHost ? '' : ' (choisis par l\'hôte)'}</h3>${settingsHTML()}</section>
+        <section><h3>Composition</h3>${compoHTML(nGame)}</section>`;
+    } else if (me.role && !me.isMJ) {
       const d = ROLES[me.role];
       const extra = [];
       if (me.wolves.length > 1) extra.push(`Ta meute : <strong>${me.wolves.filter((w) => w !== me.id).map(nm).join(', ')}</strong>`);
@@ -578,18 +600,84 @@
       if (r.potions) extra.push(`Potions : vie ${r.potions.life ? '✓' : '✗'} · mort ${r.potions.death ? '✓' : '✗'}`);
       if (!me.canVote) extra.push('Tu ne votes plus.');
       if (r.powersLost) extra.push('Les villageois ont perdu leurs pouvoirs.');
-      role = `<section><h3>Mon rôle</h3><div class="bigrole t-${d.team}">${esc(d.name)}</div><p class="desc">${esc(d.desc)}</p>${extra.map((x) => `<div class="note">${x}</div>`).join('')}</section>`;
+      top = `<section><h3>Mon rôle</h3><div class="bigrole t-${d.team}">${esc(d.name)}</div><p class="desc">${esc(d.desc)}</p>${extra.map((x) => `<div class="note">${x}</div>`).join('')}</section>`;
     }
-    const canKick = (me.isHost || me.isMJ) && r.phase !== 'end';
-    const players = canKick ? `<section><h3>Joueurs</h3>${view.players.filter((p) => p.id !== me.id && !p.kicked).map((p) =>
-      `<div class="prow"><span>${esc(p.name)}${p.connected ? '' : ' · déconnecté'}</span><button class="ghost small-btn" data-act="kick" data-id="${p.id}">Exclure</button></div>`).join('')}</section>` : '';
-    const log = view.log.slice().reverse().map((l) => `<li class="${l.pub ? '' : 'priv'}"><span class="when">${esc(l.when || '')}</span><span>${esc(l.text)}</span></li>`).join('');
+    const manage = (me.isHost || me.isMJ) && r.phase !== 'end';
+    const players = manage ? `<section><h3>Joueurs</h3>${view.players.filter((p) => p.id !== me.id && !p.kicked).map((p) => `
+      <div class="prow"><span>${esc(p.name)}${p.connected ? '' : ' · déconnecté'}</span><span class="row">
+        ${me.isHost && p.connected ? `<button class="ghost small-btn" data-act="giveHost" data-id="${p.id}">Nommer hôte</button>` : ''}
+        <button class="ghost small-btn" data-act="kick" data-id="${p.id}">Exclure</button></span></div>`).join('') || '<p class="muted small">Personne d\'autre pour l\'instant.</p>'}</section>` : '';
+    const log = view.log.length ? `<section><h3>Journal</h3><ol class="log">${view.log.slice().reverse().map((l) => `<li class="${l.pub ? '' : 'priv'}"><span class="when">${esc(l.when || '')}</span><span>${esc(l.text)}</span></li>`).join('')}</ol></section>` : '';
+    const prefs = `<section><h3>Préférences</h3><label class="check"><input type="checkbox" data-act="sound" ${soundOn() ? 'checked' : ''}> Son et vibration quand c'est à toi</label></section>`;
     return `<aside class="drawer ${drawerOpen ? 'open' : ''} ${drawerAnim ? 'slide' : ''}" aria-hidden="${!drawerOpen}">
-      <div class="drawer-head"><h2>Infos</h2><button class="round" data-act="drawer" aria-label="Fermer">${icon('x', 18)}</button></div>
-      ${role}${players}<section><h3>Journal</h3><ol class="log">${log}</ol></section></aside>
+      <div class="drawer-head"><h2>${lobby ? 'Réglages' : 'Infos'}</h2><button class="round" data-act="drawer" aria-label="Fermer">${icon('x', 18)}</button></div>
+      ${top}${players}${log}${prefs}</aside>
       ${drawerOpen ? '<div class="scrim" data-act="drawer"></div>' : ''}`;
   }
 
+  // ---------- Alertes : on ne rate pas son tour ni ce qui vient de se passer ----------
+  const soundOn = () => localStorage.getItem('lg-sound') !== '0';
+  let actx = null;
+  function chime() {
+    if (!soundOn()) return;
+    try {
+      actx = actx || new (window.AudioContext || window.webkitAudioContext)();
+      if (actx.state === 'suspended') actx.resume();
+      const t = actx.currentTime;
+      [[660, 0], [880, 0.14]].forEach(([f, d]) => {
+        const o = actx.createOscillator();
+        const g = actx.createGain();
+        o.type = 'sine';
+        o.frequency.value = f;
+        g.gain.setValueAtTime(0.0001, t + d);
+        g.gain.exponentialRampToValueAtTime(0.12, t + d + 0.02);
+        g.gain.exponentialRampToValueAtTime(0.0001, t + d + 0.28);
+        o.connect(g).connect(actx.destination);
+        o.start(t + d);
+        o.stop(t + d + 0.3);
+      });
+    } catch (e) { /* pas de son possible */ }
+    if (navigator.vibrate) navigator.vibrate([80, 60, 80]);
+  }
+  document.addEventListener('pointerdown', () => { if (actx && actx.state === 'suspended') actx.resume(); }, { passive: true });
+
+  let alertT = null;
+  function showAlert(kind, title, text) {
+    const el = document.getElementById('alert');
+    if (!el) return;
+    el.className = `alert ${kind} show`;
+    el.innerHTML = `${kind === 'turn' ? `<span class="alert-icon">${icon('target', 22)}</span>` : ''}<div><div class="alert-title">${title}</div>${text ? `<div class="alert-text">${text}</div>` : ''}</div>`;
+    clearTimeout(alertT);
+    alertT = setTimeout(() => { el.classList.remove('show'); }, kind === 'turn' ? 3500 : 3000);
+  }
+
+  let lastTurnKey = null;
+  let lastInfoKey = null;
+  let lastPhaseKey = null;
+  function notify(prev, v) {
+    const st = v.step;
+    const myTurn = st && !st.resolved && st.isActor && !st.submitted;
+    document.title = myTurn ? '● À toi · Loup-Garou' : 'Loup-Garou';
+    if (!prev) { lastTurnKey = myTurn ? stepKey(st) : null; return; }
+    const phaseKey = `${v.room.phase}:${v.room.night}:${v.room.day}`;
+    if (v.room.phase === 'night' && phaseKey !== lastPhaseKey && prev.room.phase !== 'night') {
+      showAlert('info', `Nuit ${v.room.night}`, 'Le village s\'endort');
+    }
+    lastPhaseKey = phaseKey;
+    if (myTurn && stepKey(st) !== lastTurnKey && st.type !== 'roles_reveal') {
+      lastTurnKey = stepKey(st);
+      showAlert('turn', 'À toi !', esc(QUESTION[st.type] || ''));
+      chime();
+      return;
+    }
+    if (st && st.resolved && st.result && stepKey(st) !== lastInfoKey) {
+      lastInfoKey = stepKey(st);
+      const res = st.result;
+      if (res.seen) showAlert('info', 'Vision', `${nm(res.seen.id)} est ${esc(roleName(res.seen.role))}`);
+      else if (res.text && ['dawn', 'vote', 'captain_vote', 'hunter', 'successor'].includes(st.type)) showAlert('info', st.type === 'dawn' ? 'Le jour se lève' : 'Résultat', esc(res.text));
+    }
+    if (v.room.phase === 'end' && prev.room.phase !== 'end' && v.room.winner) showAlert('info', 'Fin de partie', esc(v.room.winner.text));
+  }
 
   // ---------- Événements ----------
   $app.addEventListener('click', (e) => {
@@ -665,6 +753,11 @@
         render();
         break;
       }
+      case 'giveHost': {
+        const p = P(el.dataset.id);
+        if (p && confirm(`Donner le rôle d'hôte à ${p.name} ?`)) send('giveHost', { id: p.id });
+        break;
+      }
       case 'drawer':
         drawerOpen = !drawerOpen;
         drawerAnim = drawerOpen;
@@ -709,6 +802,7 @@
       return;
     }
     if (el.dataset.act === 'save') { ui.save = el.checked; render(); return; }
+    if (el.dataset.act === 'sound') { localStorage.setItem('lg-sound', el.checked ? '1' : '0'); if (el.checked) chime(); return; }
     const key = el.dataset.set;
     if (!key) return;
     let patch;

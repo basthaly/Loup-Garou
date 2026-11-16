@@ -38,6 +38,57 @@ window.LGMedia = (() => {
     }
   }
 
+  // ---------- Qui parle ? (comme sur Discord) ----------
+  // Niveau sonore mesuré localement sur chaque piste audio reçue (et sur son propre micro).
+  const meters = new Map(); // id joueur -> { track, src, an, data, until }
+  let mctx = null;
+  function meterCtx() {
+    try { mctx = mctx || new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { return null; }
+    if (mctx.state === 'suspended') mctx.resume().catch(() => {});
+    return mctx;
+  }
+  document.addEventListener('pointerdown', () => { if (mctx && mctx.state === 'suspended') mctx.resume().catch(() => {}); }, { passive: true });
+  function meter(id, track) {
+    if (!id || !track) return;
+    const cur = meters.get(id);
+    if (cur && cur.track === track) return;
+    unmeter(id);
+    const ctx = meterCtx();
+    if (!ctx) return;
+    try {
+      const src = ctx.createMediaStreamSource(new MediaStream([track]));
+      const an = ctx.createAnalyser();
+      an.fftSize = 512;
+      src.connect(an);
+      meters.set(id, { track, src, an, data: new Uint8Array(an.fftSize), until: 0 });
+    } catch (e) { /* piste non mesurable */ }
+  }
+  function unmeter(id) {
+    const m = meters.get(id);
+    if (!m) return;
+    try { m.src.disconnect(); } catch (e) { /* déjà déconnectée */ }
+    meters.delete(id);
+  }
+  setInterval(() => {
+    if (!view) return;
+    const now = Date.now();
+    for (const [id, m] of meters) {
+      if (m.track.readyState === 'ended') { unmeter(id); continue; }
+      m.an.getByteTimeDomainData(m.data);
+      let sum = 0;
+      for (const v of m.data) { const x = (v - 128) / 128; sum += x * x; }
+      const rms = Math.sqrt(sum / m.data.length);
+      const allowed = id === view.me.id ? local.mic : !!rule(id).recv.audio;
+      if (allowed && rms > 0.03) m.until = now + 350;
+      const on = now < m.until;
+      const lvl = on ? Math.min(1, rms * 7) : 0;
+      document.querySelectorAll(`[data-speak="${id}"]`).forEach((el) => {
+        el.classList.toggle('speaking', on);
+        el.style.setProperty('--lvl', lvl.toFixed(2));
+      });
+    }
+  }, 90);
+
   function init(s, cfg, cb) {
     socket = s;
     config = cfg || {};
@@ -63,6 +114,7 @@ window.LGMedia = (() => {
       if (kind === 'audio') {
         local.audioTrack = stream.getAudioTracks()[0];
         local.mic = true;
+        if (view) meter(view.me.id, local.audioTrack);
       } else {
         local.videoTrack = stream.getVideoTracks()[0];
         local.cam = true;
@@ -107,6 +159,7 @@ window.LGMedia = (() => {
     view = v;
     if (!v) return transport.close();
     if (first) publish();
+    if (local.audioTrack) meter(v.me.id, local.audioTrack);
     transport.sync();
   }
 
@@ -167,6 +220,7 @@ window.LGMedia = (() => {
         const el = track.attach();
         pool.appendChild(el);
         e.audio.push(el);
+        meter(id, track.mediaStreamTrack);
       }
     }
 
@@ -174,7 +228,7 @@ window.LGMedia = (() => {
       const e = entry(id);
       for (const el of track.detach()) if (el.tagName === 'AUDIO') el.remove();
       if (track.kind === 'video') e.video = null;
-      else e.audio = e.audio.filter((el) => el.isConnected);
+      else { e.audio = e.audio.filter((el) => el.isConnected); unmeter(id); }
     }
 
     async function connect() {
@@ -307,6 +361,7 @@ window.LGMedia = (() => {
       v.srcObject = peer.stream;
       pc.ontrack = (e) => {
         if (!peer.stream.getTracks().includes(e.track)) peer.stream.addTrack(e.track);
+        if (e.track.kind === 'audio') meter(id, e.track);
         v.play().catch(() => {});
         peer.audioEl.play().catch(() => {});
         onChange();
@@ -390,6 +445,7 @@ window.LGMedia = (() => {
       const peer = peers.get(id);
       if (!peer) return;
       peers.delete(id);
+      unmeter(id);
       try { peer.pc.close(); } catch (e) { /* déjà fermée */ }
       if (peer.audioEl) peer.audioEl.remove();
       const v = videos.get(id);

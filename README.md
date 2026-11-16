@@ -355,9 +355,11 @@ Vérifier que ça tourne : `docker compose ps` et `curl -k https://127.0.0.1:300
 - Salon avec code à 4 lettres et lien d'invitation.
 - Maître du jeu : le site (automatique) ou un joueur, qui voit tout et ne joue pas.
 - Rôles distribués automatiquement selon le nombre de joueurs (modifiables par l'hôte), ou choisis par vote des joueurs.
-- Votes secrets (village, Capitaine, loups), révélés tous en même temps.
+- Votes secrets (village, Capitaine, loups), révélés tous en même temps. Le vote du village s'ouvre directement (temps réglable) et se clôt dès que tout le monde a voté.
 - On joue en touchant directement les visages ; la barre du bas regroupe sa caméra, son rôle, le micro, la caméra et l'action à valider.
-- L'hôte peut exclure un joueur ou arrêter la partie ; si l'hôte part, la main passe à un autre joueur.
+- L'hôte peut exclure un joueur, arrêter la partie ou nommer un autre hôte ; s'il part, la main passe automatiquement.
+- Quand c'est ton tour : alerte au centre de l'écran, son et vibration (désactivables), titre de l'onglet « ● À toi », bouton d'action qui pulse.
+- Indicateur de voix : la vignette de celui qui parle s'entoure de vert, avec des barres qui suivent sa voix.
 - Mode clair / sombre au choix ; la nuit et le jour nuancent seulement les teintes.
 
 **Rôles disponibles**

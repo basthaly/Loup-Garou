@@ -388,3 +388,61 @@ button.small-btn { min-height: 36px; padding: 4px 12px; font-size: 13px; }
   button.round { width: 44px; height: 44px; min-height: 44px; }
   .band .ph-title { font-size: 24px; }
 }
+
+/* ---------- Salon (même structure que le jeu) ---------- */
+.band .code { font-size: 18px; }
+.band button.leave svg { display: none; }
+.band button.share { min-height: 38px; padding: 6px 14px; font-size: 14px; background: var(--accent); color: var(--accent-text); border: none; font-weight: 700; }
+.lobby-summary { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.lobby-grid { grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); }
+.waiting { color: var(--muted); font-weight: 600; }
+.drawer .choice { padding: 10px 12px; }
+
+/* ---------- Qui parle : anneau vert et petites barres qui bougent avec la voix ---------- */
+.tile.speaking, .dock-self.speaking { border-color: var(--ok) !important; box-shadow: 0 0 0 calc(2px + var(--lvl, 0) * 5px) color-mix(in srgb, var(--ok) 50%, transparent); transition: box-shadow .08s linear; }
+.dchip.speaking { border-color: var(--ok); }
+.nm .vu { display: inline-flex; align-items: flex-end; gap: 2px; width: 13px; height: 12px; }
+.nm .vu i { width: 3px; height: 100%; border-radius: 1px; background: currentColor; opacity: .35; transform-origin: bottom; transform: scaleY(.3); transition: transform .08s linear; }
+.speaking .nm .vu i { opacity: 1; background: #7FC8A9; }
+.speaking .nm .vu i:nth-child(1) { transform: scaleY(min(1, calc(.35 + var(--lvl, 0) * .6))); }
+.speaking .nm .vu i:nth-child(2) { transform: scaleY(min(1, calc(.45 + var(--lvl, 0)))); }
+.speaking .nm .vu i:nth-child(3) { transform: scaleY(min(1, calc(.3 + var(--lvl, 0) * .8))); }
+
+/* ---------- C'est à toi : on le voit même sans regarder en haut ---------- */
+.dock.my-turn { border-top: 2px solid var(--accent); }
+.dock-hint { max-width: 1440px; margin: 0 auto; padding: 8px 24px 0; display: flex; align-items: center; gap: 8px; font-weight: 700; color: var(--accent); }
+.pulse-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--accent); animation: dot 1.2s ease-in-out infinite; }
+@keyframes dot { 0%, 100% { transform: scale(.8); opacity: .6; } 50% { transform: scale(1.2); opacity: 1; } }
+button.attn:not(:disabled) { animation: attn 1.6s ease-in-out infinite; }
+@keyframes attn { 0%, 100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 55%, transparent); } 50% { box-shadow: 0 0 0 8px color-mix(in srgb, var(--accent) 0%, transparent); } }
+button.wolf.attn:not(:disabled) { animation-name: attnwolf; }
+@keyframes attnwolf { 0%, 100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--wolf) 55%, transparent); } 50% { box-shadow: 0 0 0 8px color-mix(in srgb, var(--wolf) 0%, transparent); } }
+.stage-grid.picking:not(.has-pick) .tile.pickable { animation: tap 1.8s ease-in-out infinite; }
+@keyframes tap { 0%, 100% { border-color: transparent; } 50% { border-color: color-mix(in srgb, var(--accent) 70%, transparent); } }
+
+.alert { position: fixed; left: 50%; bottom: calc(110px + env(safe-area-inset-bottom)); z-index: 9; transform: translate(-50%, 16px) scale(.96); opacity: 0; pointer-events: none; display: flex; align-items: center; gap: 12px; max-width: min(520px, 92vw); padding: 14px 18px; border-radius: 18px; background: color-mix(in srgb, var(--zone) 92%, transparent); -webkit-backdrop-filter: blur(20px) saturate(160%); backdrop-filter: blur(20px) saturate(160%); border: 1px solid var(--border); box-shadow: 0 16px 40px rgba(0,0,0,.35); transition: opacity .25s ease, transform .35s cubic-bezier(.2,.8,.2,1); }
+.alert.show { opacity: 1; transform: translate(-50%, 0) scale(1); }
+.alert.turn { background: var(--accent); color: var(--accent-text); border-color: transparent; }
+.alert.turn .alert-icon svg { stroke: var(--accent-text); }
+.alert-title { font-weight: 800; font-size: 18px; }
+.alert-text { font-size: 15px; }
+.alert.info .alert-text { color: var(--muted); }
+
+@media (max-width: 700px) {
+  .lobby-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+  .lobby-grid .tile { border-radius: 12px; }
+  .lobby-grid .tile .avatar { width: 36px; height: 36px; font-size: 15px; }
+  .lobby-grid .tile .nm { font-size: 12px; left: 4px; bottom: 4px; padding: 1px 6px; }
+  .lobby-grid .tile .tl, .lobby-grid .tile .tr { top: 4px; }
+  .lobby-grid .chip { font-size: 10px; padding: 1px 5px; }
+  .band button.share { min-height: 34px; padding: 4px 10px; }
+  .band button.leave { width: 38px; padding: 0; justify-content: center; }
+  .band button.leave .lbl { display: none; }
+  .band button.leave svg { display: block; }
+  .lobby-stage .band .in { flex-wrap: nowrap; }
+  .dock-hint { padding: 8px 14px 0; font-size: 15px; }
+  .alert { bottom: calc(150px + env(safe-area-inset-bottom)); }
+}
+@media (prefers-reduced-motion: reduce) {
+  button.attn:not(:disabled), .pulse-dot, .stage-grid.picking:not(.has-pick) .tile.pickable { animation: none; }
+}

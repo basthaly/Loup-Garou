@@ -36,7 +36,7 @@ const NARRATION = {
   dawn: 'Le jour se lève sur le village…',
   captain_vote: 'Le village élit son Capitaine. Son vote comptera double.',
   debate: 'Le village débat. Qui est le loup ?',
-  vote: 'Le village vote pour éliminer un suspect.',
+  vote: 'Le village débat et vote pour éliminer un suspect.',
   hunter: 'Le Chasseur, en mourant, choisit qui emporter avec lui.',
   successor: 'Le Capitaine désigne son successeur.'
 };
@@ -122,6 +122,17 @@ class Room {
     if (this.settings.mjId === id) this.settings.mjId = null;
     if (this.hostId === id) this.hostId = null;
     this.ensureHost(true);
+    this.changed();
+  }
+
+  // L'hôte donne la main à un autre joueur connecté.
+  transferHost(byId, targetId) {
+    if (byId !== this.hostId) throw new Error("Seul l'hôte peut passer la main.");
+    const t = this.players.get(targetId);
+    if (!t || t.kicked || !t.connected) throw new Error('Ce joueur n\'est pas connecté.');
+    if (targetId === byId) return;
+    this.hostId = targetId;
+    this.addLog(`${t.name} devient l'hôte.`, true);
     this.changed();
   }
 
@@ -637,9 +648,10 @@ class Room {
     this.day++;
     const alive = this.alive().map((p) => p.id);
     const steps = [];
-    if (this.day === 1 && !this.captainId) steps.push({ type: 'captain_vote', actors: alive, seconds: this.settings.voteSeconds });
-    steps.push({ type: 'debate', actors: alive, seconds: this.settings.debateSeconds });
-    steps.push({ type: 'vote', actors: [], seconds: this.settings.voteSeconds, dynamicActors: true });
+    // Pas d'étape de débat séparée : le vote s'ouvre tout de suite, on débat pendant qu'il est ouvert,
+    // et il se clôt dès que tout le monde a voté (ou à la fin du temps réglé par l'hôte).
+    if (this.day === 1 && !this.captainId) steps.push({ type: 'captain_vote', actors: alive, seconds: Math.max(this.settings.voteSeconds, 90) });
+    steps.push({ type: 'vote', actors: [], seconds: this.settings.debateSeconds, dynamicActors: true });
     this.phaseSteps = ['dawn', ...steps.map((x) => x.type)];
     this.phaseCursor = 0;
     this.queue.push(...steps);

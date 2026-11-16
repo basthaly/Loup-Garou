@@ -160,5 +160,14 @@ const wait = (ms) => new Promise((r) => setTimeout(r, ms));
     clearTimeout(r2.timer);
     console.log('OK  départ de l\'hôte / du MJ : la main passe');
   }
+  // 10. Passer la main à un autre joueur.
+  {
+    const room = new Room('TEST', () => {});
+    const a = room.addPlayer('A'); const b = room.addPlayer('B');
+    assert.throws(() => room.transferHost(b.id, a.id), 'seul l\'hôte');
+    room.transferHost(a.id, b.id);
+    assert.strictEqual(room.hostId, b.id);
+    console.log('OK  passer la main à un autre joueur');
+  }
   process.exit(0);
 })().catch((e) => { console.error('ÉCHEC :', e.message); process.exit(1); });
