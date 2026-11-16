@@ -148,7 +148,8 @@ window.LGMedia = (() => {
       let sum = 0;
       for (const v of m.data) { const x = (v - 128) / 128; sum += x * x; }
       const rms = Math.sqrt(sum / m.data.length);
-      const allowed = id === view.me.id ? local.mic : !!rule(id).recv.audio;
+      // Voix déformée (Petite Fille) : pas d'anneau vert, sinon elle saurait exactement qui parle.
+      const allowed = id === view.me.id ? local.mic : !!rule(id).recv.audio && !rule(id).recv.distort;
       if (allowed && rms > 0.03) m.until = now + 350;
       const on = now < m.until;
       const lvl = on ? Math.min(1, rms * 7) : 0;
@@ -158,6 +159,57 @@ window.LGMedia = (() => {
       });
     }
   }, 90);
+
+  // ---------- Voix déformée : la Petite Fille entend les loups « de loin » ----------
+  // Son très filtré (comme à travers un mur), effet robot (modulation en anneau) et volume faible.
+  // L'élément <audio> d'origine est coupé ; Chrome en a besoin pour faire circuler le son, il reste en place.
+  const distorted = new Map(); // id -> { track, nodes }
+  function distortChain(track) {
+    const ctx = meterCtx();
+    if (!ctx) return null;
+    try {
+      const src = ctx.createMediaStreamSource(new MediaStream([track]));
+      const hp = ctx.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 450;
+      const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 1300; lp.Q.value = 4;
+      const ring = ctx.createGain(); ring.gain.value = 0;
+      const osc = ctx.createOscillator(); osc.type = 'sine'; osc.frequency.value = 38;
+      const wob = ctx.createOscillator(); wob.frequency.value = 0.7;      // la « hauteur » de l'effet ondule
+      const wobGain = ctx.createGain(); wobGain.gain.value = 14;
+      wob.connect(wobGain).connect(osc.frequency);
+      osc.connect(ring.gain);
+      const out = ctx.createGain(); out.gain.value = 0.45;
+      src.connect(hp).connect(lp).connect(ring).connect(out).connect(ctx.destination);
+      osc.start(); wob.start();
+      return { src, osc, wob, out };
+    } catch (e) { return null; }
+  }
+  function stopChain(d) {
+    try { d.osc.stop(); d.wob.stop(); d.src.disconnect(); d.out.disconnect(); } catch (e) { /* déjà arrêté */ }
+  }
+  function distortSync() {
+    if (!view) { for (const [id, d] of distorted) { stopChain(d); distorted.delete(id); } return; }
+    for (const [id, m] of meters) {
+      if (id === view.me.id) continue;
+      const want = !!(rule(id).recv.audio && rule(id).recv.distort) && m.track.readyState !== 'ended';
+      const cur = distorted.get(id);
+      if (want && (!cur || cur.track !== m.track)) {
+        if (cur) stopChain(cur);
+        const nodes = distortChain(m.track);
+        if (nodes) distorted.set(id, Object.assign(nodes, { track: m.track }));
+      } else if (!want && cur) { stopChain(cur); distorted.delete(id); }
+    }
+    for (const [id, d] of distorted) if (!meters.has(id)) { stopChain(d); distorted.delete(id); }
+    // Le son normal de ces joueurs est coupé (seule la version déformée passe).
+    const tracks = new Set([...distorted.values()].map((d) => d.track));
+    let restored = false;
+    pool.querySelectorAll('audio').forEach((el) => {
+      const t = el.srcObject && el.srcObject.getAudioTracks ? el.srcObject.getAudioTracks() : [];
+      const hide = t.some((x) => tracks.has(x));
+      if (hide) { el.dataset.distort = '1'; el.muted = true; } else if (el.dataset.distort) { delete el.dataset.distort; el.muted = false; restored = true; }
+    });
+    // Fin de l'effet : le transport réapplique les règles normales (le maillage recoupe ce qui n'est pas autorisé).
+    if (restored && transport) transport.applyLocal();
+  }
 
   function init(s, cfg, cb) {
     socket = s;
@@ -234,10 +286,11 @@ window.LGMedia = (() => {
   function update(v) {
     const first = !view && v;
     view = v;
-    if (!v) return transport.close();
+    if (!v) { distortSync(); return transport.close(); }
     if (first) { publish(); restore(); }
     if (local.audioTrack) meter(v.me.id, local.audioTrack);
     transport.sync();
+    distortSync();
   }
 
   function visible(id) {
@@ -298,6 +351,7 @@ window.LGMedia = (() => {
         pool.appendChild(el);
         e.audio.push(el);
         meter(id, track.mediaStreamTrack);
+        distortSync();
       }
     }
 
@@ -438,7 +492,7 @@ window.LGMedia = (() => {
       v.srcObject = peer.stream;
       pc.ontrack = (e) => {
         if (!peer.stream.getTracks().includes(e.track)) peer.stream.addTrack(e.track);
-        if (e.track.kind === 'audio') meter(id, e.track);
+        if (e.track.kind === 'audio') { meter(id, e.track); distortSync(); }
         v.play().catch(() => {});
         peer.audioEl.play().catch(() => {});
         onChange();
@@ -504,7 +558,7 @@ window.LGMedia = (() => {
       const v = local.cam && r.send.video ? local.videoTrack : null;
       if (peer.audioT && peer.sent.a !== a) { peer.sent.a = a; peer.audioT.sender.replaceTrack(a).catch(() => {}); }
       if (peer.videoT && peer.sent.v !== v) { peer.sent.v = v; peer.videoT.sender.replaceTrack(v).then(() => limitBitrate(peer)).catch(() => {}); }
-      if (peer.audioEl) peer.audioEl.muted = !r.recv.audio;
+      if (peer.audioEl) peer.audioEl.muted = !r.recv.audio || !!r.recv.distort;
     }
 
     function applyLocal() { for (const peer of peers.values()) applyPeer(peer); }

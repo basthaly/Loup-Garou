@@ -46,7 +46,7 @@ const wait = (ms) => new Promise((r) => setTimeout(r, ms));
     assert.deepStrictEqual(room.mediaAllowed(w2, w1), { audio: true, video: true, blur: false }, 'les loups se voient et s\'entendent');
     assert.strictEqual(room.mediaAllowed(w1, v1).video, false, 'le villageois ne voit pas le loup');
     assert.strictEqual(room.mediaAllowed(voy, v1).video, false, 'le villageois ne voit personne');
-    assert.deepStrictEqual(room.mediaAllowed(w1, pf), { audio: false, video: true, blur: true }, 'Petite Fille : loups floutés');
+    assert.deepStrictEqual(room.mediaAllowed(w1, pf), { audio: true, video: true, blur: true, distort: true }, 'Petite Fille : loups floutés, voix déformée');
     v1.alive = false;
     assert.strictEqual(room.mediaAllowed(w1, v1).video, true, 'un mort voit tout');
     assert.strictEqual(room.mediaAllowed(v1, w1).audio, false, 'un mort ne parle pas aux vivants');
@@ -93,10 +93,17 @@ const wait = (ms) => new Promise((r) => setTimeout(r, ms));
     clearTimeout(room.timer);
     room.phase = 'night'; room.night = 1; room.queue = [];
     room.startStep({ type: 'loups', actors: [ps[0].id] });
-    assert.deepStrictEqual(room.mediaAllowed(ps[2], ps[1]), { audio: false, video: true, blur: true }, 'villageois flouté');
-    assert.deepStrictEqual(room.mediaAllowed(ps[0], ps[1]), { audio: false, video: true, blur: true }, 'loup flouté');
+    assert.deepStrictEqual(room.mediaAllowed(ps[2], ps[1]), { audio: false, video: true, blur: true, distort: false }, 'villageois flouté, muet');
+    assert.deepStrictEqual(room.mediaAllowed(ps[0], ps[1]), { audio: true, video: true, blur: true, distort: true }, 'loup flouté, voix déformée');
     clearTimeout(room.timer);
-    console.log('OK  Petite Fille : tout le village flouté');
+    // Sorcière réveillée : elle voit tous les vivants (sans les entendre), les dormeurs ne voient rien.
+    room.queue = [];
+    ps[3].role = 'sorciere';
+    room.startStep({ type: 'sorciere', actors: [], roleStep: true });
+    assert.deepStrictEqual(room.mediaAllowed(ps[2], ps[3]), { audio: false, video: true, blur: false }, 'la Sorcière voit les autres');
+    assert.strictEqual(room.mediaAllowed(ps[3], ps[2]).video, false, 'les dormeurs ne la voient pas');
+    clearTimeout(room.timer);
+    console.log('OK  Petite Fille : village flouté, loups entendus déformés ; Sorcière voit les vivants');
   }
 
   // 6. Chasseur mort : il ne voit pas les rôles tant qu'il n'a pas tiré.

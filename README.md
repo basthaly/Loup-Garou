@@ -382,7 +382,7 @@ Vérifier que ça tourne : `docker compose ps` et `curl -k https://127.0.0.1:300
 **Caméra et micro** (indépendants : on peut parler sans se montrer)
 - Salon et jour : tout le monde se voit et s'entend.
 - Nuit : les joueurs endormis ne voient plus personne ; les rôles réveillés voient tout le monde, et les loups s'entendent entre eux.
-- Petite Fille : pendant le tour des loups, elle voit tout le village flou, sans le son.
+- Petite Fille : pendant le tour des loups, elle voit tout le village flou et entend les loups de loin (voix très déformée et faible, sans savoir qui parle).
 - Morts : ils voient et entendent tout, mais ne parlent plus qu'aux autres morts.
 
 ---

@@ -977,8 +977,12 @@ class Room {
     // et s'entendent entre eux ; les autres dorment et ne voient ni n'entendent personne.
     const awake = st && NIGHT_TYPES.includes(st.type) ? st.actors : [];
     if (awake.includes(r.id)) return { audio: awake.includes(s.id), video: true, blur: false };
-    // Petite Fille : pendant le tour des loups, elle entrouvre les yeux et voit tout le village, flou.
-    if (st && st.type === 'loups' && r.role === 'petitefille' && !this.powersLost) return { audio: false, video: true, blur: true };
+    // Petite Fille : pendant le tour des loups, elle entrouvre les yeux et voit tout le village, flou,
+    // et entend les loups de loin : voix très déformée et faible (traitée dans son navigateur).
+    if (st && st.type === 'loups' && r.role === 'petitefille' && !this.powersLost) {
+      const wolf = awake.includes(s.id);
+      return { audio: wolf, video: true, blur: true, distort: wolf };
+    }
     return NONE;
   }
 
