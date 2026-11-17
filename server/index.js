@@ -155,7 +155,9 @@ io.on('connection', (socket) => {
     room.speed = { 1: 1, 2: 0.4, 3: 0.15 }[o.speed] || 1;
     const me = room.addPlayer(String(o.name || 'Testeur').slice(0, 20) || 'Testeur');
     for (let i = 0; i < bots; i++) { const b = room.addPlayer(Bots.NAMES[i]); b.bot = true; b.connected = true; }
-    room.test = { me: me.id, roles: { [me.id]: o.role }, reveal: !!o.reveal, auto: o.auto !== false };
+    const lover = !one && o.lover && o.lover !== 'non' ? (['loup', 'village'].includes(o.lover) ? o.lover : 'any') : null;
+    room.test = { me: me.id, roles: { [me.id]: o.role }, reveal: !!o.reveal, auto: o.auto !== false, lover };
+    if (lover && o.role !== 'cupidon') o.extra = [...(Array.isArray(o.extra) ? o.extra : []), 'cupidon'];
     // Composition : celle d'origine, avec ton rôle et les rôles demandés (les villageois s'ajustent).
     room.customCompo = Object.assign({}, room.effectiveCompo());
     for (const r of [o.role, ...(Array.isArray(o.extra) ? o.extra : [])]) {

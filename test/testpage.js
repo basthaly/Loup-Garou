@@ -36,5 +36,24 @@ const emit = (s, ev, d) => new Promise((r) => s.emit(ev, d, r));
     s.close();
   }
   console.log(`OK  page de test : ${cases.length} rôles imposés, ${ended} parties terminées par les faux joueurs`);
+  // Amoureux : le testeur est uni à un loup (ou à un villageois).
+  for (const [lover, wolfy] of [['loup', true], ['village', false], ['any', null]]) {
+    const s = io(url, { transports: ['websocket'], forceNew: true });
+    let view = null;
+    s.on('state', (v) => { view = v; });
+    const r = await emit(s, 'createTest', { name: 'Testeur', game: 'thiercelieux', role: 'voyante', bots: 7, auto: true, reveal: true, speed: 3, lover });
+    assert.ok(r.ok, r.error);
+    const t0 = Date.now();
+    while ((!view || !view.me.lover) && Date.now() - t0 < 15000) {
+      if (view && view.step && view.step.isActor && !view.step.submitted && view.step.type === 'roles_reveal') s.emit('act', {}, () => {});
+      await new Promise((res) => setTimeout(res, 50));
+    }
+    assert.ok(view.me.lover, `amoureux (${lover})`);
+    const partner = view.players.find((p) => p.id === view.me.lover);
+    const isWolf = ['loup', 'grandloup', 'infect', 'loupblanc'].includes(partner.role);
+    if (wolfy !== null) assert.strictEqual(isWolf, wolfy, `partenaire ${partner.role} (${lover})`);
+    s.close();
+  }
+  console.log('OK  page de test : amoureux au hasard, avec un loup, avec un villageois');
   process.exit(0);
 })().catch((e) => { console.error(e); process.exit(1); });

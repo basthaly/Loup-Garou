@@ -511,6 +511,7 @@ class Room {
       case 'cupidon': {
         let t = Object.values(inputs)[0];
         if (!t) t = shuffle(this.alive().map((p) => p.id)).slice(0, 2);
+        t = this.testLovers(t);
         if (t && t.length === 2) {
           this.lovers = t;
           this.players.get(t[0]).lover = t[1];
@@ -851,6 +852,20 @@ class Room {
       const i = this.extraCards.indexOf(role);
       if (i >= 0) [p.role, this.extraCards[i]] = [this.extraCards[i], p.role];
     }
+  }
+
+  // Page de test : le testeur peut être l'un des amoureux (avec un loup, un villageois ou au hasard).
+  testLovers(t) {
+    const want = this.test && this.test.lover;
+    const me = want && this.players.get(this.test.me);
+    if (!me || !me.alive) return t;
+    const others = this.alive().filter((p) => p.id !== me.id);
+    let pool = others;
+    if (want === 'loup') pool = others.filter((p) => this.isWolf(p));
+    if (want === 'village') pool = others.filter((p) => !this.isWolf(p));
+    if (!pool.length) pool = others;
+    const keep = (t || []).find((x) => x !== me.id && pool.some((p) => p.id === x));
+    return [me.id, keep || pick(pool).id];
   }
 
   startStepHook(step) {

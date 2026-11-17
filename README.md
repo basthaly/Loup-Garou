@@ -404,7 +404,7 @@ Vérifier que ça tourne : `docker compose ps` et `curl -k https://127.0.0.1:300
 - Les vignettes s'adaptent à la taille de l'écran et au nombre de joueurs.
 
 **Page de test** (cachée, aucun lien) : ouvre `/test` sur le site, par exemple `https://ton-adresse/test`.
-- Choisis le jeu, **ton rôle**, le nombre de **faux joueurs** et d'autres rôles à mettre en jeu.
+- Choisis le jeu, **ton rôle**, le nombre de **faux joueurs**, d'autres rôles à mettre en jeu, et si tu veux être **amoureux** (au hasard, avec un loup ou avec un villageois).
 - Les faux joueurs jouent tout seuls (ou pas), les minuteurs peuvent être accélérés, et « Voir tous les rôles » aide à vérifier un cas précis.
 - Pratique pour tester seul.
 

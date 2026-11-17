@@ -284,6 +284,8 @@
         <p class="muted small" style="margin:-6px 0 0">${t.bots + 1} joueurs en tout${one ? `, ${t.bots + 4} cartes` : ''}</p>
         <label>Autres rôles à mettre en jeu</label>
         <div class="chips">${roles.filter(([k]) => k !== t.role && !['villageois', 'n_villageois'].includes(k)).map(([k, d]) => `<button class="chip-btn ${t.extra.includes(k) ? 'on' : ''}" data-act="t-extra" data-v="${k}" aria-pressed="${t.extra.includes(k)}">${esc(d.name)}</button>`).join('')}</div>
+        ${one ? '' : `<div class="row" style="justify-content:space-between"><label for="t-lover" style="margin:0">Être amoureux</label>
+          <select id="t-lover" data-t="lover" style="width:auto">${[['non', 'Non'], ['any', 'Oui, au hasard'], ['loup', 'Oui, avec un loup'], ['village', 'Oui, avec un villageois']].map(([v, l]) => `<option value="${v}" ${(t.lover || 'non') === v ? 'selected' : ''}>${l}</option>`).join('')}</select></div>`}
         <label class="check"><input type="checkbox" data-t="auto" ${t.auto ? 'checked' : ''}> Les faux joueurs jouent tout seuls</label>
         <label class="check"><input type="checkbox" data-t="reveal" ${t.reveal ? 'checked' : ''}> Voir tous les rôles (triche)</label>
         <div class="row" style="justify-content:space-between"><label for="t-speed" style="margin:0">Minuteurs</label>
