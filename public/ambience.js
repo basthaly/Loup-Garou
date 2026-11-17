@@ -409,9 +409,18 @@ window.LGAmbience = (() => {
   function clear() { timers.forEach(clearTimeout); timers = []; }
 
   function level() { return (prefs.on || forceOn) && wanted ? prefs.vol * MAX_GAIN : 0; }
+  // Coupé = vraiment coupé : après le fondu, le moteur audio est mis en pause (plus aucun son ne sort).
+  let pauseT = null;
   function apply(fast) {
     if (!ctx) return;
-    master.gain.setTargetAtTime(level(), ctx.currentTime, fast ? 0.15 : 1.2);
+    const lv = level();
+    if (lv > 0) {
+      clearTimeout(pauseT); pauseT = null;
+      if (ctx.state === 'suspended') ctx.resume().catch(() => {});
+    }
+    master.gain.cancelScheduledValues(ctx.currentTime);
+    master.gain.setTargetAtTime(lv, ctx.currentTime, fast ? 0.15 : 1.2);
+    if (lv === 0 && !pauseT) pauseT = setTimeout(() => { pauseT = null; if (ctx && level() === 0 && ctx.state === 'running') ctx.suspend().catch(() => {}); }, fast ? 900 : 4000);
   }
 
   function setMood(m) {
@@ -430,13 +439,13 @@ window.LGAmbience = (() => {
     wanted = ['setup', 'night', 'day', 'end'].includes(phase);
     if (wanted && !ctx && prefs.on) { try { build(); schedule(); } catch (e) { return; } }
     if (!ctx) return;
-    if (ctx.state === 'suspended') ctx.resume().catch(() => {});
+    if (ctx.state === 'suspended' && level() > 0) ctx.resume().catch(() => {});
     setMood(isNight ? 'night' : 'day');
     if (phase === 'end') { wanted = true; }
     apply();
   }
   // Le navigateur exige un geste avant de jouer du son.
-  document.addEventListener('pointerdown', () => { if (ctx && ctx.state === 'suspended') ctx.resume().catch(() => {}); }, { passive: true });
+  document.addEventListener('pointerdown', () => { if (ctx && ctx.state === 'suspended' && level() > 0) ctx.resume().catch(() => {}); }, { passive: true });
 
   function setVolume(v) {
     prefs.vol = Math.max(0, Math.min(1, v));

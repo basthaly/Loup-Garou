@@ -741,3 +741,17 @@ button.potion.life.on { background: #4CC38A; border-color: #4CC38A; }
   .tile-tools.big-tools button.potion { min-height: 48px; font-size: 15px; }
 }
 @media (max-width: 700px) { .ccard { width: 72px; } }
+
+/* Mémos privés sur les vignettes */
+.chip.memo-safe { background: #2E6F9E; color: #fff; display: inline-flex; align-items: center; gap: 4px; }
+.chip.memo-model { background: #6E5A2E; color: #FCEBC4; display: inline-flex; align-items: center; gap: 4px; }
+.chip.memo-sus { background: #B5462E; color: #fff; display: inline-flex; align-items: center; gap: 4px; }
+.chip.memo-clean { background: #2F6B4F; color: #DFF7EA; }
+.chip.memo-safe svg, .chip.memo-sus svg, .chip.memo-model svg { stroke: currentColor; }
+
+/* Barre du bas : ancienne carte → nouvelle */
+.dock-role.changed { gap: 6px; }
+.dock-role .dock-art.was { width: 26px; opacity: .55; filter: grayscale(.5); }
+.dock-arrow { color: var(--muted); font-weight: 700; }
+@media (max-width: 700px) { .dock-role .dock-art.was { width: 20px; } .dock-role.changed .dr-t small { display: none; } }
+.brand.big { font-size: 60px; }

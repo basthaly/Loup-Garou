@@ -57,6 +57,8 @@
     stop: '<rect x="6" y="6" width="12" height="12" rx="2"/>',
     gear: '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/>',
     help: '<circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.6.3-1 .9-1 1.6v.6M12 17h0"/>',
+    shield: '<path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/>',
+    nose: '<circle cx="11" cy="11" r="6"/><path d="M20 20l-4.5-4.5"/>',
     potion: '<path d="M9 3h6M10 3v5L5 17a3 3 0 0 0 2.6 4.5h8.8A3 3 0 0 0 19 17l-5-9V3"/><path d="M7.5 14h9"/>',
     poison: '<path d="M12 3a7 7 0 0 0-4 12.7V19h8v-3.3A7 7 0 0 0 12 3z"/><path d="M9 19v2M15 19v2M12 19v2"/><circle cx="9.5" cy="11" r="1.2"/><circle cx="14.5" cy="11" r="1.2"/>',
     alert: '<path d="M12 3l10 18H2z"/><path d="M12 10v5M12 18h0"/>',
@@ -329,13 +331,70 @@
     } else {
       const resume = last ? `<button class="resume" data-act="resume">
           <span class="resume-t">Reprendre ma partie</span><span class="muted small">${esc(last.name || '')} · ${esc(last.code)}</span></button>` : '';
-      body = `<div class="home-hero"><h1>La nuit tombe sur le village</h1><p>Entre amis, caméras allumées. Le site mène la partie.</p></div>${resume}
+      body = `${resume}
         <button class="big primary" data-act="home-create">${icon('moon', 20)} Créer un salon</button>
         <button class="big" data-act="home-join">${icon('village', 20)} Rejoindre avec un code</button>`;
     }
     return `<div class="home-scene" aria-hidden="true"></div><div class="home-top">${appearanceButton()}</div><main class="home">
       <div class="brand big">${icon('moon', 44)}<span>Loup-Garou</span></div>
       <div class="zone"><div class="zb">${body}</div></div></main>`;
+  }
+
+  // Mémos privés posés sur les vignettes : protégé (Salvateur), modèle (Enfant Sauvage), flair (Renard).
+  function memos(p) {
+    const me = view.me, st = view.step, out = [];
+    if (isON() || view.room.phase === 'lobby' || view.room.phase === 'end') return out;
+    const myPick = (type) => st && st.type === type && st.isActor && st.myInput === p.id;
+    if (me.role === 'salvateur' && (me.protects === p.id || myPick('salvateur'))) out.push(`<span class="chip memo-safe">${icon('shield', 12)} Protégé</span>`);
+    if (me.role === 'enfant' && !me.wild && (me.model === p.id || myPick('enfant'))) out.push(`<span class="chip memo-model">${icon('person', 12)} Ton modèle</span>`);
+    if (me.role === 'renard' && me.foxNotes && me.foxNotes.length) {
+      const clean = me.foxNotes.some((n) => !n.hasWolf && n.ids.includes(p.id));
+      const sus = me.foxNotes.some((n) => n.hasWolf && n.ids.includes(p.id));
+      if (clean) out.push('<span class="chip memo-clean" title="Flairé : aucun loup">Pas loup</span>');
+      else if (sus && p.id !== me.id) out.push(`<span class="chip memo-sus" title="Flairé : un loup parmi ces joueurs">${icon('nose', 12)} Suspect</span>`);
+    }
+    return out;
+  }
+
+  // Changement de carte en cours de partie : Voleur, joueur infecté, Enfant Sauvage devenu loup.
+  function roleChange() {
+    const me = view.me;
+    if (!view || !me.role || me.isMJ || isON() || view.room.phase === 'lobby') return null;
+    const from = me.origRole || me.role;
+    const to = me.infected || me.wild ? 'loup' : me.role;
+    if (!from || from === to) return null;
+    return { from, to, why: me.infected ? 'infect' : me.wild ? 'wild' : 'steal' };
+  }
+  const changeKey = () => { const c = roleChange(); return c ? `${c.from}>${c.to}` : ''; };
+  const changeStore = () => `lg-rc-${view.room.code}-${view.me.id}`;
+  let changeAnim = null;
+  function changeHTML() {
+    const c = roleChange();
+    if (!c || view.room.phase === 'end') return '';
+    const st = view.step;
+    if (st && st.type === 'roles_reveal' && !st.resolved) return '';
+    const key = changeKey();
+    let seen = null;
+    try { seen = localStorage.getItem(changeStore()); } catch (e) { /* stockage indisponible */ }
+    if (seen === key) return '';
+    const d = ROLES[c.to] || {};
+    const first = changeAnim !== key;
+    changeAnim = key;
+    const camp = { loups: 'Camp des loups', village: 'Camp du village', solitaire: 'Tu joues seul' }[d.team] || '';
+    const hint = { steal: 'Ta nouvelle carte', infect: 'Tu as été infecté', wild: 'Ton modèle est mort' }[c.why];
+    let how = d.how || [d.desc];
+    if (c.why === 'infect') how = ['Tu te réveilles désormais avec les loups et choisis la victime avec eux.', `Tu gardes ton pouvoir de ${roleName(c.from)}.`, 'Pour le village, rien n\'a changé : ne te trahis pas.'];
+    if (c.why === 'wild') how = [`Ton modèle${view.me.model ? `, ${nm(view.me.model)},` : ''} est mort : tu deviens Loup-Garou.`, 'Dès cette nuit, tu te réveilles avec la meute.'];
+    if (c.why === 'steal') how = [`Tu as volé la carte ${roleName(c.to)} : c'est ton rôle pour le reste de la partie.`, ...how];
+    return `<div class="reveal-scrim ${first ? 'anim' : ''}"></div>
+      <div class="reveal ${first ? 'anim' : ''} t-bg-${d.team}" role="dialog" aria-modal="true" aria-labelledby="rc-title">
+        <div class="rv-card ${first ? 'flip' : ''}">${cardImg(c.from, 'rv-back')}${cardImg(c.to, 'rv-face', 'Carte : ' + (d.name || ''))}</div>
+        <div class="rv-text"><p class="hint">${hint}</p>
+        <h1 id="rc-title" class="bigrole t-${d.team}">${esc(d.name || '')}</h1>
+        <p class="rv-camp">${camp}${c.why === 'steal' ? '' : ` · ${esc(roleName(c.from))} au départ`}</p>
+        <ul class="how">${how.map((x) => `<li>${x}</li>`).join('')}</ul>
+        <button class="primary rv-ok" data-act="rc-ok" autofocus>Compris</button></div>
+      </div>`;
   }
 
   // Trois cartes en éventail (accueil, choix du jeu).
@@ -365,6 +424,7 @@
     if (isON() && view.room.phase === 'end' && !p.alive) tl.push('<span class="chip danger">Éliminé</span>');
     if (p.infected) tl.push('<span class="chip wolf">Loup</span>');
     if (opts.danger) tl.push(`<span class="chip danger">${icon('alert', 12)} En danger</span>`);
+    for (const m of memos(p)) tl.push(m);
     if (!p.connected) tl.push('<span class="chip">Déconnecté</span>');
     if (r && r.recv.blur) tl.push('<span class="chip">Flou</span>');
     const tr = [];
@@ -588,7 +648,7 @@
         ${helpButton()}${settingsButton()}
         ${me.isHost && r.phase !== 'end' ? `<button class="stop leave" data-act="abort" aria-label="Arrêter la partie">${icon('stop', 14)}<span class="lbl">Arrêter</span></button>` : ''}</div>
         ${r.phase !== 'end' ? `<div class="narr"><div class="in"><p>${narr || '&nbsp;'}</p></div></div>` : ''}</header>`;
-    return head + `<main class="stage">${promptHTML()}${centerHTML()}${gridHTML()}${cemeteryHTML()}</main>${dockHTML()}${drawerHTML()}${helpHTML()}${revealHTML()}`;
+    return head + `<main class="stage">${promptHTML()}${centerHTML()}${gridHTML()}${cemeteryHTML()}</main>${dockHTML()}${drawerHTML()}${helpHTML()}${revealHTML() || changeHTML()}`;
   }
 
   function settingsButton() {
@@ -664,6 +724,9 @@
         <h1>${esc(r.winner ? r.winner.text : 'Fin de partie')}</h1>${votes}${log}</div>`;
     }
     if (!st) return '';
+    if (st.resolved && !st.result && !st.isActor && !DAY_STEPS.includes(st.type) && !['roles_reveal', 'compoVote'].includes(st.type) && r.phase !== 'day') {
+      return `<div class="prompt muted-prompt"><h1>${me.alive || me.isMJ ? 'Le village dort…' : 'Tu ne joues plus'}</h1></div>`;
+    }
     if (st.resolved) {
       const next = r.waitingMJ ? (me.canControl ? '' : '<p class="hint">En attente du MJ…</p>') : st.nextAt ? `<p class="hint">Suite dans <span data-deadline="${st.nextAt}"></span></p>` : '';
       return `<div class="prompt result">${resultHTML(st)}${next}</div>`;
@@ -869,6 +932,7 @@
     const d = me.role ? ROLES[me.role] : null;
     const L = Media.local;
     const roleBtn = me.isMJ ? '<span class="dock-role"><small>Rôle</small><b>Maître du jeu</b></span>'
+      : d && roleChange() ? (() => { const c = roleChange(), t = ROLES[c.to]; return `<button class="dock-role changed" data-act="help" aria-label="Ton rôle : ${esc(t.name)}, ${esc(roleName(c.from))} au départ">${cardImg(c.from, 'dock-art was')}<span class="dock-arrow" aria-hidden="true">→</span>${cardImg(c.to, 'dock-art')}<span class="dr-t"><small>${esc(roleName(c.from))} →</small><b class="t-${t.team}">${esc(t.name)}<span class="qmark" aria-hidden="true">?</span></b></span></button>`; })()
       : d ? `<button class="dock-role" data-act="help" aria-label="Comment jouer ${esc(d.name)} ?">${cardImg(me.role, 'dock-art')}<span class="dr-t"><small>${isON() ? (r.phase === 'end' ? 'Au départ' : 'Ta carte au départ') : me.alive || r.phase === 'end' ? 'Ton rôle' : 'Tu étais'}</small><b class="t-${d.team}">${esc(d.name)}<span class="qmark" aria-hidden="true">?</span></b></span></button>` : '';
     const mic = `<button class="round ${L.audioTrack ? (L.mic ? 'on' : 'off') : ''}" data-act="media-mic" aria-pressed="${!!(L.audioTrack && L.mic)}" aria-label="${L.audioTrack && L.mic ? 'Couper le micro' : 'Activer le micro'}" ${L.busy.audio ? 'disabled' : ''}>${icon(L.audioTrack && L.mic ? 'mic' : 'micoff', 20)}</button>`;
     const cam = `<button class="round ${L.cam ? 'on' : ''}" data-act="media-cam" aria-pressed="${L.cam}" aria-label="${L.cam ? 'Couper la caméra' : 'Activer la caméra'}" ${L.busy.video ? 'disabled' : ''}>${icon(L.cam ? 'cam' : 'camoff', 20)}</button>`;
@@ -1208,6 +1272,7 @@
       case 'restart': send('restart'); break;
       case 'abort': if (confirm('Arrêter la partie et revenir au salon ?')) send('abort'); break;
       case 'ready': send('act', {}); break;
+      case 'rc-ok': try { localStorage.setItem(changeStore(), changeKey()); } catch (e) { /* stockage indisponible */ } render(); break;
       case 'sel': ui.sel = [el.dataset.id]; render(); break;
       case 'pick': {
         const id = el.dataset.id;

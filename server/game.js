@@ -21,8 +21,9 @@ const DEFAULT_SETTINGS = {
 
 // Temps d'affichage (s) après la résolution d'une étape, en mode MJ automatique.
 const SHOW_DELAY = {
-  roles_reveal: 0, compoVote: 8, cupidon: 3, salvateur: 2, voyante: 4, loups: 4, sorciere: 2,
-  voleur: 3, soeurs: 0, amoureux: 0, enfant: 2, renard: 4, infect: 2, grandloup: 2, loupblanc: 2, flute: 2,
+  // La nuit, on enchaîne : seuls la Voyante et le Renard ont un résultat à lire.
+  roles_reveal: 0, compoVote: 6, cupidon: 0, salvateur: 0, voyante: 3, loups: 0, sorciere: 0,
+  voleur: 0, soeurs: 0, amoureux: 0, enfant: 0, renard: 3, infect: 0, grandloup: 0, loupblanc: 0, flute: 0,
   dawn: 7, captain_vote: 8, debate: 0, vote: 9, hunter: 5, successor: 4, check: 0
 };
 
@@ -117,7 +118,7 @@ class Room {
     this.phaseSteps = [];
     this.phaseCursor = -1;
     for (const p of this.players.values()) {
-      Object.assign(p, { alive: true, role: null, lover: null, seen: {}, idiotRevealed: false, ancienHit: false, canVote: true, death: null, infected: false, model: null, wildTurned: false, charmed: false });
+      Object.assign(p, { alive: true, role: null, lover: null, seen: {}, idiotRevealed: false, ancienHit: false, canVote: true, death: null, infected: false, model: null, wildTurned: false, charmed: false, origRole: null, foxNotes: [] });
     }
   }
 
@@ -371,6 +372,7 @@ class Room {
     // Les cartes en trop restent au centre pour le Voleur.
     this.extraCards = shuffled.slice(gp.length);
     this.applyForced();
+    gp.forEach((p) => { p.origRole = p.role; p.foxNotes = []; });
     this.phase = 'setup';
     if (!this.phaseSteps.includes('roles_reveal')) this.phaseSteps = ['roles_reveal'];
     this.startStep({ type: 'roles_reveal', actors: this.gamePlayers().map((p) => p.id), seconds: 20 });
@@ -555,6 +557,7 @@ class Room {
           const ids = [t, ...this.neighbors(t)];
           const hasWolf = ids.some((x) => this.isWolf(this.players.get(x)));
           s.result.fox = { ids, hasWolf };
+          for (const fp of s.actors.map((x) => this.players.get(x)).filter(Boolean)) (fp.foxNotes = fp.foxNotes || []).push({ ids, hasWolf, night: this.night });
           if (!hasWolf) this.foxLost = true;
           this.addLog(`Le Renard flaire ${ids.map((x) => this.name(x)).join(', ')} : ${hasWolf ? 'il y a un loup' : 'aucun loup, il perd son flair'}.`, false);
         }
@@ -1098,7 +1101,8 @@ class Room {
         role, bot: !!p.bot,
         charmed: seeCharm && p.charmed,
         infected: (omniscient || pid === id) && (p.infected || (p.role === 'enfant' && p.wildTurned)),
-        lover: (omniscient || pid === id || me.lover === pid) && p.lover ? p.lover : null
+        // Cupidon voit le couple qu'il a formé.
+        lover: (omniscient || pid === id || me.lover === pid || (me.origRole === 'cupidon' && this.lovers && this.lovers.includes(pid))) && p.lover ? p.lover : null
       };
     });
     const view = {
@@ -1109,7 +1113,11 @@ class Room {
         wolves: meWolf ? this.gamePlayers().filter((p) => this.isWolf(p)).map((p) => p.id) : [],
         isWolf: meWolf, infected: !!me.infected, charmed: !!me.charmed,
         model: me.role === 'enfant' ? me.model : null, wild: me.role === 'enfant' && me.wildTurned,
-        foxLost: me.role === 'renard' && this.foxLost
+        foxLost: me.role === 'renard' && this.foxLost,
+        origRole: this.phase !== 'lobby' ? me.origRole || null : null,
+        // Salvateur : le joueur protégé cette nuit (et celui de la nuit dernière, qu'on ne peut pas reprendre).
+        protects: me.role === 'salvateur' && this.phase === 'night' ? this.protected || null : null,
+        foxNotes: me.role === 'renard' ? me.foxNotes || [] : []
       },
       room: {
         code: this.code, game: this.game, phase: this.phase, hostId: this.hostId, settings: this.settings, night: this.night, day: this.day,

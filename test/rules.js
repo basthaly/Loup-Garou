@@ -206,6 +206,7 @@ const wait = (ms) => new Promise((r) => setTimeout(r, ms));
     room.phase = 'night'; room.night = 1; room.queue = [];
     room.victim = ps[2].id;
     room.startStep({ type: 'infect', actors: [], roleStep: true, seconds: 25 });
+    room.showDelay = () => 2; // la nuit enchaîne sans pause : on la remet pour examiner l'étape
     room.act(ps[0].id, { infect: true });
     clearTimeout(room.timer);
     room.queue = [];
