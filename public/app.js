@@ -57,6 +57,10 @@
     stop: '<rect x="6" y="6" width="12" height="12" rx="2"/>',
     gear: '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/>',
     help: '<circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.6.3-1 .9-1 1.6v.6M12 17h0"/>',
+    eye: '<path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>',
+    wolf: '<path d="M4 4l4 5h8l4-5v9l-8 7-8-7z"/>',
+    ballot: '<rect x="4" y="4" width="16" height="16" rx="3"/><path d="M8 12l3 3 5-6"/>',
+    arrow: '<path d="M5 12h14M13 6l6 6-6 6"/>',
     shield: '<path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/>',
     nose: '<circle cx="11" cy="11" r="6"/><path d="M20 20l-4.5-4.5"/>',
     potion: '<path d="M9 3h6M10 3v5L5 17a3 3 0 0 0 2.6 4.5h8.8A3 3 0 0 0 19 17l-5-9V3"/><path d="M7.5 14h9"/>',
@@ -191,6 +195,7 @@
     const W = g.clientWidth;
     const top = g.getBoundingClientRect().top + window.scrollY;
     const dock = document.querySelector('.dock');
+    document.body.style.setProperty('--dock-h', `${dock ? dock.offsetHeight : 0}px`);
     const cem = $app.querySelector('.cemetery-row');
     const H = Math.max(180, window.innerHeight - top - (dock ? dock.offsetHeight : 0) - (cem ? cem.offsetHeight + 18 : 0) - 20);
     const gap = parseFloat(getComputedStyle(g).columnGap) || 12;
@@ -340,6 +345,9 @@
       <div class="zone"><div class="zb">${body}</div></div></main>`;
   }
 
+  // Petit visage rond (initiale et couleur du joueur).
+  const face = (id, size = 24) => { const p = P(id); return `<span class="face" style="width:${size}px;height:${size}px;font-size:${Math.round(size * .45)}px;background:${colorOf(id)}" aria-hidden="true">${esc(p ? p.name[0] : '?')}</span>`; };
+
   // Mémos privés posés sur les vignettes : protégé (Salvateur), modèle (Enfant Sauvage), flair (Renard).
   function memos(p) {
     const me = view.me, st = view.step, out = [];
@@ -424,12 +432,14 @@
     if (isON() && view.room.phase === 'end' && !p.alive) tl.push('<span class="chip danger">Éliminé</span>');
     if (p.infected) tl.push('<span class="chip wolf">Loup</span>');
     if (opts.danger) tl.push(`<span class="chip danger">${icon('alert', 12)} En danger</span>`);
+    if (opts.out) tl.unshift(`<span class="chip out">${opts.out}</span>`);
     for (const m of memos(p)) tl.push(m);
     if (!p.connected) tl.push('<span class="chip">Déconnecté</span>');
     if (r && r.recv.blur) tl.push('<span class="chip">Flou</span>');
     const tr = [];
     if (p.lover || me.lover === p.id) tr.push(`<span class="chip" title="Amoureux">${icon('heart', 12, '#F08A6C')}</span>`);
-    if (opts.votes != null && opts.votes > 0) tr.push(`<span class="chip votes-chip">${opts.votes} voix</span>`);
+    if (opts.voteTo !== undefined) tr.push(`<span class="chip vote-to" title="${esc(p.name)} a voté contre ${opts.voteTo ? esc(nm(opts.voteTo)) : 'personne'}">${icon('arrow', 13)}${opts.voteTo ? face(opts.voteTo, 20) + `<span class="vt-name">${esc(nm(opts.voteTo))}</span>` : 'personne'}</span>`);
+    else if (opts.votes != null && opts.votes > 0) tr.push(`<span class="chip votes-chip">${opts.votes} voix</span>`);
     else if (voted) tr.push(`<span class="chip ok">${icon('check', 12)} ${st.type === 'debate' || st.type === 'roles_reveal' ? 'Prêt' : 'A voté'}</span>`);
     const canKick = !opts.noKick && (me.isHost || me.isMJ) && !isMe && !p.kicked && view.room.phase !== 'end';
     const kick = canKick ? `<button class="kick" data-act="kick" data-id="${p.id}" aria-label="Exclure ${esc(p.name)}" title="Exclure">${icon('x', 14)}</button>` : '';
@@ -438,8 +448,9 @@
       <div class="tl">${tl.join('')}</div><div class="tr">${tr.join('')}</div>
       ${opts.picked ? `<span class="picked-mark">${icon('check', 14)}<span class="pm-t">${opts.mark || (st && st.type === 'vote' ? 'Ton vote' : 'Choisi')}</span></span>` : ''}
       ${opts.tools || ''}
+      ${opts.voteFrom && opts.voteFrom.length ? `<span class="vote-from ${opts.topVoted ? 'top' : ''}" title="Contre ${esc(p.name)} : ${opts.voteFrom.map((x) => esc(nm(x))).join(', ')}"><span class="faces">${opts.voteFrom.map((x) => face(x, 24)).join('')}</span><b>${opts.votes || opts.voteFrom.length}</b></span>` : ''}
       <span class="nm">${p.mic ? '<span class="vu" aria-hidden="true"><i></i><i></i><i></i></span>' : icon('micoff', 13)}${esc(p.name)}${isMe ? ' (toi)' : ''}</span>`;
-    const cls = `tile has-video-host ${isMe ? 'me' : ''} ${asleep ? 'asleep' : ''} ${opts.wolfMate ? 'wolfmate' : ''} ${opts.pick ? 'pickable' : ''} ${opts.picked ? 'picked' : ''} ${opts.danger ? 'danger' : ''} ${opts.big ? 'big' : ''} ${opts.poisoned ? 'poisoned' : ''} ${opts.saved ? 'saved' : ''} ${opts.tools ? 'has-tools' : ''}`;
+    const cls = `tile has-video-host ${isMe ? 'me' : ''} ${asleep ? 'asleep' : ''} ${opts.wolfMate ? 'wolfmate' : ''} ${opts.pick ? 'pickable' : ''} ${opts.picked ? 'picked' : ''} ${opts.danger ? 'danger' : ''} ${opts.big ? 'big' : ''} ${opts.out ? 'out' : ''} ${opts.poisoned ? 'poisoned' : ''} ${opts.saved ? 'saved' : ''} ${opts.tools ? 'has-tools' : ''}`;
     if (opts.pick) return `<button class="${cls}" data-speak="${p.id}" data-act="pick" data-id="${p.id}" aria-pressed="${!!opts.picked}" aria-label="${esc((st && VERB[st.type]) || 'Choisir')} ${esc(p.name)}">${inner}</button>`;
     return `<div class="${cls}" data-speak="${p.id}">${inner}${kick}</div>`;
   }
@@ -640,14 +651,12 @@
     const steps = r.phase === 'end' ? '' : `<ol class="steps" aria-label="Déroulé de la phase">${r.phaseSteps.map((s) =>
       `<li class="${s.state}">${esc(STEP_LABEL[s.type] || s.type)}${s.state === 'done' ? ' ✓' : ''}</li>`).join('')}</ol>`;
     const timer = st && !st.resolved && st.deadline ? `<span class="timer" data-deadline="${st.deadline}">${fmt(st.deadline - Date.now() - offset)}</span>` : '';
-    let narr = '';
-    if (r.phase !== 'end' && st) narr = esc(st.narration); // le résultat s'affiche en grand dans la consigne
     const spect = document.body.dataset.dead === '1' ? `<span class="pill spect-pill">${icon('ear', 14)} Spectateur</span>` : '';
     const head = `<header class="band"><div class="in">
         <span class="ph-title">${title}</span>${steps}${spect}<span class="grow"></span>${timer}
         ${helpButton()}${settingsButton()}
         ${me.isHost && r.phase !== 'end' ? `<button class="stop leave" data-act="abort" aria-label="Arrêter la partie">${icon('stop', 14)}<span class="lbl">Arrêter</span></button>` : ''}</div>
-        ${r.phase !== 'end' ? `<div class="narr"><div class="in"><p>${narr || '&nbsp;'}</p></div></div>` : ''}</header>`;
+</header>`;
     return head + `<main class="stage">${promptHTML()}${centerHTML()}${gridHTML()}${cemeteryHTML()}</main>${dockHTML()}${drawerHTML()}${helpHTML()}${revealHTML() || changeHTML()}`;
   }
 
@@ -879,14 +888,20 @@
     const mode = pickMode(st);
     const sel = picked(st);
     const tally = st && st.resolved && st.result && st.result.tally ? st.result.tally : null;
+    // Votes révélés : sur chaque vignette, ceux qui ont voté contre ce joueur et la cible de son propre vote.
+    const voteTo = {}, voteFrom = {};
+    if (tally && st.result.choices) for (const c of st.result.choices) { voteTo[c.voter] = c.target || null; if (c.target) (voteFrom[c.target] = voteFrom[c.target] || []).push(c.voter); }
     const mj = view.players.find((p) => p.isMJ && p.id !== me.id);
-    const alive = view.players.filter((p) => !p.isMJ && (p.alive || (isON() && r.phase === 'end')));
+    const alive = view.players.filter((p) => !p.isMJ && (p.alive || (isON() && r.phase === 'end') || (tally && voteFrom[p.id] && st.type === 'vote')));
     const night = r.phase === 'night' && !isDayCtx();
     const witch = st && st.type === 'sorciere' && st.isActor && !st.resolved && !st.submitted;
     const tiles = (mj ? [mj] : []).concat(alive).map((p) => {
       const can = mode && mode.ids.includes(p.id);
       const o = {
         pick: can, picked: sel.includes(p.id), votes: tally ? tally[p.id] || 0 : null,
+        voteFrom: tally ? voteFrom[p.id] || [] : null, voteTo: tally && p.id in voteTo ? voteTo[p.id] : undefined,
+        out: tally && st.type === 'vote' && !p.alive ? 'Éliminé' : null,
+        topVoted: tally && (tally[p.id] || 0) > 0 && (tally[p.id] || 0) === Math.max(...Object.values(tally)),
         wolfMate: night && me.isWolf && me.wolves.includes(p.id) && p.id !== me.id, noKick: true
       };
       if (witch) Object.assign(o, witchTile(st, p));
@@ -938,13 +953,58 @@
     const cam = `<button class="round ${L.cam ? 'on' : ''}" data-act="media-cam" aria-pressed="${L.cam}" aria-label="${L.cam ? 'Couper la caméra' : 'Activer la caméra'}" ${L.busy.video ? 'disabled' : ''}>${icon(L.cam ? 'cam' : 'camoff', 20)}</button>`;
     const self = `<div class="dock-self has-video-host" data-speak="${me.id}"><span class="avatar" style="background:${colorOf(me.id)}" aria-hidden="true">${esc(me.name[0])}</span><div class="vslot" data-vslot="me"></div></div>`;
     const myTurn = st && !st.resolved && st.isActor && !st.submitted;
-    const hint = myTurn ? `<div class="dock-hint"><span class="pulse-dot" aria-hidden="true"></span>À toi : ${esc(QUESTION[st.type] || 'ton action')}</div>` : '';
-    return `<nav class="dock ${myTurn ? 'my-turn' : ''}" aria-label="Commandes">${hint}<div class="in">
+    return `<nav class="dock ${myTurn ? 'my-turn' : ''}" aria-label="Commandes">${eventBarHTML()}<div class="in">
       <div class="dock-me">${self}${roleBtn}</div>
       <div class="dock-media">${mic}${cam}${ambButton()}</div>
       <div class="dock-actions">${actionButtons()}</div>
       <button class="round" data-act="drawer" data-kind="${r.phase === 'lobby' ? 'roles' : 'journal'}" aria-label="${r.phase === 'lobby' ? (isON() ? 'Deck' : 'Rôles') : 'Mon rôle et journal'}">${icon(r.phase === 'lobby' ? 'cards' : 'scroll', 20)}</button>
     </div>${L.error ? `<div class="dock-error">${esc(L.error)}</div>` : ''}</nav>`;
+  }
+
+  // Bandeau d'événement, au-dessus des commandes : orange quand c'est à toi, bleu pour ce qui se passe.
+  const STEP_ICON = {
+    voyante: 'eye', n_voyante: 'eye', loups: 'wolf', n_loups: 'wolf', grandloup: 'wolf', loupblanc: 'wolf', infect: 'wolf', n_sbire: 'wolf',
+    sorciere: 'potion', salvateur: 'shield', cupidon: 'heart', amoureux: 'heart', soeurs: 'person', renard: 'nose', enfant: 'person',
+    vote: 'ballot', captain_vote: 'crown', successor: 'crown', hunter: 'target', debate: 'person', dawn: 'sun', voleur: 'cards', n_voleur: 'cards',
+    n_noiseuse: 'cards', n_soulard: 'cards', n_double: 'person', n_macons: 'person', n_insomniaque: 'eye', flute: 'music', roles_reveal: 'cards', compoVote: 'cards'
+  };
+  let evLast = null;
+  function eventBarHTML() {
+    const st = view.step, me = view.me, r = view.room;
+    if (r.phase === 'lobby') return '';
+    const day = isDayCtx();
+    let kind = 'info', ic = (st && STEP_ICON[st.type]) || (day ? 'sun' : 'moon'), title = '', sub = '', right = '';
+    if (r.phase === 'end') {
+      kind = 'result'; ic = 'crown';
+      title = r.winner ? r.winner.text : 'Fin de partie';
+      sub = isON() ? (me.won ? 'Tu as gagné !' : 'Tu as perdu') : 'La partie est terminée';
+    } else if (!st) {
+      return '';
+    } else if (!st.resolved && st.isActor && !st.submitted && st.type !== 'roles_reveal') {
+      kind = 'mine';
+      title = `À toi · ${STEP_LABEL[st.type] || 'ton tour'}`;
+      sub = QUESTION[st.type] || 'À toi de jouer';
+      if (st.deadline) right = `<span class="ev-time" data-deadline="${st.deadline}">${fmt(st.deadline - Date.now() - offset)}</span>`;
+    } else if (st.resolved && st.result && st.result.text) {
+      kind = 'result';
+      title = st.result.text;
+      sub = st.nextAt ? 'La suite arrive…' : r.waitingMJ ? 'En attente du MJ' : '';
+      if (st.nextAt) right = `<span class="ev-next">Suite dans <span data-deadline="${st.nextAt}"></span></span>`;
+    } else {
+      const night = !DAY_STEPS.includes(st.type) && !['roles_reveal', 'compoVote'].includes(st.type);
+      title = st.narration || STEP_LABEL[st.type] || '';
+      if (st.isActor && st.submitted) sub = 'C\'est fait. En attente des autres…';
+      else if (!me.alive && !me.isMJ) sub = 'Tu regardes la partie en spectateur.';
+      else if (night && !st.isActor) sub = 'Le village dort. Garde les yeux fermés.';
+      else if (st.actorsCount != null) sub = `${st.done.length} / ${st.actorsCount} ${night ? 'ont agi' : st.type === 'roles_reveal' ? 'prêts' : 'ont voté'}`;
+    }
+    if (!title) return '';
+    const key = `${kind}:${title}`;
+    const fresh = key !== evLast;
+    evLast = key;
+    return `<div class="evbar ${kind} ${day ? 'day' : 'night'} ${fresh ? 'fresh' : ''}" role="status" aria-live="polite">
+      <span class="ev-icon">${icon(ic, 22)}</span>
+      <span class="ev-text"><b>${esc(title)}</b>${sub ? `<span>${esc(sub)}</span>` : ''}</span>${right}</div>`;
   }
 
   function ambButton() {
@@ -1041,8 +1101,14 @@
     const res = st.result;
     if (!res) return '<h1>Étape terminée</h1>';
     if (st.type === 'vote' || st.type === 'captain_vote') {
-      const list = res.choices.map((c) => `<span class="vote-card">${nm(c.voter)}${c.double ? ' ×2' : ''} → <b>${c.target ? nm(c.target) : 'abstention'}</b></span>`).join('');
-      return `<h1>${esc(res.text)}</h1><div class="votes">${list}</div>`;
+      const from = {};
+      for (const c of res.choices) if (c.target) (from[c.target] = from[c.target] || []).push(c.voter);
+      const ranked = Object.keys(res.tally || {}).filter((k) => res.tally[k] > 0).sort((a, b) => res.tally[b] - res.tally[a]);
+      const top = ranked.length ? res.tally[ranked[0]] : 0;
+      const abst = res.choices.filter((c) => !c.target).map((c) => c.voter);
+      const list = ranked.map((id) => `<span class="rank ${res.tally[id] === top ? 'top' : ''}">${face(id, 26)}<b>${esc(nm(id))}</b><span class="faces">${(from[id] || []).map((x) => face(x, 20)).join('')}</span><b class="n">${res.tally[id]}</b></span>`).join('')
+        + (abst.length ? `<span class="rank abst"><b>Abstention</b><span class="faces">${abst.map((x) => face(x, 20)).join('')}</span></span>` : '');
+      return `<h1>${esc(res.text)}</h1><div class="ranks">${list}</div>`;
     }
     if (st.type === 'voyante' && res.seen) return `<p class="hint">Vision</p><h1>${nm(res.seen.id)} est <span class="t-${teamOf(res.seen.role)}">${esc(roleName(res.seen.role))}</span></h1>`;
     if (st.type === 'renard' && res.fox) return `<p class="hint">Flair</p><h1>${res.fox.hasWolf ? 'Il y a un loup parmi' : 'Aucun loup parmi'} ${res.fox.ids.map(nm).join(', ')}</h1>${res.fox.hasWolf ? '' : '<p class="hint">Tu perds ton flair.</p>'}`;
@@ -1174,24 +1240,10 @@
       lastStepKey = stepKey(st);
       if (myTurn && st.type !== 'roles_reveal') {
         lastTurnKey = stepKey(st);
-        showAlert('turn', 'À toi !', esc(QUESTION[st.type] || ''));
         chime();
-        return;
-      }
-      if (st.type !== 'roles_reveal') {
-        showAlert('step', newNight ? `Nuit ${v.room.night}` : esc(STEP_LABEL[st.type] || 'Nouvelle étape'), esc(st.narration || ''));
-        return;
       }
     }
-    if (newNight) { showAlert('step', `Nuit ${v.room.night}`, 'Le village s\'endort'); return; }
-    if (st && st.resolved && st.result && stepKey(st) !== lastInfoKey) {
-      lastInfoKey = stepKey(st);
-      const res = st.result;
-      if (res.seen) showAlert('info', 'Vision', `${nm(res.seen.id)} est ${esc(roleName(res.seen.role))}`);
-      else if (res.fox) showAlert('info', 'Flair', res.fox.hasWolf ? 'Il y a un loup' : 'Aucun loup');
-      else if (res.text && ['dawn', 'vote', 'captain_vote', 'hunter', 'successor'].includes(st.type)) showAlert('info', st.type === 'dawn' ? 'Le jour se lève' : 'Résultat', esc(res.text));
-    }
-    if (v.room.phase === 'end' && prev.room.phase !== 'end' && v.room.winner) showAlert('info', 'Fin de partie', esc(v.room.winner.text));
+    void newNight; void lastInfoKey;
   }
 
   // ---------- Événements ----------
