@@ -1,15 +1,15 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 600">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 450">
 <defs>
 <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#1D2650"/><stop offset="1" stop-color="#0B1028"/></linearGradient>
 <radialGradient id="glow" cx="0.5" cy="0.5" r="0.5"><stop offset="0" stop-color="#F6D98A" stop-opacity="0.35"/><stop offset="1" stop-color="#F6D98A" stop-opacity="0"/></radialGradient>
 <pattern id="p" width="30" height="30" patternUnits="userSpaceOnUse"><path d="M15 9 l2 4 l4 2 l-4 2 l-2 4 l-2 -4 l-4 -2 l4 -2Z" fill="#8DB4F0" opacity="0.12"/></pattern>
 </defs>
-<rect x="4" y="4" width="292" height="592" rx="22" fill="#0B1028" stroke="#8DB4F0" stroke-width="6"/>
-<rect x="16" y="16" width="268" height="568" rx="14" fill="url(#bg)" stroke="#8DB4F0" stroke-opacity="0.5" stroke-width="2"/>
-<rect x="16" y="16" width="268" height="568" rx="14" fill="url(#p)"/>
-<circle cx="150" cy="300" r="120" fill="url(#glow)"/>
-<circle cx="150" cy="300" r="70" fill="#F3D27E"/>
-<circle cx="174" cy="288" r="62" fill="#1A2350"/>
-<path d="M150 150 v40 M150 410 v40 M70 300 h-30 M230 300 h30" stroke="#F3D27E" stroke-width="3" stroke-linecap="round" opacity="0.6"/>
-<circle cx="150" cy="130" r="5" fill="#F3D27E"/><circle cx="150" cy="470" r="5" fill="#F3D27E"/>
+<rect x="14" y="10" width="272" height="430" rx="20" fill="#0B1028" stroke="#8DB4F0" stroke-width="6"/>
+<rect x="26" y="22" width="248" height="406" rx="13" fill="url(#bg)" stroke="#8DB4F0" stroke-opacity="0.5" stroke-width="2"/>
+<rect x="26" y="22" width="248" height="406" rx="13" fill="url(#p)"/>
+<circle cx="150" cy="225" r="110" fill="url(#glow)"/>
+<circle cx="150" cy="225" r="64" fill="#F3D27E"/>
+<circle cx="172" cy="214" r="57" fill="#1A2350"/>
+<path d="M150 92 v34 M150 324 v34 M76 225 h-26 M224 225 h26" stroke="#F3D27E" stroke-width="3" stroke-linecap="round" opacity="0.6"/>
+<circle cx="150" cy="74" r="5" fill="#F3D27E"/><circle cx="150" cy="376" r="5" fill="#F3D27E"/>
 </svg>

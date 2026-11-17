@@ -67,7 +67,7 @@
   // Illustrations des cartes : un fichier par rôle dans /cards. Les rôles d'Une nuit repris de Thiercelieux
   // utilisent la même image. Pour changer une illustration, il suffit de remplacer le fichier.
   const CARD_ALIAS = { n_loup: 'loup', n_voyante: 'voyante', n_voleur: 'voleur', n_villageois: 'villageois', n_chasseur: 'chasseur' };
-  const CARD_FILE = {}; // ex. { loup: 'loup.png' } si une image n'est pas en .webp
+  const CARD_FILE = {}; // ex. { loup: 'loup.png' } si une image n'est pas en .webp (format 2:3, 600 × 900)
   const cardSrc = (role) => {
     if (!role) return '/img/carte-dos.svg';
     const k = CARD_ALIAS[role] || role;
