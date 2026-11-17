@@ -152,6 +152,8 @@ window.LGMedia = (() => {
       if (rule(el.dataset.pid).recv.distort && (!el.muted || el.volume > 0)) { el.dataset.distort = '1'; el.muted = true; el.volume = 0; }
     });
   }, 100);
+  // Temps de parole du jour (ms), par joueur : remis à zéro chaque matin par l'interface.
+  const talk = new Map();
   setInterval(() => {
     if (!view) return;
     const now = Date.now();
@@ -166,6 +168,7 @@ window.LGMedia = (() => {
       if (allowed && rms > 0.03) m.until = now + 350;
       const on = now < m.until;
       const lvl = on ? Math.min(1, rms * 7) : 0;
+      if (on && view.room && view.room.phase === 'day') talk.set(id, (talk.get(id) || 0) + 90);
       document.querySelectorAll(`[data-speak="${id}"]`).forEach((el) => {
         el.classList.toggle('speaking', on);
         el.style.setProperty('--lvl', lvl.toFixed(2));
@@ -649,5 +652,5 @@ window.LGMedia = (() => {
     return { init, sync, applyLocal, close, hasVideo };
   }
 
-  return { init, enable, toggle, update, mount, visible, local, devices, refreshDevices, selected, choose };
+  return { init, enable, toggle, update, mount, visible, local, devices, refreshDevices, selected, choose, talk };
 })();

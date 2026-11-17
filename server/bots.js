@@ -68,6 +68,10 @@ function drive(room) {
     setTimeout(() => {
       try {
         if (room.step !== s || s.resolved || (s.inputs && id in s.inputs)) return;
+        if (s.type === 'debate' && Math.random() < 0.7) {
+          const others = [...room.players.values()].filter((x) => x.alive && x.id !== id && !room.isMJ(x.id)).map((x) => x.id);
+          if (others.length) room.act(id, { lean: rnd(others) });
+        }
         const payload = choose(room.viewFor(id));
         if (payload) room.act(id, payload);
       } catch (e) { /* choix refusé : le minuteur fera avancer la partie */ }

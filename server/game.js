@@ -373,6 +373,7 @@ class Room {
     this.extraCards = shuffled.slice(gp.length);
     this.applyForced();
     gp.forEach((p) => { p.origRole = p.role; p.foxNotes = []; });
+    this.voteHistory = []; this.lastLeans = {};
     this.phase = 'setup';
     if (!this.phaseSteps.includes('roles_reveal')) this.phaseSteps = ['roles_reveal'];
     this.startStep({ type: 'roles_reveal', actors: this.gamePlayers().map((p) => p.id), seconds: 20 });
@@ -413,6 +414,14 @@ class Room {
     payload = payload || {};
     const p = this.players.get(id);
     const isAlive = (t) => this.players.has(t) && this.players.get(t).alive && !this.isMJ(t);
+    // Débat : une intention (ni un vote, ni définitive), ou « je ne suis plus prêt ».
+    if (s.type === 'debate' && 'lean' in payload) {
+      s.leans = s.leans || {};
+      if (payload.lean && isAlive(payload.lean) && payload.lean !== id) s.leans[id] = payload.lean;
+      else delete s.leans[id];
+      return this.changed();
+    }
+    if (s.type === 'debate' && payload.ready === false) { delete s.inputs[id]; return this.changed(); }
     let value;
     switch (s.type) {
       case 'roles_reveal':
@@ -698,9 +707,11 @@ class Room {
           res.text = `${this.name(cap)} est élu(e) Capitaine${res.top.length > 1 ? ' (tirage au sort entre les ex æquo)' : ''}.`;
         } else res.text = "Aucun Capitaine n'est élu.";
         this.addLog(res.text, true);
+        (this.voteHistory = this.voteHistory || []).push({ label: 'Capitaine', choices: res.choices.map((c) => ({ voter: c.voter, target: c.target })), text: res.text, out: cap || null });
         break;
       }
       case 'debate':
+        this.lastLeans = Object.assign({}, s.leans || {});
         break;
       case 'vote': {
         this.deaths = [];
@@ -727,6 +738,7 @@ class Room {
         }
         res.deaths = this.deaths.slice();
         this.addLog(res.text, true);
+        (this.voteHistory = this.voteHistory || []).push({ label: `Jour ${this.day}`, choices: res.choices.map((c) => ({ voter: c.voter, target: c.target })), text: res.text, out: res.deaths && res.deaths[0] ? res.deaths[0].id : null });
         this.queue.unshift(...triggers, { type: 'check', then: 'night' });
         triggers.length = 0;
         break;
@@ -846,10 +858,12 @@ class Room {
     this.day++;
     const alive = this.alive().map((p) => p.id);
     const steps = [];
-    // Pas d'étape de débat séparée : le vote s'ouvre tout de suite, on débat pendant qu'il est ouvert,
-    // et il se clôt dès que tout le monde a voté (ou à la fin du temps réglé par l'hôte).
+    // Débat (temps réglé par l'hôte) : chacun dit quand il est prêt et peut indiquer une intention.
+    // Quand tout le monde est prêt, ou à la fin du temps : 10 secondes pour voter.
     if (this.day === 1 && !this.captainId) steps.push({ type: 'captain_vote', actors: alive, seconds: Math.max(this.settings.voteSeconds, 90) });
-    steps.push({ type: 'vote', actors: [], seconds: this.settings.debateSeconds, dynamicActors: true });
+    this.lastLeans = {};
+    steps.push({ type: 'debate', actors: alive, seconds: this.settings.debateSeconds });
+    steps.push({ type: 'vote', actors: [], seconds: 10, dynamicActors: true });
     this.phaseSteps = ['dawn', ...steps.map((x) => x.type)];
     this.phaseCursor = 0;
     this.queue.push(...steps);
@@ -899,7 +913,9 @@ class Room {
   }
 
   countVotes(s, captainDouble) {
-    const choices = s.actors.map((a) => ({ voter: a, target: s.inputs[a] === undefined ? null : s.inputs[a], double: captainDouble && a === this.captainId }));
+    // Vote du jour : sans réponse dans les 10 secondes, l'intention du débat compte comme vote.
+    const lean = (a) => (s.type === 'vote' && this.lastLeans && this.lastLeans[a] && this.players.get(this.lastLeans[a]) && this.players.get(this.lastLeans[a]).alive ? this.lastLeans[a] : null);
+    const choices = s.actors.map((a) => ({ voter: a, target: s.inputs[a] === undefined ? lean(a) : s.inputs[a], double: captainDouble && a === this.captainId }));
     const tally = {};
     for (const c of choices) if (c.target) tally[c.target] = (tally[c.target] || 0) + (c.double ? 2 : 1);
     const max = Object.keys(tally).length ? Math.max(...Object.values(tally)) : 0;
@@ -1144,6 +1160,7 @@ class Room {
       customCompo: !!this.customCompo,
       compoVoteResult: this.compoVoteResult,
       log: this.log.filter((l) => l.pub || omniscient).slice(-40),
+      voteHistory: (this.voteHistory || []).map((h) => ({ label: h.label, text: h.text, out: h.out, choices: h.choices })),
       step: this.stepView(me, omniscient)
     };
     return view;
@@ -1192,6 +1209,8 @@ class Room {
     }
     if (['infect', 'grandloup'].includes(s.type) && (isActor || omniscient)) v.victim = this.victim;
     if (s.type === 'amoureux' && isActor) v.partner = me.lover;
+    if (s.type === 'debate') v.leans = Object.entries(s.leans || {}).map(([voter, target]) => ({ voter, target }));
+    if (s.type === 'vote' && isActor && this.lastLeans && this.lastLeans[me.id]) v.lean = this.lastLeans[me.id];
     if (s.resolved && s.result) {
       const r = s.result;
       if (['captain_vote', 'vote'].includes(s.type)) v.result = { choices: r.choices, tally: r.tally, text: r.text };

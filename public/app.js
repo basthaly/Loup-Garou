@@ -230,6 +230,21 @@
     }
     g.style.justifyContent = 'center';
   }
+  // Temps de parole : un trait discret au bas des vignettes, relatif à celui qui parle le plus aujourd'hui.
+  let talkDay = null;
+  setInterval(() => {
+    if (!view || !Media.talk) return;
+    const dayKey = `${view.room.code}:${view.room.day}`;
+    if (dayKey !== talkDay) { talkDay = dayKey; Media.talk.clear(); }
+    const bars = document.querySelectorAll('.talk[data-talk]');
+    if (!bars.length) return;
+    const max = Math.max(1, ...Media.talk.values());
+    bars.forEach((el) => {
+      const ms = Media.talk.get(el.dataset.talk) || 0;
+      el.firstElementChild.style.width = `${Math.round((ms / max) * 100)}%`;
+      el.title = `Temps de parole : ${Math.round(ms / 1000)} s`;
+    });
+  }, 1000);
   let resizeT = null;
   window.addEventListener('resize', () => { clearTimeout(resizeT); resizeT = setTimeout(layoutGrid, 120); });
   function render() {
@@ -376,13 +391,14 @@
     const me = view.me, st = view.step, out = [];
     if (isON() || view.room.phase === 'lobby' || view.room.phase === 'end') return out;
     const myPick = (type) => st && st.type === type && st.isActor && st.myInput === p.id;
-    if (me.role === 'salvateur' && (me.protects === p.id || myPick('salvateur'))) out.push(`<span class="chip memo-safe">${icon('shield', 12)} Protégé</span>`);
-    if (me.role === 'enfant' && !me.wild && (me.model === p.id || myPick('enfant'))) out.push(`<span class="chip memo-model">${icon('person', 12)} Ton modèle</span>`);
+    const ib = (ic, cls, title) => `<span class="ib ${cls}" title="${esc(title)}" aria-label="${esc(title)}">${icon(ic, 13)}</span>`;
+    if (me.role === 'salvateur' && (me.protects === p.id || myPick('salvateur'))) out.push(ib('shield', 'safe', 'Protégé cette nuit'));
+    if (me.role === 'enfant' && !me.wild && (me.model === p.id || myPick('enfant'))) out.push(ib('person', 'model', 'Ton modèle'));
     if (me.role === 'renard' && me.foxNotes && me.foxNotes.length) {
       const clean = me.foxNotes.some((n) => !n.hasWolf && n.ids.includes(p.id));
       const sus = me.foxNotes.some((n) => n.hasWolf && n.ids.includes(p.id));
-      if (clean) out.push('<span class="chip memo-clean" title="Flairé : aucun loup">Pas loup</span>');
-      else if (sus && p.id !== me.id) out.push(`<span class="chip memo-sus" title="Flairé : un loup parmi ces joueurs">${icon('nose', 12)} Suspect</span>`);
+      if (clean) out.push(ib('nose', 'clean', 'Flairé : pas loup'));
+      else if (sus && p.id !== me.id) out.push(ib('nose', 'sus', 'Flairé : suspect (un loup parmi ces joueurs)'));
     }
     return out;
   }
@@ -442,28 +458,31 @@
     const r = view.media[p.id];
     const asleep = night && !isMe && me.alive && !me.isMJ && !(r && r.recv.video) && p.alive;
     const voted = st && !st.resolved && st.done.includes(p.id) && ['vote', 'captain_vote', 'debate', 'compoVote', 'roles_reveal'].includes(st.type);
+    // Haut gauche : ce que je sais de lui (sa carte), et les alertes importantes.
     const tl = [];
+    if (opts.out) tl.push(`<span class="chip out">${opts.out}</span>`);
+    if (opts.danger) tl.push(`<span class="chip danger">${icon('alert', 12)} En danger</span>`);
     if (p.isMJ) tl.push('<span class="chip">MJ</span>');
-    if (p.role && view.room.phase !== 'lobby') tl.push(`<span class="chip t-${teamOf(p.role)}">${p.seenRole ? icon('lock', 10) + ' ' : ''}${esc(roleName(p.role))}</span>`);
-    if (opts.wolfMate) tl.push('<span class="chip wolf">Meute</span>');
-    if (p.captain) tl.push(`<span class="chip cap">${icon('crown', 12, '#7A4210')} Capitaine</span>`);
-    if (p.idiotRevealed) tl.push('<span class="chip">Ne vote plus</span>');
-    if (p.charmed) tl.push('<span class="chip charm">Charmé</span>');
-    if (p.bot) tl.push('<span class="chip">Faux joueur</span>');
+    if (p.role && view.room.phase !== 'lobby') tl.push(`<span class="chip rolechip t-${teamOf(p.role)}" title="${p.seenRole ? 'Tu l\'as vu : ' : ''}${esc(roleName(p.role))}">${cardImg(p.role, 'thumb')}<span class="rc-name">${esc(roleName(p.role))}</span></span>`);
     if (p.startRole && p.startRole !== p.role) tl.push(`<span class="chip" title="Carte au départ">était ${esc(roleName(p.startRole))}</span>`);
     if (isON() && view.room.phase === 'end') tl.push(p.won ? '<span class="chip ok">Gagné</span>' : '<span class="chip">Perdu</span>');
     if (isON() && view.room.phase === 'end' && !p.alive) tl.push('<span class="chip danger">Éliminé</span>');
-    if (p.infected) tl.push('<span class="chip wolf">Loup</span>');
-    if (opts.danger) tl.push(`<span class="chip danger">${icon('alert', 12)} En danger</span>`);
-    if (opts.out) tl.unshift(`<span class="chip out">${opts.out}</span>`);
-    for (const m of memos(p)) tl.push(m);
-    if (!p.connected) tl.push('<span class="chip">Déconnecté</span>');
-    if (r && r.recv.blur) tl.push('<span class="chip">Flou</span>');
+    if (p.bot) tl.push('<span class="chip bot" title="Faux joueur">Bot</span>');
+    // Haut droite : les états, en petites icônes rondes (le détail au survol).
     const tr = [];
-    if (p.lover || me.lover === p.id) tr.push(`<span class="chip" title="Amoureux">${icon('heart', 12, '#F08A6C')}</span>`);
+    const ib = (ic, cls, title) => `<span class="ib ${cls}" title="${esc(title)}" aria-label="${esc(title)}">${icon(ic, 13)}</span>`;
+    if (p.captain) tr.push(ib('crown', 'cap', 'Capitaine : sa voix compte double'));
+    if (p.lover || me.lover === p.id) tr.push(ib('heart', 'love', 'Amoureux'));
+    if (opts.wolfMate) tr.push(ib('wolf', 'wolf', 'Ta meute'));
+    if (p.infected) tr.push(ib('wolf', 'wolf', 'Devenu loup'));
+    if (p.charmed) tr.push(ib('music', 'charm', 'Charmé par le Joueur de flûte'));
+    if (p.idiotRevealed) tr.push(ib('x', 'muted', 'Idiot du village : ne vote plus'));
+    tr.push(...memos(p));
+    if (!p.connected) tr.push(ib('x', 'off', 'Déconnecté'));
+    if (r && r.recv.blur) tr.push(ib('eye', 'muted', 'Flou'));
     if (opts.voteTo !== undefined) tr.push(`<span class="chip vote-to" title="${esc(p.name)} a voté contre ${opts.voteTo ? (nm(opts.voteTo)) : 'personne'}">${icon('arrow', 13)}${opts.voteTo ? face(opts.voteTo, 20) + `<span class="vt-name">${(nm(opts.voteTo))}</span>` : 'personne'}</span>`);
     else if (opts.votes != null && opts.votes > 0) tr.push(`<span class="chip votes-chip">${opts.votes} voix</span>`);
-    else if (voted) tr.push(`<span class="chip ok">${icon('check', 12)} ${st.type === 'debate' || st.type === 'roles_reveal' ? 'Prêt' : 'A voté'}</span>`);
+    else if (voted) tr.push(ib('check', 'ok', st.type === 'debate' ? 'Prêt à voter' : st.type === 'roles_reveal' ? 'Prêt' : 'A voté'));
     const canKick = !opts.noKick && (me.isHost || me.isMJ) && !isMe && !p.kicked && view.room.phase !== 'end';
     const kick = canKick ? `<button class="kick" data-act="kick" data-id="${p.id}" aria-label="Exclure ${esc(p.name)}" title="Exclure">${icon('x', 14)}</button>` : '';
     const inner = `${asleep ? `<div class="sleep">${icon('moon', 22)}<span>Endormi</span></div>` : `<span class="avatar" style="background:${colorOf(p.id)}" aria-hidden="true">${esc(p.name[0])}</span>`}
@@ -471,8 +490,10 @@
       <div class="tl">${tl.join('')}</div><div class="tr">${tr.join('')}</div>
       ${opts.picked ? `<span class="picked-mark">${icon('check', 14)}<span class="pm-t">${opts.mark || (st && st.type === 'vote' ? 'Ton vote' : 'Choisi')}</span></span>` : ''}
       ${opts.tools || ''}
+      ${opts.leanFrom && opts.leanFrom.length ? `<span class="lean-from" title="Penchent pour ${esc(p.name)} : ${opts.leanFrom.map((x) => nm(x)).join(', ')}"><span class="faces">${opts.leanFrom.map((x) => face(x, 18)).join('')}</span><i>${opts.leanFrom.length}</i></span>` : ''}
+      ${view.room.phase === 'day' && !opts.voteFrom ? `<span class="talk" data-talk="${p.id}" aria-hidden="true"><i></i></span>` : ''}
       ${opts.voteFrom && opts.voteFrom.length ? `<span class="vote-from ${opts.topVoted ? 'top' : ''}" title="Contre ${esc(p.name)} : ${opts.voteFrom.map((x) => (nm(x))).join(', ')}"><span class="faces">${opts.voteFrom.map((x) => face(x, 24)).join('')}</span><b>${opts.votes || opts.voteFrom.length}</b></span>` : ''}
-      <span class="nm">${p.mic ? '<span class="vu" aria-hidden="true"><i></i><i></i><i></i></span>' : icon('micoff', 13)}${esc(p.name)}${isMe ? ' (toi)' : ''}</span>`;
+      <span class="nm">${p.mic ? '<span class="vu" aria-hidden="true"><i></i><i></i><i></i></span>' : icon('micoff', 13)}${esc(p.name)}${isMe ? ' (toi)' : ''}${opts.leanTo ? `<span class="lean-to" title="Penche pour ${nm(opts.leanTo)} (intention)">→${face(opts.leanTo, 15)}</span>` : ''}</span>`;
     const cls = `tile has-video-host ${isMe ? 'me' : ''} ${asleep ? 'asleep' : ''} ${opts.wolfMate ? 'wolfmate' : ''} ${opts.pick ? 'pickable' : ''} ${opts.picked ? 'picked' : ''} ${opts.danger ? 'danger' : ''} ${opts.big ? 'big' : ''} ${opts.out ? 'out' : ''} ${opts.poisoned ? 'poisoned' : ''} ${opts.saved ? 'saved' : ''} ${opts.tools ? 'has-tools' : ''}`;
     if (opts.pick) return `<button class="${cls}" data-speak="${p.id}" data-act="pick" data-id="${p.id}" aria-pressed="${!!opts.picked}" aria-label="${esc((st && VERB[st.type]) || 'Choisir')} ${esc(p.name)}">${inner}</button>`;
     return `<div class="${cls}" data-speak="${p.id}">${inner}${kick}</div>`;
@@ -654,6 +675,7 @@
 
   // Ce que le joueur peut toucher dans la grille pour l'étape en cours.
   function pickMode(st) {
+    if (st && st.type === 'debate' && !st.resolved && st.isActor) return { ids: view.players.filter((p) => p.alive && !p.isMJ && p.id !== view.me.id).map((p) => p.id), max: 1 };
     if (!st || st.resolved || !st.isActor || st.type === 'sorciere') return null;
     // Le serveur donne la liste des cibles valides.
     if (!Array.isArray(st.options)) return null;
@@ -664,7 +686,9 @@
     if (!st) return [];
     if (ui.sel.length) return ui.sel;
     if (Array.isArray(st.myInput)) return st.myInput;
-    return typeof st.myInput === 'string' ? [st.myInput] : [];
+    if (typeof st.myInput === 'string') return [st.myInput];
+    if (st.type === 'vote' && !st.submitted && st.lean) return [st.lean];
+    return [];
   }
 
   function gameHTML() {
@@ -836,6 +860,10 @@
       case 'renard':
         hint = 'Il flaire ce joueur et ses deux voisins';
         break;
+      case 'debate':
+        hint = 'Débattez. Touche un joueur pour montrer vers qui tu penches : ce n\'est pas un vote. Appuie sur « Prêt à voter » quand tu as fini.';
+        extra = (view.voteHistory || []).length ? '<button class="ghost small-btn hist-btn" data-act="history">' + icon('scroll', 14) + ' Historique des votes</button>' : '';
+        break;
       case 'loups': {
         const live = st.live || [];
         const n = live.length;
@@ -846,7 +874,7 @@
       }
       case 'vote': case 'captain_vote':
         extra = progressHTML(st, 'ont voté') + (isON() ? onNotesHTML() : '');
-        if (st.type === 'vote') hint = isON() ? 'Débattez, puis touche un joueur · éliminé dès 2 voix' : 'Débattez, puis touche un joueur · le vote se clôt quand tout le monde a voté';
+        if (st.type === 'vote') hint = isON() ? 'Débattez, puis touche un joueur · éliminé dès 2 voix' : `10 secondes · vote secret${st.lean && !st.submitted ? ` · ton intention (${nm(st.lean)}) est pré-sélectionnée : confirme ou touche un autre joueur` : ''}`;
         if (st.type === 'vote' && r.captainId) hint += ` · ${nm(r.captainId)} compte double`;
         break;
     }
@@ -924,6 +952,8 @@
     const voteTo = {}, voteFrom = {};
     if (tally && st.result.choices) for (const c of st.result.choices) { voteTo[c.voter] = c.target || null; if (c.target) (voteFrom[c.target] = voteFrom[c.target] || []).push(c.voter); }
     const wolfLive = st && st.type === 'loups' && !st.resolved && Array.isArray(st.live) ? st.live : null;
+    const leanTo = {}, leanFrom = {};
+    if (st && st.type === 'debate' && !st.resolved && st.leans) for (const c of st.leans) { leanTo[c.voter] = c.target; (leanFrom[c.target] = leanFrom[c.target] || []).push(c.voter); }
     if (wolfLive) for (const c of wolfLive) { if (c.target) { voteTo[c.voter] = c.target; (voteFrom[c.target] = voteFrom[c.target] || []).push(c.voter); } }
     const mj = view.players.find((p) => p.isMJ && p.id !== me.id);
     const alive = view.players.filter((p) => !p.isMJ && (p.alive || (isON() && r.phase === 'end') || (tally && voteFrom[p.id] && st.type === 'vote')));
@@ -932,9 +962,10 @@
     const build = (p) => {
       const can = mode && mode.ids.includes(p.id);
       const o = {
-        pick: can, picked: sel.includes(p.id), votes: tally ? tally[p.id] || 0 : null,
+        pick: can, picked: st && st.type === 'debate' ? false : sel.includes(p.id), votes: tally ? tally[p.id] || 0 : null,
         voteFrom: tally || wolfLive ? voteFrom[p.id] || [] : null, voteTo: (tally || wolfLive) && p.id in voteTo ? voteTo[p.id] : undefined,
         votesLive: wolfLive ? (voteFrom[p.id] || []).length : null,
+        leanTo: leanTo[p.id] || null, leanFrom: leanFrom[p.id] || null,
         out: tally && st.type === 'vote' && !p.alive ? 'Éliminé' : null,
         topVoted: (tally && (tally[p.id] || 0) > 0 && (tally[p.id] || 0) === Math.max(...Object.values(tally))) || (wolfLive && st.agreed === p.id),
         wolfMate: night && me.isWolf && me.wolves.includes(p.id) && p.id !== me.id, noKick: true
@@ -943,7 +974,7 @@
       return tileHTML(p, o);
     };
     const list = (mj ? [mj] : []).concat(alive);
-    const gridCls = `stage-grid ${mode ? 'picking' : ''} ${sel.length ? 'has-pick' : ''}`;
+    const gridCls = `stage-grid ${mode ? 'picking' : ''} ${sel.length ? 'has-pick' : ''} ${st && st.type === 'debate' && !st.resolved ? 'debating' : ''}`;
     // Une nuit : les cartes du centre au milieu de la table.
     const table = isON() && view.center && view.center.cards && view.center.cards.length ? tableCenterHTML() : '';
     // Nuit (Thiercelieux) : le rôle réveillé et son équipe au-dessus du village.
@@ -1116,10 +1147,14 @@
       sub = isON() ? (me.won ? 'Tu as gagné !' : 'Tu as perdu') : 'La partie est terminée';
     } else if (!st) {
       return '';
+    } else if (st.type === 'debate' && !st.resolved) {
+      title = `Débat · ${st.done.length} / ${st.actorsCount || st.actors.length} prêts à voter`;
+      sub = 'Quand tout le monde est prêt, ou à la fin du temps : 10 secondes pour voter.';
+      if (st.deadline) right = `<span class="ev-time" data-deadline="${st.deadline}">${fmt(st.deadline - Date.now() - offset)}</span>`;
     } else if (!st.resolved && st.isActor && (!st.submitted || st.type === 'loups') && st.type !== 'roles_reveal') {
       kind = 'mine';
-      title = `À toi · ${STEP_LABEL[st.type] || 'ton tour'}`;
-      sub = QUESTION[st.type] || 'À toi de jouer';
+      title = st.type === 'vote' && !isON() ? 'À toi · Vote — 10 secondes' : `À toi · ${STEP_LABEL[st.type] || 'ton tour'}`;
+      sub = st.type === 'vote' && st.lean ? `Ton intention (${rawName(st.lean)}) est pré-sélectionnée : confirme ou change` : QUESTION[st.type] || 'À toi de jouer';
       if (st.type === 'loups' && st.live) {
         const n = st.live.length, agree = st.agreed ? n : Math.max(0, ...Object.values(st.live.reduce((m, c) => { if (c.target) m[c.target] = (m[c.target] || 0) + 1; return m; }, {})));
         sub = st.agreed ? `La meute est d'accord : ${rawName(st.agreed)}` : n > 1 ? `${agree} / ${n} loups d'accord · touchez la même victime` : 'Touche ta victime';
@@ -1199,6 +1234,11 @@
         return `${sent}<button class="ghost" data-act="infect" data-v="0">Dévorer</button><button class="wolf attn" data-act="infect" data-v="1">Infecter ${nm(st.victim)}</button>`;
       case 'soeurs': case 'amoureux':
         return st.submitted ? sent : '<button class="primary attn" data-act="ready">Terminé</button>';
+      case 'debate': {
+        const mine = (st.leans || []).find((c) => c.voter === me.id);
+        const lean = mine ? `<button class="lean-btn" data-act="lean-clear" title="Retirer mon intention">${icon('x', 14)} Je penche pour ${nm(mine.target)}</button>` : '<span class="lean-hint">Touche un joueur pour indiquer vers qui tu penches</span>';
+        return `${lean}${st.submitted ? `<button class="ready-btn on" data-act="unready">${icon('check', 16)} Prêt · annuler</button>` : `<button class="ready-btn" data-act="ready">${icon('check', 16)} Prêt à voter</button>`}${ctrl}`;
+      }
       case 'n_loups': case 'n_sbire': case 'n_macons': case 'n_insomniaque': {
         if (st.submitted) return sent;
         if (st.type === 'n_loups' && st.lone) {
@@ -1261,6 +1301,27 @@
     return '<h1>Étape terminée</h1>';
   }
 
+  // Historique des votes : qui a voté contre qui, jour après jour (rôle révélé des éliminés).
+  function historyHTML() {
+    const h = view.voteHistory || [];
+    if (!h.length) return '<section><p class="muted">Aucun vote pour l\'instant.</p></section>';
+    const ids = view.players.filter((p) => !p.isMJ).map((p) => p.id);
+    const head = h.map((x) => `<th><span>${esc(x.label)}</span><small>${esc(x.text)}</small></th>`).join('');
+    const rows = ids.map((id) => {
+      const p = P(id);
+      const cells = h.map((x) => {
+        const c = x.choices.find((y) => y.voter === id);
+        if (!c) return '<td class="dim">—</td>';
+        if (!c.target) return '<td class="dim"><i>abstention</i></td>';
+        return `<td class="${c.target === x.out ? 'hit' : ''}">${face(c.target, 18)} ${nm(c.target)}</td>`;
+      }).join('');
+      const role = !p.alive && p.role ? `<span class="t-${teamOf(p.role)} hist-role">${esc(roleName(p.role))}</span>` : '';
+      return `<tr><th class="${p.alive ? '' : 'dead'}">${face(id, 22)} ${esc(p.name)} ${role}</th>${cells}</tr>`;
+    }).join('');
+    return `<section><p class="muted small">Qui a voté contre qui. Les rôles des joueurs éliminés sont révélés : repère qui a protégé un loup.</p>
+      <div class="hist-wrap"><table class="hist"><thead><tr><th>Joueur</th>${head}</tr></thead><tbody>${rows}</tbody></table></div></section>`;
+  }
+
   // Panneau latéral : réglages (salon), mon rôle, les joueurs (hôte : passer la main, exclure), le journal.
   function drawerHTML() {
     const me = view.me, r = view.room;
@@ -1305,7 +1366,8 @@
           <label class="check"><input type="checkbox" data-act="sound" ${soundOn() ? 'checked' : ''}> Son et vibration quand c'est à toi</label></section>
         ${players}`;
     }
-    const title = { roles: isON() ? 'Deck' : 'Rôles', settings: 'Paramètres', journal: 'Mon rôle et journal' }[kind];
+    if (kind === 'history') body = historyHTML();
+    const title = { roles: isON() ? 'Deck' : 'Rôles', settings: 'Paramètres', journal: 'Mon rôle et journal', history: 'Historique des votes' }[kind];
     return `<aside class="drawer ${lobby && kind === 'roles' ? 'wide' : ''} ${drawerOpen ? 'open' : ''} ${drawerAnim ? 'slide' : ''}" aria-hidden="${!drawerOpen}" aria-label="${title}">
       <div class="drawer-head"><h2>${title}</h2><button class="round" data-act="drawer-close" aria-label="Fermer">${icon('x', 18)}</button></div>
       ${body}</aside>
@@ -1463,11 +1525,15 @@
       case 'restart': send('restart'); break;
       case 'abort': if (confirm('Arrêter la partie et revenir au salon ?')) send('abort'); break;
       case 'ready': send('act', {}); break;
+      case 'unready': send('act', { ready: false }); break;
+      case 'lean-clear': send('act', { lean: null }); break;
+      case 'history': drawerKind = 'history'; drawerOpen = true; drawerAnim = true; render(); setTimeout(() => { drawerAnim = false; }, 400); break;
       case 'rc-ok': try { localStorage.setItem(changeStore(), changeKey()); } catch (e) { /* stockage indisponible */ } render(); break;
       case 'sel': ui.sel = [el.dataset.id]; render(); break;
       case 'pick': {
         const id = el.dataset.id;
         if (st.type === 'loups') { if (st.myInput !== id) { ui.sel = [id]; send('act', { target: id }); render(); } break; }
+        if (st.type === 'debate') { const mine = (st.leans || []).find((c) => c.voter === view.me.id); send('act', { lean: mine && mine.target === id ? null : id }); break; }
         if (st.type === 'n_voyante') ui.csel = [];
         if (TWO.includes(st.type)) {
           const cur = picked(st).slice();
