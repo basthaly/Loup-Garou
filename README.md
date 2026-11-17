@@ -406,7 +406,11 @@ Vérifier que ça tourne : `docker compose ps` et `curl -k https://127.0.0.1:300
 **Page de test** (cachée, aucun lien) : ouvre `/test` sur le site, par exemple `https://ton-adresse/test`.
 - Choisis le jeu, **ton rôle**, le nombre de **faux joueurs** et d'autres rôles à mettre en jeu.
 - Les faux joueurs jouent tout seuls (ou pas), les minuteurs peuvent être accélérés, et « Voir tous les rôles » aide à vérifier un cas précis.
-- Pratique pour tester seul. Pour la désactiver sur un serveur : variable d'environnement `TEST_PAGE=0`.
+- Pratique pour tester seul.
+
+**Page de mixage** (cachée) : `/audio`. Un curseur en dB par son (nappe, vent, pluie, gouttes, grillons, hibou, tonnerre, sortie), la nuit et le jour, avec le niveau mesuré en direct, « S » pour écouter seul, « M » pour couper, et « Copier les valeurs ». Les réglages s'appliquent aussi aux parties sur ce navigateur.
+
+Pour désactiver `/test` et `/audio` sur un serveur : variable d'environnement `TEST_PAGE=0`.
 
 **Caméra et micro** (indépendants : on peut parler sans se montrer)
 - Salon et jour : tout le monde se voit et s'entend.

@@ -42,6 +42,10 @@ function loadCert() {
 
 app.use(express.static(path.join(__dirname, '..', 'public')));
 // Page de test cachée (aucun lien) : choisir son rôle et jouer avec des faux joueurs. TEST_PAGE=0 la désactive.
+app.get('/audio', (req, res) => {
+  if (process.env.TEST_PAGE === '0') return res.status(404).end();
+  res.sendFile(path.join(__dirname, '..', 'public', 'audio.html'));
+});
 app.get('/test', (req, res) => {
   if (process.env.TEST_PAGE === '0') return res.status(404).end();
   res.sendFile(path.join(__dirname, '..', 'public', 'index.html'));
