@@ -14,6 +14,7 @@
     .mix h1 { font-family: 'Cormorant Garamond', serif; font-size: 40px; margin: 0; }
     .mix .card { background: var(--zone); border: 1px solid var(--border); border-radius: 18px; padding: 16px 18px; display: flex; flex-direction: column; gap: 12px; }
     .mbar { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+    .grp { margin: 14px 0 0; font-size: 13px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
     .strip { display: grid; grid-template-columns: 96px 1fr 74px 150px auto; align-items: center; gap: 12px; padding: 6px 0; border-bottom: 1px solid var(--border); }
     .strip:last-child { border-bottom: none; }
     .strip b { font-size: 15px; }
@@ -36,7 +37,7 @@
 <body data-appearance="dark" data-theme="night">
   <main class="mix">
     <h1>Mixage de l'ambiance</h1>
-    <p class="muted">Règle chaque son en dB (0 dB = niveau actuel du jeu, -60 = coupé). Tes réglages s'appliquent aussi à tes parties sur ce navigateur. Copie les valeurs pour les transmettre.</p>
+    <p class="muted">Règle chaque son en dB (0 dB = niveau de base du son, −60 = coupé). « S » pour écouter un son seul, « M » pour le couper. Tes réglages s'appliquent aussi à tes parties sur ce navigateur. Copie les valeurs pour les transmettre.</p>
     <div class="card">
       <div class="mbar">
         <button class="primary" id="go">Démarrer</button>
@@ -49,6 +50,14 @@
         <button class="ghost small-btn" data-fire="thunder">Tonnerre</button>
         <button class="ghost small-btn" data-fire="crickets">Grillons</button>
         <button class="ghost small-btn" data-fire="drops">Goutte</button>
+        <button class="ghost small-btn" data-fire="wolf">Loup</button>
+        <button class="ghost small-btn" data-fire="frogs">Grenouilles</button>
+        <button class="ghost small-btn" data-fire="birds">Oiseaux</button>
+        <button class="ghost small-btn" data-fire="bell">Cloche</button>
+        <button class="ghost small-btn" data-fire="fire">Crépitement</button>
+        <button class="ghost small-btn" data-fire="harp">Harpe</button>
+        <button class="ghost small-btn" data-fire="flute">Flûte</button>
+        <button class="ghost small-btn" data-fire="heart">Battement</button>
       </div>
     </div>
     <div class="card" id="strips"></div>

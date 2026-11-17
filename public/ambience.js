@@ -12,10 +12,24 @@ window.LGAmbience = (() => {
 
   // ---------- Table de mixage : un niveau en dB par source, la nuit et le jour ----------
   // 0 dB = niveau de base de chaque son ; -60 dB = coupé. Réglable sur la page cachée /audio.
-  const SOURCES = { out: 'Sortie', pad: 'Nappe', wind: 'Vent', rain: 'Pluie', drops: 'Gouttes', crickets: 'Grillons', owl: 'Hibou', thunder: 'Tonnerre' };
+  const SOURCES = {
+    out: 'Sortie', reverb: 'Réverbération',
+    pad: 'Nappe', wind: 'Vent', rain: 'Pluie', drops: 'Gouttes', thunder: 'Tonnerre', stream: 'Ruisseau',
+    crickets: 'Grillons', frogs: 'Grenouilles', owl: 'Hibou', wolf: 'Loup lointain', birds: 'Oiseaux',
+    fire: 'Feu de camp', bell: 'Cloche du village',
+    harp: 'Harpe', flute: 'Flûte', cello: 'Violoncelle', heart: 'Battement de cœur'
+  };
+  // Pour la page /audio : sons regroupés.
+  const GROUPS = [
+    ['Général', ['out', 'reverb']],
+    ['Nature', ['pad', 'wind', 'rain', 'drops', 'thunder', 'stream']],
+    ['Animaux', ['crickets', 'frogs', 'owl', 'wolf', 'birds']],
+    ['Village', ['fire', 'bell']],
+    ['Instruments', ['harp', 'flute', 'cello', 'heart']]
+  ];
   const DEFAULT_MIX = {
-    night: { out: 0, pad: 0, wind: 0, rain: 0, drops: 0, crickets: 0, owl: 0, thunder: 0 },
-    day: { out: 0, pad: 0, wind: -7.4, rain: -10, drops: -10.5, crickets: -60, owl: -60, thunder: -60 }
+    night: { out: 0, reverb: 0, pad: 0, wind: 0, rain: 0, drops: 0, thunder: 0, stream: -8, crickets: 0, frogs: -4, owl: 0, wolf: -2, birds: -60, fire: -4, bell: -60, harp: -3, flute: -4, cello: -4, heart: -60 },
+    day: { out: 0, reverb: 0, pad: 0, wind: -7.4, rain: -10, drops: -10.5, thunder: -60, stream: -2, crickets: -60, frogs: -60, owl: -60, wolf: -60, birds: 0, fire: -12, bell: -3, harp: -3, flute: -4, cello: -8, heart: -60 }
   };
   const MIX_KEY = 'lg-mix';
   const clone = (o) => JSON.parse(JSON.stringify(o));
@@ -26,7 +40,10 @@ window.LGAmbience = (() => {
   })();
   const solo = new Set(), muted = new Set();
   const dbToGain = (db) => (db <= -60 ? 0 : Math.pow(10, db / 20));
+  // Un son ponctuel ne se joue que s'il est audible (économise le processeur).
+  const audible = (k) => !!mood && mix[mood][k] > -60 && !muted.has(k) && (!solo.size || solo.has(k));
   let buses = null, analysers = null;
+  let previewT = null;
   function applyMix(fast) {
     if (!ctx || !buses || !mood) return;
     const t = ctx.currentTime, tc = fast ? 0.05 : 1.5;
@@ -106,7 +123,46 @@ window.LGAmbience = (() => {
     rLfo.connect(rLfoGain).connect(rainGain.gain); rLfo.start();
     const drops = buses.drops;
 
-    layers = { padGain, padFilter, voices, windGain, crickets, rainGain, drops, chord: 0 };
+    // Réverbération partagée (instruments, loup, cloche…) : une salle de pierre, générée.
+    const verb = ctx.createConvolver();
+    const len = Math.floor(ctx.sampleRate * 3.2);
+    const ir = ctx.createBuffer(2, len, ctx.sampleRate);
+    for (let c = 0; c < 2; c++) { const d = ir.getChannelData(c); for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 2.6); }
+    verb.buffer = ir;
+    verb.connect(buses.reverb);
+    // Chaque son « spatialisé » a une entrée qui va à sa tranche et, en partie, à la réverbération.
+    const inputs = {};
+    for (const [k, wet] of [['harp', 0.35], ['flute', 0.4], ['wolf', 0.7], ['bell', 0.6], ['owl', 0.4], ['cello', 0.25]]) {
+      const i = ctx.createGain(); i.connect(buses[k]);
+      const send = ctx.createGain(); send.gain.value = wet; i.connect(send).connect(verb);
+      inputs[k] = i;
+    }
+
+    // Ruisseau : bruit filtré qui « bouillonne ».
+    const stream = ctx.createBufferSource(); stream.buffer = noiseBuffer(4, false); stream.loop = true;
+    const sBp = ctx.createBiquadFilter(); sBp.type = 'bandpass'; sBp.frequency.value = 1300; sBp.Q.value = 1.8;
+    [[0.7, 350], [1.9, 220], [0.23, 300]].forEach(([f, d]) => { const o = ctx.createOscillator(); o.frequency.value = f; const g = ctx.createGain(); g.gain.value = d; o.connect(g).connect(sBp.frequency); o.start(); });
+    const sGain = ctx.createGain(); sGain.gain.value = 0.3;
+    stream.connect(sBp).connect(sGain).connect(buses.stream); stream.start();
+
+    // Feu de camp : grondement doux + crépitements (plus bas, dans crackle()).
+    const fire = ctx.createBufferSource(); fire.buffer = noiseBuffer(4, true); fire.loop = true;
+    const fLp = ctx.createBiquadFilter(); fLp.type = 'lowpass'; fLp.frequency.value = 320;
+    const fGain = ctx.createGain(); fGain.gain.value = 0.35;
+    fire.connect(fLp).connect(fGain).connect(buses.fire); fire.start();
+    const crackleBuf = noiseBuffer(0.05, false);
+
+    // Violoncelle : deux cordes frottées sur la fondamentale de l'accord, qui enflent lentement.
+    const celloLp = ctx.createBiquadFilter(); celloLp.type = 'lowpass'; celloLp.frequency.value = 650; celloLp.Q.value = 0.8;
+    const celloAmp = ctx.createGain(); celloAmp.gain.value = 0.12;
+    const swell = ctx.createOscillator(); swell.frequency.value = 0.06;
+    const swellG = ctx.createGain(); swellG.gain.value = 0.08;
+    swell.connect(swellG).connect(celloAmp.gain); swell.start();
+    const vib = ctx.createOscillator(); vib.frequency.value = 5; const vibG = ctx.createGain(); vibG.gain.value = 3; vib.connect(vibG); vib.start();
+    const cello = [0, 7].map((det) => { const o = ctx.createOscillator(); o.type = 'sawtooth'; o.frequency.value = 110; o.detune.value = det; vibG.connect(o.frequency); o.connect(celloLp); o.start(); return o; });
+    celloLp.connect(celloAmp).connect(inputs.cello);
+
+    layers = { padGain, padFilter, voices, windGain, crickets, rainGain, drops, chord: 0, inputs, cello, crackleBuf };
   }
 
   function chirp() {
@@ -161,7 +217,155 @@ window.LGAmbience = (() => {
       const g = ctx.createGain(); g.gain.value = 0;
       g.gain.setValueAtTime(0, t + a); g.gain.linearRampToValueAtTime(0.09, t + a + 0.06); g.gain.linearRampToValueAtTime(0, t + b);
       const f = ctx.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = 900;
-      o.connect(f).connect(g).connect(buses.owl); o.start(t + a); o.stop(t + b + 0.05);
+      o.connect(f).connect(g).connect(layers.inputs.owl); o.start(t + a); o.stop(t + b + 0.05);
+    });
+  }
+
+  const chordNow = () => CHORDS[mood || 'night'][Math.max(0, layers.chord)];
+
+  // Harpe : arpège lent sur l'accord en cours.
+  function pluck(f, t, vel) {
+    const o = ctx.createOscillator(); o.type = 'triangle'; o.frequency.value = f;
+    const o2 = ctx.createOscillator(); o2.type = 'sine'; o2.frequency.value = f * 2;
+    const g2 = ctx.createGain(); g2.gain.value = 0.25;
+    const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.setValueAtTime(3800, t); lp.frequency.exponentialRampToValueAtTime(700, t + 1.6);
+    const g = ctx.createGain(); g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(vel, t + 0.006); g.gain.exponentialRampToValueAtTime(0.0001, t + 3);
+    o.connect(lp); o2.connect(g2).connect(lp); lp.connect(g).connect(layers.inputs.harp);
+    o.start(t); o2.start(t); o.stop(t + 3.1); o2.stop(t + 3.1);
+  }
+  function harp(force) {
+    if (!ctx || (!force && !audible('harp'))) return;
+    const ch = chordNow().slice(1).map((f) => f * 4);
+    const notes = [...ch, ch[0] * 2, ch[1] * 2].slice(0, 3 + Math.floor(Math.random() * 3));
+    const t = ctx.currentTime + 0.05;
+    notes.forEach((f, i) => pluck(f, t + i * (0.28 + Math.random() * 0.08), 0.16 - i * 0.012));
+  }
+
+  // Flûte : courte phrase dans la gamme, souffle léger, vibrato.
+  function flute(force) {
+    if (!ctx || (!force && !audible('flute'))) return;
+    const base = chordNow().slice(1).map((f) => f * 4);
+    const scale = [...base, base[0] * 9 / 8, base[1] * 4 / 3].sort((a, b) => a - b);
+    let t = ctx.currentTime + 0.05;
+    const n = 3 + Math.floor(Math.random() * 3);
+    const o = ctx.createOscillator(); o.type = 'sine';
+    const vib = ctx.createOscillator(); vib.frequency.value = 5.2; const vg = ctx.createGain(); vg.gain.value = 0;
+    vib.connect(vg).connect(o.frequency);
+    const g = ctx.createGain(); g.gain.value = 0.0001;
+    const breath = ctx.createBufferSource(); breath.buffer = noiseBuffer(1, false); breath.loop = true;
+    const bBp = ctx.createBiquadFilter(); bBp.type = 'bandpass'; bBp.Q.value = 6;
+    const bg = ctx.createGain(); bg.gain.value = 0.025;
+    breath.connect(bBp).connect(bg).connect(g);
+    o.connect(g).connect(layers.inputs.flute);
+    const start = t;
+    for (let i = 0; i < n; i++) {
+      const f = scale[Math.floor(Math.random() * scale.length)];
+      const d = 0.6 + Math.random() * 0.8;
+      o.frequency.setTargetAtTime(f, t, 0.03); bBp.frequency.setTargetAtTime(f, t, 0.03);
+      g.gain.setTargetAtTime(0.12, t, 0.08); vg.gain.setTargetAtTime(4, t + 0.25, 0.2);
+      g.gain.setTargetAtTime(0.07, t + d * 0.8, 0.05); vg.gain.setTargetAtTime(0, t + d * 0.8, 0.05);
+      t += d;
+    }
+    g.gain.setTargetAtTime(0.0001, t, 0.25);
+    o.start(start); vib.start(start); breath.start(start);
+    o.stop(t + 1.5); vib.stop(t + 1.5); breath.stop(t + 1.5);
+  }
+
+  // Loup lointain : un hurlement, parfois un second qui répond plus loin.
+  function howl(t, gain, pitch) {
+    const o = ctx.createOscillator(); o.type = 'sawtooth';
+    const s = ctx.createOscillator(); s.type = 'sine';
+    const f = [330, 540, 580, 400].map((x) => x * pitch);
+    for (const osc of [o, s]) {
+      osc.frequency.setValueAtTime(f[0], t); osc.frequency.linearRampToValueAtTime(f[1], t + 0.7);
+      osc.frequency.linearRampToValueAtTime(f[2], t + 2.0); osc.frequency.linearRampToValueAtTime(f[3], t + 3.1);
+    }
+    const vib = ctx.createOscillator(); vib.frequency.value = 6; const vg = ctx.createGain(); vg.gain.value = 7;
+    vib.connect(vg); vg.connect(o.frequency); vg.connect(s.frequency);
+    const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 1100;
+    const so = ctx.createGain(); so.gain.value = 0.15;
+    const g = ctx.createGain(); g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(gain, t + 0.5);
+    g.gain.setValueAtTime(gain, t + 2.3); g.gain.exponentialRampToValueAtTime(0.0001, t + 3.3);
+    o.connect(so).connect(lp); s.connect(lp); lp.connect(g).connect(layers.inputs.wolf);
+    [o, s, vib].forEach((x) => { x.start(t); x.stop(t + 3.4); });
+  }
+  function wolf(force) {
+    if (!ctx || (!force && !audible('wolf'))) return;
+    const t = ctx.currentTime + 0.05;
+    howl(t, 0.12, 1);
+    if (Math.random() < 0.6) howl(t + 2.2 + Math.random(), 0.06, 0.93);
+  }
+
+  // Grenouilles : petits coassements graves.
+  function frogs(force) {
+    if (!ctx || (!force && !audible('frogs'))) return;
+    let t = ctx.currentTime + 0.02;
+    const n = 1 + Math.floor(Math.random() * 3);
+    const f = 170 + Math.random() * 90;
+    for (let i = 0; i < n; i++) {
+      const o = ctx.createOscillator(); o.type = 'square'; o.frequency.value = f;
+      const am = ctx.createOscillator(); am.frequency.value = 28 + Math.random() * 10; const amg = ctx.createGain(); amg.gain.value = 0.5;
+      const g = ctx.createGain(); g.gain.value = 0;
+      am.connect(amg).connect(g.gain);
+      const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 800;
+      const env = ctx.createGain(); env.gain.setValueAtTime(0.0001, t); env.gain.linearRampToValueAtTime(0.09, t + 0.02); env.gain.exponentialRampToValueAtTime(0.0001, t + 0.18);
+      o.connect(g).connect(lp).connect(env).connect(buses.frogs);
+      [o, am].forEach((x) => { x.start(t); x.stop(t + 0.2); });
+      t += 0.22 + Math.random() * 0.1;
+    }
+  }
+
+  // Oiseaux (le jour) : quelques gazouillis rapides.
+  function birds(force) {
+    if (!ctx || (!force && !audible('birds'))) return;
+    let t = ctx.currentTime + 0.02;
+    const n = 2 + Math.floor(Math.random() * 4);
+    const base = 2400 + Math.random() * 1500;
+    for (let i = 0; i < n; i++) {
+      const o = ctx.createOscillator(); o.type = 'sine';
+      const d = 0.06 + Math.random() * 0.08;
+      o.frequency.setValueAtTime(base, t); o.frequency.exponentialRampToValueAtTime(base * (1.3 + Math.random() * 0.5), t + d * 0.5); o.frequency.exponentialRampToValueAtTime(base * 0.9, t + d);
+      const g = ctx.createGain(); g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(0.05, t + 0.01); g.gain.exponentialRampToValueAtTime(0.0001, t + d);
+      o.connect(g).connect(buses.birds); o.start(t); o.stop(t + d + 0.02);
+      t += d + 0.03 + Math.random() * 0.08;
+    }
+  }
+
+  // Feu de camp : crépitements.
+  function crackle() {
+    if (!ctx || !audible('fire')) return;
+    const t = ctx.currentTime;
+    const src = ctx.createBufferSource(); src.buffer = layers.crackleBuf;
+    const hp = ctx.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 1500 + Math.random() * 2500;
+    const g = ctx.createGain(); g.gain.setValueAtTime(0.05 + Math.random() * 0.25, t); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.01 + Math.random() * 0.03);
+    src.connect(hp).connect(g).connect(buses.fire); src.start(t);
+  }
+
+  // Cloche du village : coups lointains, son de bronze (partiels inharmoniques).
+  function bellStroke(t, base) {
+    [[0.5, 0.5, 4], [1, 0.6, 3.2], [1.19, 0.35, 2.4], [1.56, 0.25, 2], [2, 0.3, 1.8], [2.74, 0.15, 1.2], [3.76, 0.1, 0.9]].forEach(([r, a, d]) => {
+      const o = ctx.createOscillator(); o.type = 'sine'; o.frequency.value = base * r;
+      const g = ctx.createGain(); g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(a * 0.12, t + 0.008); g.gain.exponentialRampToValueAtTime(0.0001, t + d * 1.6);
+      const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 2400;
+      o.connect(lp).connect(g).connect(layers.inputs.bell); o.start(t); o.stop(t + d * 1.6 + 0.1);
+    });
+  }
+  function bell(force) {
+    if (!ctx || (!force && !audible('bell'))) return;
+    const t = ctx.currentTime + 0.05;
+    const n = 2 + Math.floor(Math.random() * 2);
+    for (let i = 0; i < n; i++) bellStroke(t + i * 2.6, 196);
+  }
+
+  // Battement de cœur (tension) : boum-boum grave.
+  function heart(force) {
+    if (!ctx || (force !== true && !audible('heart'))) return;
+    const t = ctx.currentTime + 0.02;
+    [[0, 0.5], [0.24, 0.32]].forEach(([dt, a]) => {
+      const o = ctx.createOscillator(); o.type = 'sine';
+      o.frequency.setValueAtTime(70, t + dt); o.frequency.exponentialRampToValueAtTime(38, t + dt + 0.12);
+      const g = ctx.createGain(); g.gain.setValueAtTime(0.0001, t + dt); g.gain.linearRampToValueAtTime(a, t + dt + 0.012); g.gain.exponentialRampToValueAtTime(0.0001, t + dt + 0.2);
+      o.connect(g).connect(buses.heart); o.start(t + dt); o.stop(t + dt + 0.25);
     });
   }
 
@@ -170,6 +374,7 @@ window.LGAmbience = (() => {
     layers.chord = (layers.chord + 1) % 4;
     const ch = CHORDS[mood][layers.chord];
     layers.voices.forEach((o, i) => o.frequency.setTargetAtTime(ch[i], ctx.currentTime, 2.5));
+    layers.cello.forEach((o) => o.frequency.setTargetAtTime(ch[0] * 2, ctx.currentTime, 1.8));
   }
 
   function schedule() {
@@ -182,6 +387,14 @@ window.LGAmbience = (() => {
     loop(chirp, 700, 2600);
     loop(owl, 25000, 50000);
     loop(drop, 150, 900);
+    loop(harp, 7000, 15000);
+    loop(flute, 18000, 40000);
+    loop(wolf, 50000, 120000);
+    loop(frogs, 900, 3500);
+    loop(birds, 2500, 9000);
+    loop(crackle, 40, 260);
+    loop(bell, 45000, 100000);
+    loop(heart, 950, 1050);
     lastThunder = Date.now() - 30000; // premier tonnerre possible après environ une minute
     loop(thunder, 70000, 240000);
   }
@@ -262,7 +475,19 @@ window.LGAmbience = (() => {
     toggleSolo(k) { solo.has(k) ? solo.delete(k) : solo.add(k); applyMix(true); return solo.has(k); },
     toggleMute(k) { muted.has(k) ? muted.delete(k) : muted.add(k); applyMix(true); return muted.has(k); },
     isSolo: (k) => solo.has(k), isMuted: (k) => muted.has(k),
-    trigger(name) { if (!ctx) return; ({ owl, thunder: () => thunder(true), crickets: chirp, drops: drop })[name](); },
+    GROUPS,
+    trigger(name) {
+      if (!ctx) return;
+      const f = { owl, thunder: () => thunder(true), crickets: chirp, drops: drop, harp: () => harp(true), flute: () => flute(true), wolf: () => wolf(true), frogs: () => frogs(true), birds: () => birds(true), bell: () => bell(true), fire: crackle, heart: () => heart(true) }[name];
+      if (!f) return;
+      // Son coupé dans cette ambiance (ex. la cloche la nuit) : on l'ouvre le temps de l'écouter.
+      const k = name === 'drops' ? 'drops' : name;
+      if (buses[k] && mood && mix[mood][k] <= -60) {
+        buses[k].gain.setTargetAtTime(1, ctx.currentTime, 0.02);
+        clearTimeout(previewT); previewT = setTimeout(() => applyMix(true), 9000);
+      }
+      f();
+    },
     levelDb, start, stop, running: () => !!ctx && wanted
   };
   return { update, setVolume, toggle, toggleStorm, thunderNow, prefs, mixer };

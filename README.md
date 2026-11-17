@@ -399,7 +399,7 @@ Vérifier que ça tourne : `docker compose ps` et `curl -k https://127.0.0.1:300
 - Fin de partie : cartes finales et de départ de chacun, gagnants, votes et tout ce qui s'est passé la nuit.
 
 **Ambiance**
-- Musique d'ambiance générée par le site pendant la partie (nuit : nappe grave, vent, pluie fine, grillons, hibou, et de temps en temps un tonnerre lointain très doux ; jour : plus claire). Volume bas par défaut.
+- Musique d'ambiance générée par le site pendant la partie : nappe, vent, pluie, gouttes, tonnerre lointain, ruisseau, grillons, grenouilles, hibou, loup lointain, oiseaux (le jour), feu de camp, cloche du village (le jour), et des instruments (harpe, flûte, violoncelle, battement de cœur désactivé par défaut). Volume bas par défaut.
 - Bouton note de musique en bas : couper, régler le volume ou retirer le tonnerre, pour soi seulement (mémorisé).
 - Les vignettes s'adaptent à la taille de l'écran et au nombre de joueurs.
 
@@ -408,7 +408,7 @@ Vérifier que ça tourne : `docker compose ps` et `curl -k https://127.0.0.1:300
 - Les faux joueurs jouent tout seuls (ou pas), les minuteurs peuvent être accélérés, et « Voir tous les rôles » aide à vérifier un cas précis.
 - Pratique pour tester seul.
 
-**Page de mixage** (cachée) : `/audio`. Un curseur en dB par son (nappe, vent, pluie, gouttes, grillons, hibou, tonnerre, sortie), la nuit et le jour, avec le niveau mesuré en direct, « S » pour écouter seul, « M » pour couper, et « Copier les valeurs ». Les réglages s'appliquent aussi aux parties sur ce navigateur.
+**Page de mixage** (cachée) : `/audio`. Un curseur en dB par son et par instrument (plus la réverbération et la sortie), la nuit et le jour, avec le niveau mesuré en direct, « S » pour écouter seul, « M » pour couper, et « Copier les valeurs ». Les réglages s'appliquent aussi aux parties sur ce navigateur.
 
 Pour désactiver `/test` et `/audio` sur un serveur : variable d'environnement `TEST_PAGE=0`.
 

@@ -7,20 +7,24 @@
 
   function strips() {
     const mix = M.get()[mood];
-    $('strips').innerHTML = `<h3 style="margin:0">${mood === 'night' ? 'Nuit' : 'Jour'}</h3>` + Object.entries(M.SOURCES).map(([k, label]) => `
+    const strip = (k) => {
+      const label = M.SOURCES[k];
+      return `
       <div class="strip">
         <b>${label}</b>
         <input type="range" min="-60" max="12" step="0.5" value="${mix[k]}" data-k="${k}" aria-label="${label} en dB">
         <span class="db"><input type="number" min="-60" max="12" step="0.5" value="${mix[k]}" data-n="${k}" aria-label="${label}, valeur en dB"></span>
         <div class="m-wrap"><div class="meter"><i id="mt-${k}"></i></div><div class="lvl" id="lv-${k}">—</div></div>
         <div class="tools">${k === 'out' ? '' : `<button class="s ${M.isSolo(k) ? 'on' : ''}" data-solo="${k}" title="Écouter seul">S</button><button class="m ${M.isMuted(k) ? 'on' : ''}" data-mute="${k}" title="Couper">M</button>`}</div>
-      </div>`).join('');
+      </div>`;
+    };
+    $('strips').innerHTML = `<h2 style="margin:0">${mood === 'night' ? 'Nuit' : 'Jour'}</h2>` + M.GROUPS.map(([title, keys]) => `<h3 class="grp">${title}</h3>${keys.map(strip).join('')}`).join('');
     output();
   }
 
   function output() {
     const m = M.get();
-    const line = (md) => Object.entries(M.SOURCES).map(([k, l]) => `${l} ${fmt(m[md][k])} dB`).join(' · ');
+    const line = (md) => Object.entries(M.SOURCES).map(([k, l]) => `${l} ${fmt(m[md][k])}`).join(' · ');
     $('out').value = `Ambiance Loup-Garou — niveaux en dB (0 = niveau de base, -60 = coupé)\nNuit : ${line('night')}\nJour : ${line('day')}\n${JSON.stringify(m)}`;
   }
 
