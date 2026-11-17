@@ -1149,11 +1149,12 @@ class Room {
     return view;
   }
 
-  // Cartes au centre (Voleur) : face cachée pour tous, visibles par le Voleur qui les a vues, et à la fin.
+  // Cartes au centre (Voleur) : seul le Voleur les connaît (et le MJ, les morts) ; tout le monde à la fin.
   centerView(me, omniscient) {
     if (!this.extraCards.length || this.phase === 'lobby') return null;
-    const known = omniscient || this.phase === 'end' || me.id === this.thiefId;
-    return { cards: this.extraCards.map((c) => (known ? c : null)), label: 'Au centre' };
+    const known = omniscient || this.phase === 'end' || me.id === this.thiefId || me.origRole === 'voleur';
+    if (!known) return null;
+    return { cards: this.extraCards.slice(), label: 'Au centre' };
   }
 
   stepView(me, omniscient) {

@@ -192,7 +192,8 @@
     const g = $app.querySelector('.stage-grid');
     if (!g || !g.children.length) return;
     const big = g.querySelectorAll('.tile.big').length;
-    const n = g.children.length + big * 3;
+    const tc = g.querySelector('.table-center');
+    const n = g.children.length + big * 3 + (tc ? 2 : 0);
     const W = g.clientWidth;
     const top = g.getBoundingClientRect().top + window.scrollY;
     const dock = document.querySelector('.dock');
@@ -219,6 +220,14 @@
     if (prev && prev.n === n && prev.cols === cols && prev.W === W && Math.abs(prev.size - size) < 40) size = prev.size;
     layoutGrid.last = { n, cols, W, size };
     g.style.gridTemplateColumns = `repeat(${cols}, ${size}px)`;
+    g.style.setProperty('--tile-w', `${size}px`);
+    if (tc) {
+      const tiles = g.children.length - 1;
+      const span = cols <= 3 ? cols : cols % 2 === 0 ? 2 : 3;
+      const rows = Math.ceil((tiles + span) / cols);
+      tc.style.gridRow = String(Math.max(1, Math.ceil(rows / 2)));
+      tc.style.gridColumn = `${Math.floor((cols - span) / 2) + 1} / span ${span}`;
+    }
     g.style.justifyContent = 'center';
   }
   let resizeT = null;
@@ -853,6 +862,10 @@
   function centerHTML() {
     const c = view.center;
     if (!c || !c.cards || !c.cards.length) return '';
+    if (isON()) return '';
+    const stv = view.step;
+    if (stv && stv.type === 'voleur' && stv.isActor && !stv.resolved) return '';
+    if (c.cards.every(Boolean)) return `<div class="center-pill" title="Les cartes restées au centre"><span class="cp-k">${icon('cards', 14)} Au centre</span>${c.cards.map((r) => `<span class="cp-card">${cardImg(r, 'thumb')}${esc(roleName(r))}</span>`).join('')}</div>`;
     const st = view.step;
     const can = centerPickable(st);
     const voleur = st && st.type === 'voleur' && can;
@@ -916,7 +929,7 @@
     const alive = view.players.filter((p) => !p.isMJ && (p.alive || (isON() && r.phase === 'end') || (tally && voteFrom[p.id] && st.type === 'vote')));
     const night = r.phase === 'night' && !isDayCtx();
     const witch = st && st.type === 'sorciere' && st.isActor && !st.resolved && !st.submitted;
-    const tiles = (mj ? [mj] : []).concat(alive).map((p) => {
+    const build = (p) => {
       const can = mode && mode.ids.includes(p.id);
       const o = {
         pick: can, picked: sel.includes(p.id), votes: tally ? tally[p.id] || 0 : null,
@@ -928,8 +941,109 @@
       };
       if (witch) Object.assign(o, witchTile(st, p));
       return tileHTML(p, o);
+    };
+    const list = (mj ? [mj] : []).concat(alive);
+    const gridCls = `stage-grid ${mode ? 'picking' : ''} ${sel.length ? 'has-pick' : ''}`;
+    // Une nuit : les cartes du centre au milieu de la table.
+    const table = isON() && view.center && view.center.cards && view.center.cards.length ? tableCenterHTML() : '';
+    // Nuit (Thiercelieux) : le rôle réveillé et son équipe au-dessus du village.
+    const nightStep = st && !st.resolved && r.phase === 'night' && !isON() && !DAY_STEPS.includes(st.type) && st.type !== 'sorciere';
+    if (nightStep && st.isActor) {
+      const team = teamOf2(st).filter((id) => list.some((p) => p.id === id));
+      const teamTiles = team.map((id) => build(P(id))).join('');
+      const rest = list.filter((p) => !team.includes(p.id));
+      return `${activePanelHTML(st, team, teamTiles)}
+        <div class="village-label"><b>Le village</b><span>${st.type === 'loups' && team.length > 1 ? 'Touchez la même victime : dès que toute la meute est d\'accord, c\'est décidé.' : pickMode(st) ? 'Touche un joueur' : 'Il dort'}</span></div>
+        <div class="${gridCls}">${rest.map(build).join('')}</div>`;
+    }
+    if (nightStep && !st.isActor && me.alive && !me.isMJ && !me.seesAll) {
+      return `${sleeperPanelHTML(st)}<div class="village-label"><b>Le village dort</b></div><div class="${gridCls}">${list.map(build).join('')}</div>`;
+    }
+    return `<div class="${gridCls}">${list.map(build).join('')}${table}</div>`;
+  }
+
+  // Qui est réveillé avec moi : la meute, les sœurs, l'amour (sinon je suis seul).
+  function teamOf2(st) {
+    const me = view.me;
+    if (st.type === 'loups') return [me.id].concat((me.wolves || []).filter((w) => w !== me.id && P(w) && P(w).alive));
+    if (st.type === 'soeurs') return [me.id].concat(view.players.filter((p) => p.role === 'soeur' && p.id !== me.id && p.alive).map((p) => p.id));
+    if (st.type === 'amoureux' && st.partner) return [me.id, st.partner];
+    return [me.id];
+  }
+
+  // Encadré du rôle réveillé : mon équipe, ou moi seul avec ce que je sais déjà.
+  function activePanelHTML(st, team, teamTiles) {
+    const n = team.length;
+    const pf = (view.compo || {}).petitefille > 0;
+    let title, sub, kind = 'solo', aside = '';
+    if (st.type === 'loups') {
+      kind = 'wolf';
+      title = n > 1 ? `Ta meute · ${n} loups` : 'Tu chasses seul';
+      sub = n > 1 ? `Vous vous voyez et vous entendez.${pf ? ' Attention à la petite fille…' : ''}` : (pf ? 'Attention à la petite fille…' : 'Personne d\'autre n\'est réveillé.');
+    } else if (st.type === 'soeurs') { kind = 'pair'; title = n > 1 ? 'Tes sœurs' : 'Tu es seule'; sub = n > 1 ? 'Vous seules vous voyez et vous entendez.' : 'Ta sœur n\'est plus là.'; }
+    else if (st.type === 'amoureux') { kind = 'love'; title = 'Ton amour'; sub = 'Vous seuls vous voyez et vous entendez.'; }
+    else { title = 'Ton tour'; sub = 'Seul(e) réveillé(e)'; aside = knowAsideHTML(st); }
+    return `<section class="active-panel ${kind}" aria-label="${esc(title)}">
+      <div class="ap-head"><span class="ap-icon">${icon(STEP_ICON[st.type] || 'moon', 18)}</span><span><b>${esc(title)}</b><small>${esc(sub)}</small></span></div>
+      <div class="ap-body"><div class="team-grid" style="--n:${n}">${teamTiles}</div>${aside}</div></section>`;
+  }
+
+  // À côté de ma vignette : ce que je sais déjà (visions, charmés, flair…), ou les cartes du Voleur.
+  function knowAsideHTML(st) {
+    const me = view.me;
+    if (st.type === 'voleur' && Array.isArray(st.cards) && st.cards.length) {
+      const i = ui.sel[0];
+      const cards = st.cards.map((role, k) => `<button class="ccard up pickable ${String(i) === String(k) ? 'on' : ''}" data-act="take" data-i="${k}" aria-pressed="${String(i) === String(k)}" aria-label="${esc(roleName(role))}">${cardImg(role, 'cc-art')}<span class="cnum">${k + 1}</span></button>`).join('');
+      return `<div class="ap-aside thief"><div class="ccards">${cards}</div><span class="ap-note"><b>Les ${st.cards.length} cartes restées au centre</b><span>Toi seul les vois. Prends-en une : ta carte de Voleur la remplace au centre. Ou garde ta carte.</span></span></div>`;
+    }
+    const items = [];
+    if (me.role === 'voyante' && me.seen && me.seen.length) {
+      for (const sv of me.seen) items.push(`${face(sv.id, 26)}<b>${esc(sv.name)}</b><span class="dim">est</span>${cardImg(sv.role, 'thumb')}<b class="t-${teamOf(sv.role)}">${esc(roleName(sv.role))}</b>`);
+    }
+    if (me.role === 'flute') {
+      const c = view.players.filter((p) => p.charmed && p.alive);
+      const left = view.players.filter((p) => p.alive && !p.charmed && p.id !== me.id && !p.isMJ).length;
+      items.push(c.length ? `<span class="faces">${c.map((p) => face(p.id, 24)).join('')}</span><b>${c.length} charmé${c.length > 1 ? 's' : ''}</b>` : '<b>Personne n\'est encore charmé</b>');
+      items.push(`<b class="t-solitaire">Encore ${left}</b><span class="dim">à charmer pour gagner</span>`);
+    }
+    if (me.role === 'renard' && me.foxNotes && me.foxNotes.length) {
+      for (const n of me.foxNotes) items.push(`<span class="faces">${n.ids.map((x) => face(x, 22)).join('')}</span><b class="${n.hasWolf ? 't-loups' : 't-village'}">${n.hasWolf ? 'Un loup parmi eux' : 'Aucun loup'}</b><span class="dim">· nuit ${n.night}</span>`);
+    }
+    if (me.role === 'salvateur' && st.lastProtected) items.push(`${face(st.lastProtected, 24)}<b>${nm(st.lastProtected)}</b><span class="dim">protégé(e) la nuit dernière : pas ce soir</span>`);
+    if (me.role === 'enfant' && me.model) items.push(`${face(me.model, 24)}<b>${nm(me.model)}</b><span class="dim">est ton modèle</span>`);
+    if (!items.length) return '';
+    const title = { voyante: 'Tes visions', flute: 'Tes charmes', renard: 'Ton flair' }[me.role] || 'Ce que tu sais';
+    return `<div class="ap-aside know"><span class="ap-kicker">${title}</span><div class="know-list">${items.map((x) => `<span class="know">${x}</span>`).join('')}</div></div>`;
+  }
+
+  // Ceux qui dorment : qui est réveillé (sans dire combien) et ce que je sais.
+  function sleeperPanelHTML(st) {
+    const me = view.me;
+    const mine = [];
+    if (me.lover) mine.push(`${icon('heart', 14, '#F7A2AE')}<b>Amoureux(se) de ${nm(me.lover)}</b>`);
+    if (me.role === 'enfant' && me.model && !me.wild) mine.push(`${face(me.model, 22)}<b>Ton modèle : ${nm(me.model)}</b>`);
+    if (me.charmed) mine.push(`${icon('music', 14)}<b>Tu es charmé(e)</b>`);
+    const know = mine.length ? `<div class="ap-aside know small"><span class="ap-kicker">Ce que tu sais</span><div class="know-list">${mine.map((x) => `<span class="know">${x}</span>`).join('')}</div></div>` : '';
+    return `<section class="active-panel sleep" aria-label="Réveillés en ce moment"><div class="ap-body">
+      <img class="sleep-card" src="/img/carte-dos.svg" alt="">
+      <span class="ap-note"><b>${esc(st.narration || 'Le village dort')}</b><span>Tu ne vois ni n'entends personne. Garde les yeux fermés jusqu'à ton tour ou jusqu'à l'aube.</span></span>${know}</div></section>`;
+  }
+
+  // Une nuit : les cartes posées au milieu de la table (placées par layoutGrid).
+  function tableCenterHTML() {
+    const c = view.center, st = view.step;
+    const can = centerPickable(st);
+    const sel = ui.csel.map(String);
+    const res = st && st.result && st.result.center ? st.result.center : [];
+    const cards = c.cards.map((role, i) => {
+      const on = sel.includes(String(i));
+      const touched = res.some((x) => x.i === i);
+      const label = role ? roleName(role) : `Carte ${i + 1}, face cachée`;
+      const cls = `ccard ${role ? 'up' : 'down'} ${on ? 'on' : ''} ${touched ? 'touched' : ''} ${can ? 'pickable' : ''}`;
+      return can ? `<button class="${cls}" data-act="pickc" data-i="${i}" aria-pressed="${on}" aria-label="${esc(label)}">${cardImg(role, 'cc-art')}<span class="cnum">${i + 1}</span></button>`
+        : `<div class="${cls}" aria-label="${esc(label)}">${cardImg(role, 'cc-art')}<span class="cnum">${i + 1}</span></div>`;
     }).join('');
-    return `<div class="stage-grid ${mode ? 'picking' : ''} ${sel.length ? 'has-pick' : ''}">${tiles}</div>`;
+    return `<div class="table-center ${can ? 'picking' : ''}"><span class="center-title">${icon('cards', 15)} ${esc(c.label || 'Au centre')}</span><div class="ccards">${cards}</div></div>`;
   }
 
   // Sorcière : potion de vie sur la carte du joueur en danger, poison sur les autres.
@@ -1023,6 +1137,7 @@
       else if (!me.alive && !me.isMJ) sub = 'Tu regardes la partie en spectateur.';
       else if (night && !st.isActor) sub = 'Le village dort. Garde les yeux fermés.';
       else if (st.actorsCount != null) sub = `${st.done.length} / ${st.actorsCount} ${night ? 'ont agi' : st.type === 'roles_reveal' ? 'prêts' : 'ont voté'}`;
+      if (st.deadline && !st.resolved) right = `<span class="ev-time" data-deadline="${st.deadline}">${fmt(st.deadline - Date.now() - offset)}</span>`;
     }
     if (!title) return '';
     const key = `${kind}:${title}`;
