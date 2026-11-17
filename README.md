@@ -399,7 +399,7 @@ Vérifier que ça tourne : `docker compose ps` et `curl -k https://127.0.0.1:300
 - Fin de partie : cartes finales et de départ de chacun, gagnants, votes et tout ce qui s'est passé la nuit.
 
 **Ambiance**
-- Musique d'ambiance générée par le site pendant la partie : nappe, vent, pluie, gouttes, tonnerre lointain, ruisseau, grillons, grenouilles, hibou, loup lointain, oiseaux (le jour), feu de camp, cloche du village (le jour), et des instruments (harpe, flûte, violoncelle, battement de cœur désactivé par défaut). Volume bas par défaut.
+- Musique d'ambiance générée par le site pendant la partie : nappe, vent, pluie, gouttes, tonnerre lointain, grillons, grenouilles, hibou et loup lointain la nuit, oiseaux et cloche du village le jour, feu de camp, et des instruments (deux harpes en continu, flûte et violoncelle le jour). Volume bas par défaut.
 - Bouton note de musique en bas : couper, régler le volume ou retirer le tonnerre, pour soi seulement (mémorisé).
 - Les vignettes s'adaptent à la taille de l'écran et au nombre de joueurs.
 

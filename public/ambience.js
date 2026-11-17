@@ -14,28 +14,32 @@ window.LGAmbience = (() => {
   // 0 dB = niveau de base de chaque son ; -60 dB = coupé. Réglable sur la page cachée /audio.
   const SOURCES = {
     out: 'Sortie', reverb: 'Réverbération',
-    pad: 'Nappe', wind: 'Vent', rain: 'Pluie', drops: 'Gouttes', thunder: 'Tonnerre', stream: 'Ruisseau',
+    pad: 'Nappe', wind: 'Vent', rain: 'Pluie', drops: 'Gouttes', thunder: 'Tonnerre',
     crickets: 'Grillons', frogs: 'Grenouilles', owl: 'Hibou', wolf: 'Loup lointain', birds: 'Oiseaux',
     fire: 'Feu de camp', bell: 'Cloche du village',
-    harp: 'Harpe', flute: 'Flûte', cello: 'Violoncelle', heart: 'Battement de cœur'
+    harp: 'Harpe (mélodie)', harp2: 'Harpe (accompagnement)', flute: 'Flûte', cello: 'Violoncelle'
   };
   // Pour la page /audio : sons regroupés.
   const GROUPS = [
     ['Général', ['out', 'reverb']],
-    ['Nature', ['pad', 'wind', 'rain', 'drops', 'thunder', 'stream']],
+    ['Nature', ['pad', 'wind', 'rain', 'drops', 'thunder']],
     ['Animaux', ['crickets', 'frogs', 'owl', 'wolf', 'birds']],
     ['Village', ['fire', 'bell']],
-    ['Instruments', ['harp', 'flute', 'cello', 'heart']]
+    ['Instruments', ['harp', 'harp2', 'flute', 'cello']]
   ];
+  // Mixage composé par Bastien (17/11/2026).
   const DEFAULT_MIX = {
-    night: { out: 0, reverb: 0, pad: 0, wind: 0, rain: 0, drops: 0, thunder: 0, stream: -8, crickets: 0, frogs: -4, owl: 0, wolf: -2, birds: -60, fire: -4, bell: -60, harp: -3, flute: -4, cello: -4, heart: -60 },
-    day: { out: 0, reverb: 0, pad: 0, wind: -7.4, rain: -10, drops: -10.5, thunder: -60, stream: -2, crickets: -60, frogs: -60, owl: -60, wolf: -60, birds: 0, fire: -12, bell: -3, harp: -3, flute: -4, cello: -8, heart: -60 }
+    night: { out: 0, reverb: 5.5, pad: -10, wind: -7.5, rain: -12.5, drops: 4.5, thunder: 5.5, crickets: 0, frogs: 0, owl: 5, wolf: -2, birds: -60, fire: 2.5, bell: -60, harp: -3, harp2: -3, flute: -60, cello: -60 },
+    day: { out: 0, reverb: 5.5, pad: -10, wind: -13, rain: -12.5, drops: 4.5, thunder: -60, crickets: 3, frogs: -60, owl: -60, wolf: -60, birds: 3.5, fire: -12, bell: 6, harp: -3, harp2: -3, flute: -4, cello: -8 }
   };
   const MIX_KEY = 'lg-mix';
   const clone = (o) => JSON.parse(JSON.stringify(o));
   const mix = (() => {
     const m = clone(DEFAULT_MIX);
-    try { const saved = JSON.parse(localStorage.getItem(MIX_KEY) || 'null'); if (saved) for (const md of ['night', 'day']) Object.assign(m[md], saved[md] || {}); } catch (e) { /* valeurs par défaut */ }
+    try {
+      const saved = JSON.parse(localStorage.getItem(MIX_KEY) || 'null');
+      if (saved) for (const md of ['night', 'day']) for (const k of Object.keys(m[md])) if (saved[md] && typeof saved[md][k] === 'number') m[md][k] = saved[md][k];
+    } catch (e) { /* valeurs par défaut */ }
     return m;
   })();
   const solo = new Set(), muted = new Set();
@@ -132,18 +136,11 @@ window.LGAmbience = (() => {
     verb.connect(buses.reverb);
     // Chaque son « spatialisé » a une entrée qui va à sa tranche et, en partie, à la réverbération.
     const inputs = {};
-    for (const [k, wet] of [['harp', 0.35], ['flute', 0.4], ['wolf', 0.7], ['bell', 0.6], ['owl', 0.4], ['cello', 0.25]]) {
+    for (const [k, wet] of [['harp', 0.35], ['harp2', 0.4], ['flute', 0.4], ['wolf', 0.7], ['bell', 0.6], ['owl', 0.4], ['cello', 0.25]]) {
       const i = ctx.createGain(); i.connect(buses[k]);
       const send = ctx.createGain(); send.gain.value = wet; i.connect(send).connect(verb);
       inputs[k] = i;
     }
-
-    // Ruisseau : bruit filtré qui « bouillonne ».
-    const stream = ctx.createBufferSource(); stream.buffer = noiseBuffer(4, false); stream.loop = true;
-    const sBp = ctx.createBiquadFilter(); sBp.type = 'bandpass'; sBp.frequency.value = 1300; sBp.Q.value = 1.8;
-    [[0.7, 350], [1.9, 220], [0.23, 300]].forEach(([f, d]) => { const o = ctx.createOscillator(); o.frequency.value = f; const g = ctx.createGain(); g.gain.value = d; o.connect(g).connect(sBp.frequency); o.start(); });
-    const sGain = ctx.createGain(); sGain.gain.value = 0.3;
-    stream.connect(sBp).connect(sGain).connect(buses.stream); stream.start();
 
     // Feu de camp : grondement doux + crépitements (plus bas, dans crackle()).
     const fire = ctx.createBufferSource(); fire.buffer = noiseBuffer(4, true); fire.loop = true;
@@ -224,13 +221,13 @@ window.LGAmbience = (() => {
   const chordNow = () => CHORDS[mood || 'night'][Math.max(0, layers.chord)];
 
   // Harpe : arpège lent sur l'accord en cours.
-  function pluck(f, t, vel) {
+  function pluck(f, t, vel, dest) {
     const o = ctx.createOscillator(); o.type = 'triangle'; o.frequency.value = f;
     const o2 = ctx.createOscillator(); o2.type = 'sine'; o2.frequency.value = f * 2;
     const g2 = ctx.createGain(); g2.gain.value = 0.25;
     const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.setValueAtTime(3800, t); lp.frequency.exponentialRampToValueAtTime(700, t + 1.6);
     const g = ctx.createGain(); g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(vel, t + 0.006); g.gain.exponentialRampToValueAtTime(0.0001, t + 3);
-    o.connect(lp); o2.connect(g2).connect(lp); lp.connect(g).connect(layers.inputs.harp);
+    o.connect(lp); o2.connect(g2).connect(lp); lp.connect(g).connect(dest || layers.inputs.harp);
     o.start(t); o2.start(t); o.stop(t + 3.1); o2.stop(t + 3.1);
   }
   function harp(force) {
@@ -239,6 +236,27 @@ window.LGAmbience = (() => {
     const notes = [...ch, ch[0] * 2, ch[1] * 2].slice(0, 3 + Math.floor(Math.random() * 3));
     const t = ctx.currentTime + 0.05;
     notes.forEach((f, i) => pluck(f, t + i * (0.28 + Math.random() * 0.08), 0.16 - i * 0.012));
+  }
+
+  // Harpes en continu : une mélodie qui se promène sur l'accord, et un accompagnement grave.
+  let melodyStep = 0, melodyDir = 1;
+  function harpNote() {
+    if (!ctx || !audible('harp')) return;
+    if (Math.random() < 0.22) return; // un silence de temps en temps, ça respire
+    const ch = chordNow().slice(1);
+    const scale = [...ch.map((f) => f * 4), ...ch.map((f) => f * 8)].sort((a, b) => a - b);
+    melodyStep += melodyDir * (Math.random() < 0.7 ? 1 : 2);
+    if (melodyStep >= scale.length - 1 || melodyStep <= 0) { melodyDir *= -1; melodyStep = Math.max(0, Math.min(scale.length - 1, melodyStep)); }
+    if (Math.random() < 0.12) melodyDir *= -1;
+    pluck(scale[melodyStep], ctx.currentTime + 0.02, 0.09 + Math.random() * 0.05);
+  }
+  function harpBass(force) {
+    if (!ctx || (force !== true && !audible('harp2'))) return;
+    const ch = chordNow();
+    const t = ctx.currentTime + 0.02;
+    const root = ch[0] * 2, fifth = ch[0] * 3, third = ch[1] * 2;
+    if (Math.random() < 0.35) [root, third, fifth].forEach((f, i) => pluck(f, t + i * 0.09, 0.13, layers.inputs.harp2)); // accord égrené
+    else { pluck(root, t, 0.14, layers.inputs.harp2); pluck(Math.random() < 0.5 ? fifth : third, t + 0.6 + Math.random() * 0.3, 0.1, layers.inputs.harp2); }
   }
 
   // Flûte : courte phrase dans la gamme, souffle léger, vibrato.
@@ -357,18 +375,6 @@ window.LGAmbience = (() => {
     for (let i = 0; i < n; i++) bellStroke(t + i * 2.6, 196);
   }
 
-  // Battement de cœur (tension) : boum-boum grave.
-  function heart(force) {
-    if (!ctx || (force !== true && !audible('heart'))) return;
-    const t = ctx.currentTime + 0.02;
-    [[0, 0.5], [0.24, 0.32]].forEach(([dt, a]) => {
-      const o = ctx.createOscillator(); o.type = 'sine';
-      o.frequency.setValueAtTime(70, t + dt); o.frequency.exponentialRampToValueAtTime(38, t + dt + 0.12);
-      const g = ctx.createGain(); g.gain.setValueAtTime(0.0001, t + dt); g.gain.linearRampToValueAtTime(a, t + dt + 0.012); g.gain.exponentialRampToValueAtTime(0.0001, t + dt + 0.2);
-      o.connect(g).connect(buses.heart); o.start(t + dt); o.stop(t + dt + 0.25);
-    });
-  }
-
   function nextChord() {
     if (!ctx || !mood) return;
     layers.chord = (layers.chord + 1) % 4;
@@ -387,14 +393,16 @@ window.LGAmbience = (() => {
     loop(chirp, 700, 2600);
     loop(owl, 25000, 50000);
     loop(drop, 150, 900);
-    loop(harp, 7000, 15000);
+    loop(harp, 12000, 25000);     // glissando de temps en temps
+    loop(harpNote, 550, 1150);    // mélodie continue
+    loop(harpBass, 1800, 2800);   // accompagnement
     loop(flute, 18000, 40000);
     loop(wolf, 50000, 120000);
     loop(frogs, 900, 3500);
     loop(birds, 2500, 9000);
     loop(crackle, 40, 260);
     loop(bell, 45000, 100000);
-    loop(heart, 950, 1050);
+
     lastThunder = Date.now() - 30000; // premier tonnerre possible après environ une minute
     loop(thunder, 70000, 240000);
   }
@@ -478,7 +486,7 @@ window.LGAmbience = (() => {
     GROUPS,
     trigger(name) {
       if (!ctx) return;
-      const f = { owl, thunder: () => thunder(true), crickets: chirp, drops: drop, harp: () => harp(true), flute: () => flute(true), wolf: () => wolf(true), frogs: () => frogs(true), birds: () => birds(true), bell: () => bell(true), fire: crackle, heart: () => heart(true) }[name];
+      const f = { owl, thunder: () => thunder(true), crickets: chirp, drops: drop, harp: () => harp(true), flute: () => flute(true), wolf: () => wolf(true), frogs: () => frogs(true), birds: () => birds(true), bell: () => bell(true), fire: crackle, harp2: () => harpBass(true) }[name];
       if (!f) return;
       // Son coupé dans cette ambiance (ex. la cloche la nuit) : on l'ouvre le temps de l'écouter.
       const k = name === 'drops' ? 'drops' : name;
