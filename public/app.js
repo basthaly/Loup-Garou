@@ -54,6 +54,7 @@
     x: '<path d="M6 6l12 12M18 6L6 18"/>',
     music: '<path d="M9 18V5l11-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="17" cy="16" r="3"/>',
     musicoff: '<path d="M9 18V5l11-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="17" cy="16" r="3"/><path d="M3 3l18 18"/>',
+    stop: '<rect x="6" y="6" width="12" height="12" rx="2"/>',
     gear: '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/>',
     help: '<circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.6.3-1 .9-1 1.6v.6M12 17h0"/>',
     potion: '<path d="M9 3h6M10 3v5L5 17a3 3 0 0 0 2.6 4.5h8.8A3 3 0 0 0 19 17l-5-9V3"/><path d="M7.5 14h9"/>',
@@ -193,7 +194,12 @@
     const maxW = mobile ? 360 : 440;
     const w = Math.max(minW, Math.min(maxW, best.w));
     const cols = w > best.w ? Math.max(1, Math.min(n, Math.floor((W + gap) / (w + gap)))) : best.cols;
-    g.style.gridTemplateColumns = `repeat(${cols}, ${Math.floor(Math.min(w, (W - gap * (cols - 1)) / cols))}px)`;
+    let size = Math.floor(Math.min(w, (W - gap * (cols - 1)) / cols));
+    // Pas de micro-déplacement d'une étape à l'autre : on garde la taille si l'écart est faible.
+    const prev = layoutGrid.last;
+    if (prev && prev.n === n && prev.cols === cols && prev.W === W && Math.abs(prev.size - size) < 40) size = prev.size;
+    layoutGrid.last = { n, cols, W, size };
+    g.style.gridTemplateColumns = `repeat(${cols}, ${size}px)`;
     g.style.justifyContent = 'center';
   }
   let resizeT = null;
@@ -561,8 +567,8 @@
     const head = `<header class="band"><div class="in">
         <span class="ph-title">${title}</span>${steps}${spect}<span class="grow"></span>${timer}
         ${helpButton()}${settingsButton()}
-        ${me.isHost && r.phase !== 'end' ? '<button class="stop" data-act="abort">Arrêter</button>' : ''}</div>
-        ${narr ? `<div class="narr"><div class="in"><p>${narr}</p></div></div>` : ''}</header>`;
+        ${me.isHost && r.phase !== 'end' ? `<button class="stop leave" data-act="abort" aria-label="Arrêter la partie">${icon('stop', 14)}<span class="lbl">Arrêter</span></button>` : ''}</div>
+        ${r.phase !== 'end' ? `<div class="narr"><div class="in"><p>${narr || '&nbsp;'}</p></div></div>` : ''}</header>`;
     return head + `<main class="stage">${promptHTML()}${centerHTML()}${gridHTML()}${cemeteryHTML()}</main>${dockHTML()}${drawerHTML()}${helpHTML()}${revealHTML()}`;
   }
 
@@ -664,8 +670,7 @@
       case 'roles_reveal': {
         const d = ROLES[me.role] || {};
         if (!st.submitted) return `<div class="prompt"><h1>Découvre ton rôle</h1>${progressHTML(st, 'prêts')}</div>`;
-        return `<div class="prompt"><p class="hint">Ton rôle</p><h1 class="bigrole t-${d.team}">${esc(d.name || '')}</h1>
-          <p class="hint">En attente des autres joueurs…</p>${progressHTML(st, 'prêts')}</div>`;
+        return `<div class="prompt"><h1>En attente des autres…</h1><p class="hint">Ton rôle : <strong class="t-${d.team}">${esc(d.name || '')}</strong></p>${progressHTML(st, 'prêts')}</div>`;
       }
       case 'compoVote': {
         const opts = Object.entries(ROLES).filter(([k, d]) => d.impl && k !== 'loup' && k !== 'villageois' && (d.ext === 'base' || r.settings.extensions[d.ext]));
@@ -850,7 +855,8 @@
     const pop = ambOpen ? `<div class="amb-pop" role="dialog" aria-label="Musique d'ambiance">
         <div class="amb-head"><b>Ambiance</b><button class="ghost small-btn" data-act="amb-mute">${on ? 'Couper' : 'Activer'}</button></div>
         <label class="amb-row">${icon('musicoff', 16)}<input type="range" min="0" max="100" value="${Math.round(Amb.prefs.vol * 100)}" data-act="amb-vol" aria-label="Volume de la musique">${icon('music', 16)}</label>
-        <label class="check amb-storm"><input type="checkbox" data-act="amb-storm" ${Amb.prefs.storm ? 'checked' : ''}> Tonnerre (léger et rare)</label></div>` : '';
+        <label class="check amb-storm"><input type="checkbox" data-act="amb-storm" ${Amb.prefs.storm ? 'checked' : ''}> Tonnerre (léger et rare)</label>
+        ${TEST ? '<button class="ghost small-btn" data-act="amb-thunder">Écouter un tonnerre</button>' : ''}</div>` : '';
     return `<span class="amb-wrap"><button class="round ${on ? '' : 'off'}" data-act="amb" aria-expanded="${ambOpen}" aria-label="Musique d'ambiance">${icon(on ? 'music' : 'musicoff', 20)}</button>${pop}</span>`;
   }
 
@@ -1239,6 +1245,7 @@
       case 'pass2': send('act', { targets: null }); break;
       case 'amb': ambOpen = !ambOpen; render(); break;
       case 'amb-mute': Amb.toggle(); render(); break;
+      case 'amb-thunder': Amb.thunderNow(); break;
       case 'preset': send('preset', { index: +el.dataset.i }); break;
       case 'keep': send('act', { take: null }); break;
       case 'infect': send('act', { infect: el.dataset.v === '1' }); break;
