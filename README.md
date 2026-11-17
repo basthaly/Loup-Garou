@@ -382,6 +382,7 @@ Vérifier que ça tourne : `docker compose ps` et `curl -k https://127.0.0.1:300
 
 - Composition : quand l'hôte ajoute un rôle, un Simple Villageois est retiré pour garder le bon nombre de cartes. Le Voleur ajoute 2 cartes au centre, les Sœurs vont par deux.
 - Sorcière : le joueur en danger porte un badge, sa potion de vie apparaît sur sa vignette, le poison sur les autres ; bouton Passer.
+- Amoureux : juste après Cupidon, les deux amoureux se réveillent 15 secondes pour se voir et se parler (eux seuls s'entendent).
 - Si l'Ancien est éliminé par le village, les villageois perdent leurs pouvoirs.
 - Solitaires : le Joueur de flûte gagne quand tous les vivants sont charmés, le Loup-Garou Blanc s'il reste seul, l'Ange s'il est éliminé au premier vote.
 

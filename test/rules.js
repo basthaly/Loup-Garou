@@ -310,5 +310,26 @@ const wait = (ms) => new Promise((r) => setTimeout(r, ms));
     assert.strictEqual(Object.values(r.effectiveCompo()).reduce((x, y) => x + y, 0), 10, '8 joueurs + 2 cartes au centre');
     console.log('OK  Sœurs et composition équilibrée');
   }
+
+  // 20. Amoureux : après Cupidon, ils se réveillent ensemble, se voient et s'entendent.
+  {
+    const { room, ps } = setup(5, ['cupidon', 'loup', 'villageois', 'villageois', 'villageois']);
+    clearTimeout(room.timer);
+    room.phase = 'night'; room.night = 1;
+    room.queue = [{ type: 'amoureux', actors: [], seconds: 15 }, { type: 'dawn', actors: [] }];
+    room.startStep({ type: 'cupidon', actors: [], roleStep: true });
+    room.act(ps[0].id, { targets: [ps[1].id, ps[2].id] });
+    await wait(50);
+    assert.strictEqual(room.step.type, 'amoureux');
+    assert.deepStrictEqual(room.step.actors.sort(), [ps[1].id, ps[2].id].sort());
+    assert.strictEqual(room.viewFor(ps[1].id).step.partner, ps[2].id);
+    assert.strictEqual(room.mediaAllowed(ps[1], ps[2]).audio, true, 'ils s\'entendent');
+    assert.strictEqual(room.mediaAllowed(ps[1], ps[3]).video, false, 'les autres dorment');
+    room.act(ps[1].id, {}); room.act(ps[2].id, {});
+    await wait(50);
+    assert.notStrictEqual(room.step.type, 'amoureux', 'fini quand les deux ont terminé');
+    clearTimeout(room.timer);
+    console.log('OK  Amoureux : se réveillent ensemble après Cupidon');
+  }
   process.exit(0);
 })().catch((e) => { console.error('ÉCHEC :', e.message); process.exit(1); });

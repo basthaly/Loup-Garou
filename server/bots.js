@@ -22,7 +22,7 @@ function choose(v) {
     case 'n_noiseuse': return Math.random() < 0.2 ? { targets: null } : { targets: shuffled(opts).slice(0, 2) };
     case 'n_soulard': return { center: Math.floor(Math.random() * 3) };
     case 'n_loups': return st.lone ? { center: 1 } : {};
-    case 'roles_reveal': case 'soeurs': case 'debate': case 'n_sbire': case 'n_macons': case 'n_insomniaque': return {};
+    case 'roles_reveal': case 'soeurs': case 'amoureux': case 'debate': case 'n_sbire': case 'n_macons': case 'n_insomniaque': return {};
     case 'compoVote': return { roles: [] };
     default: return opts.length ? { target: rnd(opts) } : {};
   }

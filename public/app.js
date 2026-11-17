@@ -27,7 +27,7 @@
   const STEP_LABEL = {
     compoVote: 'Vote des rôles', roles_reveal: 'Rôles', cupidon: 'Cupidon', salvateur: 'Salvateur', voyante: 'Voyante',
     loups: 'Loups-Garous', sorciere: 'Sorcière', dawn: 'Aube', captain_vote: 'Capitaine', debate: 'Débat', vote: 'Vote',
-    voleur: 'Voleur', soeurs: 'Sœurs', enfant: 'Enfant Sauvage', renard: 'Renard', infect: 'Infect', grandloup: 'Grand Méchant Loup',
+    voleur: 'Voleur', soeurs: 'Sœurs', amoureux: 'Amoureux', enfant: 'Enfant Sauvage', renard: 'Renard', infect: 'Infect', grandloup: 'Grand Méchant Loup',
     loupblanc: 'Loup Blanc', flute: 'Flûte', hunter: 'Chasseur', successor: 'Capitaine',
     n_double: 'Double', n_loups: 'Loups', n_sbire: 'Sbire', n_macons: 'Francs-Maçons', n_voyante: 'Voyante', n_voleur: 'Voleur',
     n_noiseuse: 'Noiseuse', n_soulard: 'Soûlard', n_insomniaque: 'Insomniaque'
@@ -534,7 +534,7 @@
     voyante: 'Qui veux-tu sonder ?', salvateur: 'Qui protéger cette nuit ?', loups: 'Qui dévorer ?', vote: 'Qui veux-tu éliminer ?',
     captain_vote: 'Qui élire Capitaine ?', hunter: 'Qui emporter avec toi ?', successor: 'Qui sera le nouveau Capitaine ?',
     cupidon: 'Désigne deux amoureux', sorciere: 'Sauver, empoisonner ?', roles_reveal: 'Ton rôle', compoVote: 'Quels rôles veux-tu ?', debate: 'Débat',
-    voleur: 'Échanger ta carte ?', soeurs: 'Concertez-vous', enfant: 'Qui sera ton modèle ?', renard: 'Qui flairer ?', infect: 'Infecter la victime ?',
+    voleur: 'Échanger ta carte ?', soeurs: 'Concertez-vous', amoureux: 'Vous êtes amoureux', enfant: 'Qui sera ton modèle ?', renard: 'Qui flairer ?', infect: 'Infecter la victime ?',
     grandloup: 'Une autre victime ?', loupblanc: 'Tuer un loup ?', flute: 'Qui charmer ?',
     n_double: 'Qui copier ?', n_loups: 'Les loups', n_sbire: 'Voici les loups', n_macons: 'Les Francs-Maçons', n_voyante: 'Que regarder ?',
     n_voleur: 'Voler une carte ?', n_noiseuse: 'Échanger deux cartes ?', n_soulard: 'Prends une carte du centre', n_insomniaque: 'Ta carte'
@@ -692,6 +692,9 @@
         hint += ' · touche une carte du centre';
         break;
       }
+      case 'amoureux':
+        hint = st.partner ? `${icon('heart', 14, '#F08A6C')} Ton amour : ${nm(st.partner)} · parlez-vous, vous seuls vous entendez` : '';
+        break;
       case 'soeurs': {
         const sis = view.players.filter((p) => p.role === 'soeur' && p.id !== me.id);
         hint = sis.length ? `Ta sœur : ${sis.map((p) => esc(p.name)).join(', ')}` : '';
@@ -895,7 +898,7 @@
       }
       case 'infect':
         return `${sent}<button class="ghost" data-act="infect" data-v="0">Dévorer</button><button class="wolf attn" data-act="infect" data-v="1">Infecter ${nm(st.victim)}</button>`;
-      case 'soeurs':
+      case 'soeurs': case 'amoureux':
         return st.submitted ? sent : '<button class="primary attn" data-act="ready">Terminé</button>';
       case 'n_loups': case 'n_sbire': case 'n_macons': case 'n_insomniaque': {
         if (st.submitted) return sent;

@@ -22,7 +22,7 @@ const DEFAULT_SETTINGS = {
 // Temps d'affichage (s) après la résolution d'une étape, en mode MJ automatique.
 const SHOW_DELAY = {
   roles_reveal: 0, compoVote: 8, cupidon: 3, salvateur: 2, voyante: 4, loups: 4, sorciere: 2,
-  voleur: 3, soeurs: 0, enfant: 2, renard: 4, infect: 2, grandloup: 2, loupblanc: 2, flute: 2,
+  voleur: 3, soeurs: 0, amoureux: 0, enfant: 2, renard: 4, infect: 2, grandloup: 2, loupblanc: 2, flute: 2,
   dawn: 7, captain_vote: 8, debate: 0, vote: 9, hunter: 5, successor: 4, check: 0
 };
 
@@ -42,6 +42,7 @@ const NARRATION = {
   successor: 'Le Capitaine désigne son successeur.',
   voleur: 'Le Voleur se réveille et peut échanger sa carte.',
   soeurs: 'Les Sœurs se réveillent et se concertent.',
+  amoureux: 'Les Amoureux se réveillent et se découvrent.',
   enfant: "L'Enfant Sauvage se réveille et choisit son modèle.",
   renard: 'Le Renard se réveille et flaire un joueur.',
   infect: "L'Infect Père des Loups peut infecter la victime.",
@@ -50,7 +51,7 @@ const NARRATION = {
   flute: 'Le Joueur de flûte charme deux joueurs.'
 };
 
-const NIGHT_TYPES = ['voleur', 'cupidon', 'soeurs', 'enfant', 'salvateur', 'voyante', 'renard', 'loups', 'infect', 'grandloup', 'loupblanc', 'sorciere', 'flute'];
+const NIGHT_TYPES = ['voleur', 'cupidon', 'amoureux', 'soeurs', 'enfant', 'salvateur', 'voyante', 'renard', 'loups', 'infect', 'grandloup', 'loupblanc', 'sorciere', 'flute'];
 // Rôle de chaque étape de nuit (les acteurs sont calculés au début de l'étape).
 const STEP_ROLE = { voleur: 'voleur', cupidon: 'cupidon', soeurs: 'soeur', enfant: 'enfant', salvateur: 'salvateur', voyante: 'voyante', renard: 'renard', infect: 'infect', grandloup: 'grandloup', loupblanc: 'loupblanc', sorciere: 'sorciere', flute: 'flute' };
 const MAX_NIGHTS = 40;
@@ -415,6 +416,7 @@ class Room {
       case 'roles_reveal':
       case 'debate':
       case 'soeurs':
+      case 'amoureux':
         value = true; break;
       case 'voleur': {
         const i = payload.take;
@@ -535,6 +537,7 @@ class Room {
         break;
       }
       case 'soeurs':
+      case 'amoureux':
         break;
       case 'enfant': {
         const kid = this.players.get(s.actors[0]);
@@ -806,7 +809,11 @@ class Room {
     const steps = [];
     const add = (type, extra) => { if (inPlay(STEP_ROLE[type])) steps.push(Object.assign({ type, actors: [], roleStep: true }, extra || {})); };
     const villagePowers = !this.powersLost;
-    if (n1) { add('voleur'); add('cupidon'); }
+    if (n1) {
+      add('voleur'); add('cupidon');
+      // Les Amoureux se réveillent ensemble pour se voir et se parler un instant.
+      if (inPlay('cupidon')) steps.push({ type: 'amoureux', actors: [], seconds: 15 });
+    }
     if (villagePowers && this.night % 2 === 1) add('soeurs', { seconds: 45 });
     if (n1) add('enfant');
     if (villagePowers) { add('salvateur'); add('voyante'); }
@@ -872,6 +879,7 @@ class Room {
     // Étapes de nuit : les acteurs sont ceux qui ont le rôle au moment de l'étape (le Voleur a pu en changer).
     if (step.roleStep) step.actors = this.aliveWithRole(STEP_ROLE[step.type]).map((p) => p.id);
     if (step.wolves) step.actors = this.aliveWolves().map((p) => p.id);
+    if (step.type === 'amoureux') step.actors = (this.lovers || []).filter((x) => this.players.get(x) && this.players.get(x).alive);
     if (step.type === 'infect' && (!this.victim || this.infectUsed)) step.actors = [];
     if (step.type === 'grandloup' && (this.wolfDied || !this.wolfTargets().some((t) => t !== this.victim))) step.actors = [];
     if (step.type === 'loupblanc' && !this.aliveWolves().some((p) => p.role !== 'loupblanc')) step.actors = [];
@@ -1164,6 +1172,7 @@ class Room {
       v.mustTake = this.extraCards.length > 0 && this.extraCards.every((r) => WOLF_ROLES.includes(r));
     }
     if (['infect', 'grandloup'].includes(s.type) && (isActor || omniscient)) v.victim = this.victim;
+    if (s.type === 'amoureux' && isActor) v.partner = me.lover;
     if (s.resolved && s.result) {
       const r = s.result;
       if (['captain_vote', 'vote'].includes(s.type)) v.result = { choices: r.choices, tally: r.tally, text: r.text };
