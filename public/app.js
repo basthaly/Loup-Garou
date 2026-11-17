@@ -64,6 +64,16 @@
   };
   const icon = (n, size = 16, color = 'currentColor') =>
     `<svg aria-hidden="true" width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="${color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${ICON[n]}</svg>`;
+  // Illustrations des cartes : un fichier par rôle dans /cards. Les rôles d'Une nuit repris de Thiercelieux
+  // utilisent la même image. Pour changer une illustration, il suffit de remplacer le fichier.
+  const CARD_ALIAS = { n_loup: 'loup', n_voyante: 'voyante', n_voleur: 'voleur', n_villageois: 'villageois', n_chasseur: 'chasseur' };
+  const CARD_FILE = {}; // ex. { loup: 'loup.png' } si une image n'est pas en .webp
+  const cardSrc = (role) => {
+    if (!role) return '/img/carte-dos.svg';
+    const k = CARD_ALIAS[role] || role;
+    return `/cards/${CARD_FILE[k] || k + '.webp'}`;
+  };
+  const cardImg = (role, cls = '', alt = '') => `<img class="card-img ${cls}" src="${cardSrc(role)}" alt="${alt ? esc(alt) : ''}" draggable="false">`;
   const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
   // ---------- Connexion ----------
@@ -174,7 +184,8 @@
   function layoutGrid() {
     const g = $app.querySelector('.stage-grid');
     if (!g || !g.children.length) return;
-    const n = g.children.length;
+    const big = g.querySelectorAll('.tile.big').length;
+    const n = g.children.length + big * 3;
     const W = g.clientWidth;
     const top = g.getBoundingClientRect().top + window.scrollY;
     const dock = document.querySelector('.dock');
@@ -182,7 +193,7 @@
     const H = Math.max(180, window.innerHeight - top - (dock ? dock.offsetHeight : 0) - (cem ? cem.offsetHeight + 18 : 0) - 20);
     const gap = parseFloat(getComputedStyle(g).columnGap) || 12;
     let best = { w: 0, cols: 1 };
-    for (let cols = 1; cols <= n; cols++) {
+    for (let cols = big ? 2 : 1; cols <= n; cols++) {
       const rows = Math.ceil(n / cols);
       const w = Math.min((W - gap * (cols - 1)) / cols, ((H - gap * (rows - 1)) / rows) * 4 / 3);
       if (w > best.w) best = { w, cols };
@@ -193,7 +204,7 @@
     const minW = mobile ? Math.min(W, (W - gap * (lobby ? 2 : 1)) / (lobby ? 3 : 2)) : 190;
     const maxW = mobile ? 360 : 440;
     const w = Math.max(minW, Math.min(maxW, best.w));
-    const cols = w > best.w ? Math.max(1, Math.min(n, Math.floor((W + gap) / (w + gap)))) : best.cols;
+    const cols = Math.max(big ? 2 : 1, w > best.w ? Math.max(1, Math.min(n, Math.floor((W + gap) / (w + gap)))) : best.cols);
     let size = Math.floor(Math.min(w, (W - gap * (cols - 1)) / cols));
     // Pas de micro-déplacement d'une étape à l'autre : on garde la taille si l'écart est faible.
     const prev = layoutGrid.last;
@@ -220,6 +231,7 @@
       if (Amb) Amb.update('home', true);
       document.body.dataset.theme = 'night';
       document.body.dataset.dead = '';
+      document.body.dataset.screen = 'home';
       updateThemeColor();
       $app.innerHTML = homeHTML();
       return;
@@ -294,7 +306,7 @@
     } else if (home.step === 'game') {
       body = `${back}<h1 class="h">À quoi on joue ?</h1>
         ${Object.entries(GAMES).map(([k, g]) => `<button class="game-pick" data-act="pick-game" data-game="${k}">
-          <span class="gp-icon">${icon(g.icon, 26)}</span><span><b>${g.name}</b><small>${g.sub}</small></span></button>`).join('')}`;
+          ${cardFan(k === 'onenight' ? [null, null, null] : ['voyante', 'sorciere', 'loup'])}<span><b>${g.name}</b><small>${g.sub}</small></span></button>`).join('')}`;
     } else if (home.step === 'create') {
       const g = GAMES[home.game] || GAMES.thiercelieux;
       body = `${back}<h1 class="h">Créer un salon</h1><p class="muted small game-tag">${icon(g.icon, 14)} ${g.name}</p>${nameField}<button class="primary" data-act="create">Créer le salon</button>`;
@@ -317,13 +329,18 @@
     } else {
       const resume = last ? `<button class="resume" data-act="resume">
           <span class="resume-t">Reprendre ma partie</span><span class="muted small">${esc(last.name || '')} · ${esc(last.code)}</span></button>` : '';
-      body = `${resume}
+      body = `<div class="home-hero"><h1>La nuit tombe sur le village</h1><p>Entre amis, caméras allumées. Le site mène la partie.</p></div>${resume}
         <button class="big primary" data-act="home-create">${icon('moon', 20)} Créer un salon</button>
         <button class="big" data-act="home-join">${icon('village', 20)} Rejoindre avec un code</button>`;
     }
-    return `<div class="home-top">${appearanceButton()}</div><main class="home">
+    return `<div class="home-scene" aria-hidden="true"></div><div class="home-top">${appearanceButton()}</div><main class="home">
       <div class="brand big">${icon('moon', 44)}<span>Loup-Garou</span></div>
       <div class="zone"><div class="zb">${body}</div></div></main>`;
+  }
+
+  // Trois cartes en éventail (accueil, choix du jeu).
+  function cardFan(roles) {
+    return `<span class="fan" aria-hidden="true">${roles.map((r) => cardImg(r)).join('')}</span>`;
   }
 
   // ----- Tuiles vidéo -----
@@ -362,7 +379,7 @@
       ${opts.picked ? `<span class="picked-mark">${icon('check', 14)}<span class="pm-t">${opts.mark || (st && st.type === 'vote' ? 'Ton vote' : 'Choisi')}</span></span>` : ''}
       ${opts.tools || ''}
       <span class="nm">${p.mic ? '<span class="vu" aria-hidden="true"><i></i><i></i><i></i></span>' : icon('micoff', 13)}${esc(p.name)}${isMe ? ' (toi)' : ''}</span>`;
-    const cls = `tile has-video-host ${isMe ? 'me' : ''} ${asleep ? 'asleep' : ''} ${opts.wolfMate ? 'wolfmate' : ''} ${opts.pick ? 'pickable' : ''} ${opts.picked ? 'picked' : ''} ${opts.danger ? 'danger' : ''} ${opts.poisoned ? 'poisoned' : ''} ${opts.saved ? 'saved' : ''} ${opts.tools ? 'has-tools' : ''}`;
+    const cls = `tile has-video-host ${isMe ? 'me' : ''} ${asleep ? 'asleep' : ''} ${opts.wolfMate ? 'wolfmate' : ''} ${opts.pick ? 'pickable' : ''} ${opts.picked ? 'picked' : ''} ${opts.danger ? 'danger' : ''} ${opts.big ? 'big' : ''} ${opts.poisoned ? 'poisoned' : ''} ${opts.saved ? 'saved' : ''} ${opts.tools ? 'has-tools' : ''}`;
     if (opts.pick) return `<button class="${cls}" data-speak="${p.id}" data-act="pick" data-id="${p.id}" aria-pressed="${!!opts.picked}" aria-label="${esc((st && VERB[st.type]) || 'Choisir')} ${esc(p.name)}">${inner}</button>`;
     return `<div class="${cls}" data-speak="${p.id}">${inner}${kick}</div>`;
   }
@@ -488,9 +505,9 @@
         const ctrl = voteMode ? `<span class="muted" style="font-size:13px">${key === 'loup' || key === 'villageois' ? 'Automatique' : 'Soumis au vote'}</span>`
           : host ? `<div class="stepper"><button data-act="compo" data-role="${key}" data-delta="-1" aria-label="Retirer ${esc(d.name)}">−</button><span>${k}</span><button data-act="compo" data-role="${key}" data-delta="1" aria-label="Ajouter ${esc(d.name)}">+</button></div>`
           : `<div class="stepper"><span>${k}</span></div>`;
-        return `<div class="role ${k && !voteMode ? 'on' : ''}">
+        return `<div class="role ${k && !voteMode ? 'on' : ''}">${cardImg(key, 'role-art')}<div class="role-body">
           <div class="head"><span>${esc(d.name)}</span><small class="t-${d.team}">${TEAM[d.team]}</small></div>
-          <p>${esc(d.desc)}</p>${ctrl}</div>`;
+          <p>${esc(d.desc)}</p>${ctrl}</div></div>`;
       }).join('');
       return `<div class="label">${title}</div><div class="roles">${list}</div>`;
     }).join('');
@@ -515,7 +532,7 @@
     const roles = Object.entries(ROLES).filter(([, d]) => d.game === 'onenight').map(([key, d]) => {
       const k = compo[key] || 0;
       const ctrl = host ? `<div class="stepper"><button data-act="compo" data-role="${key}" data-delta="-1" aria-label="Retirer ${esc(d.name)}">−</button><span>${k}</span><button data-act="compo" data-role="${key}" data-delta="1" aria-label="Ajouter ${esc(d.name)}">+</button></div>` : `<div class="stepper"><span>${k}</span></div>`;
-      return `<div class="role ${k ? 'on' : ''}"><div class="head"><span>${esc(d.name)}</span><small class="t-${d.team}">${TEAM[d.team]}</small></div><p>${esc(d.desc)}</p>${ctrl}</div>`;
+      return `<div class="role ${k ? 'on' : ''}">${cardImg(key, 'role-art')}<div class="role-body"><div class="head"><span>${esc(d.name)}</span><small class="t-${d.team}">${TEAM[d.team]}</small></div><p>${esc(d.desc)}</p>${ctrl}</div></div>`;
     }).join('');
     return `<div class="row"><strong>${size} cartes · ${n} joueurs + 3 au centre</strong>
         <span class="pill t-loups">${counts.loups} Loups</span><span class="pill t-village">${counts.village} Village</span>
@@ -588,12 +605,12 @@
     const me = view.me;
     const d = me.role && !me.isMJ ? ROLES[me.role] : null;
     const goal = { loups: 'Camp des loups', village: 'Camp du village', solitaire: 'Tu joues seul' };
-    const mine = d ? `<section class="help-mine"><p class="hint">Ta carte</p><div class="bigrole t-${d.team}">${esc(d.name)}</div>
-        <p class="muted small">${goal[d.team]}</p><ul class="how">${(d.how || [d.desc]).map((x) => `<li>${esc(x)}</li>`).join('')}</ul>
-        ${me.infected || me.wild ? '<div class="note">Tu es devenu loup : tu te réveilles aussi avec la meute.</div>' : ''}</section>` : '';
+    const mine = d ? `<section class="help-mine">${cardImg(me.role, 'help-art')}<div class="hm-text"><p class="hint">Ta carte</p><div class="bigrole t-${d.team}">${esc(d.name)}</div>
+        <p class="muted small">${goal[d.team] || ''}</p><ul class="how">${(d.how || [d.desc]).map((x) => `<li>${esc(x)}</li>`).join('')}</ul>
+        ${me.infected || me.wild ? '<div class="note">Tu es devenu loup : tu te réveilles aussi avec la meute.</div>' : ''}</div></section>` : '';
     const inGame = Object.keys(view.compo || {}).filter((k) => ROLES[k] && k !== me.role);
     const cards = inGame.length ? `<section><h3>${view.room.phase === 'lobby' ? 'Cartes prévues' : 'Cartes de la partie'}</h3>${inGame.map((k) => `
-        <details class="card-help"><summary><span>${esc(ROLES[k].name)}</span><small class="t-${ROLES[k].team}">${TEAM[ROLES[k].team]}</small></summary>
+        <details class="card-help"><summary><span class="ch-name">${cardImg(k, 'thumb')}${esc(ROLES[k].name)}</span><small class="t-${ROLES[k].team}">${TEAM[ROLES[k].team]}</small></summary>
         <ul class="how">${(ROLES[k].how || [ROLES[k].desc]).map((x) => `<li>${esc(x)}</li>`).join('')}</ul></details>`).join('')}</section>` : '';
     return `<aside class="drawer sheet open ${helpAnim ? 'slide' : ''}" role="dialog" aria-modal="true" aria-label="Comment jouer">
       <div class="drawer-head"><h2>Comment jouer</h2><button class="round" data-act="help" aria-label="Fermer">${icon('x', 18)}</button></div>
@@ -612,13 +629,17 @@
     const camp = { loups: 'Camp des loups', village: 'Camp du village', solitaire: 'Tu joues seul', variable: 'Ton camp dépendra du rôle copié' }[d.team] || '';
     return `<div class="reveal-scrim ${first ? 'anim' : ''}"></div>
       <div class="reveal ${first ? 'anim' : ''} t-bg-${d.team}" role="dialog" aria-modal="true" aria-labelledby="rv-title">
-        <p class="hint">${isON() ? 'Ta carte' : 'Ton rôle'}</p>
+        <div class="rv-card ${first ? 'flip' : ''}">${cardImg(null, 'rv-back')}${cardImg(me.role, 'rv-face', 'Carte : ' + (d.name || ''))}</div>
+        <div class="rv-text"><p class="hint">${isON() ? 'Ta carte' : 'Ton rôle'}</p>
         <h1 id="rv-title" class="bigrole t-${d.team}">${esc(d.name || '')}</h1>
         <p class="rv-camp">${camp}</p>
         <ul class="how">${(d.how || [d.desc]).map((x) => `<li>${esc(x)}</li>`).join('')}</ul>
-        <button class="primary rv-ok" data-act="ready" autofocus>J'ai vu mon rôle</button>
+        ${me.role === 'sorciere' ? `<div class="rv-potions"><span>${potionImg('vie')} Vie ×1</span><span>${potionImg('mort')} Mort ×1</span></div>` : ''}
+        <button class="primary rv-ok" data-act="ready" autofocus>J'ai vu mon rôle</button></div>
       </div>`;
   }
+
+  const potionImg = (k, cls = '') => `<img class="potion-img ${cls}" src="/img/potion-${k}.svg" alt="" draggable="false">`;
 
   function appearanceButton() {
     const dark = document.body.dataset.appearance === 'dark';
@@ -657,6 +678,7 @@
     const mode = pickMode(st);
     let hint = mode ? (mode.max === 2 ? 'Touche deux joueurs' : 'Touche un joueur') : '';
     let extra = '';
+    let title = null;
     if (isON() && st.type !== 'vote' && st.type !== 'roles_reveal') {
       const info = onPromptExtra(st);
       if (st.type === 'n_voyante') hint = 'Touche un joueur, ou deux cartes du centre';
@@ -681,10 +703,17 @@
         break;
       }
       case 'sorciere': {
-        const parts = [st.victim ? `${nm(st.victim)} est en danger` : 'Personne en danger'];
-        if (st.victim && st.potions.life) parts.push('potion de vie sur sa carte');
-        if (st.potions.death) parts.push('poison sur les autres');
-        hint = parts.join(' · ');
+        title = st.victim ? `Les loups ont choisi ${nm(st.victim)}` : 'Nuit calme';
+        hint = st.victim ? (st.potions.life ? 'Sauve-le avec ta potion de vie, empoisonne quelqu\'un, ou passe.' : 'Ta potion de vie est déjà utilisée.') : 'Les loups n\'ont tué personne cette nuit.';
+        const victimName = st.victim ? nm(st.victim) : null;
+        const dawn = [];
+        if (st.victim) dawn.push(ui.save ? `<li class="ok">${victimName} survit</li>` : `<li class="bad">${victimName} meurt</li>`);
+        if (ui.kill) dawn.push(`<li class="poison">${nm(ui.kill)} meurt empoisonné(e)</li>`);
+        if (!dawn.length) dawn.push('<li>Personne ne meurt</li>');
+        extra = `<div class="shelf">
+          <div class="potion-slot life ${st.potions.life ? '' : 'used'} ${ui.save ? 'on' : ''}">${potionImg('vie')}<span><b>Potion de vie</b><small>${!st.potions.life ? 'Déjà utilisée' : ui.save ? 'Sur ' + victimName : st.victim ? 'Sur la vignette en danger' : 'Personne à sauver'}</small></span></div>
+          <div class="potion-slot death ${st.potions.death ? '' : 'used'} ${ui.kill ? 'on' : ''}">${potionImg('mort')}<span><b>Potion de mort</b><small>${!st.potions.death ? 'Déjà utilisée' : ui.kill ? 'Sur ' + nm(ui.kill) : 'Bouton « Poison » sur un joueur'}</small></span></div>
+          <div class="dawn"><small>À l'aube</small><ul>${dawn.join('')}</ul></div></div>`;
         break;
       }
       case 'voleur': {
@@ -721,7 +750,7 @@
         if (st.type === 'vote' && r.captainId) hint += ` · ${nm(r.captainId)} compte double`;
         break;
     }
-    return `<div class="prompt"><div class="prompt-row"><div><h1>${QUESTION[st.type] || 'À toi'}</h1>${hint ? `<p class="hint">${hint}</p>` : ''}</div></div>${extra}</div>`;
+    return `<div class="prompt ${st.type === 'sorciere' ? 'witch-prompt' : ''}"><div class="prompt-row"><div><h1>${title ? esc(title) : QUESTION[st.type] || 'À toi'}</h1>${hint ? `<p class="hint">${hint}</p>` : ''}</div></div>${extra}</div>`;
   }
 
   // Cartes au centre, matérialisées : face cachée, retournées quand on les connaît (et toutes à la fin).
@@ -741,7 +770,7 @@
     const cards = c.cards.map((role, i) => {
       const on = sel.includes(String(i));
       const touched = res.some((x) => x.i === i);
-      const face = role ? `<small class="t-${teamOf(role)}">${TEAM[teamOf(role)]}</small><b>${esc(roleName(role))}</b>` : `<span class="card-back" aria-hidden="true">${icon('moon', 22)}</span>`;
+      const face = cardImg(role, 'cc-art');
       const label = role ? roleName(role) : `Carte ${i + 1}, face cachée`;
       const cls = `ccard ${role ? 'up' : 'down'} ${on ? 'on' : ''} ${touched ? 'touched' : ''} ${can ? 'pickable' : ''}`;
       return can ? `<button class="${cls}" data-act="${voleur ? 'take' : 'pickc'}" data-i="${i}" aria-pressed="${on}" aria-label="${esc(label)}">${face}<span class="cnum">${i + 1}</span></button>`
@@ -808,13 +837,13 @@
     const me = view.me;
     if (p.isMJ) return {};
     if (p.id === st.victim) {
-      const tools = st.potions.life ? `<div class="tile-tools"><button class="potion life ${ui.save ? 'on' : ''}" data-act="save" aria-pressed="${ui.save}">${icon('potion', 16)} ${ui.save ? 'Sauvé' : 'Sauver'}</button></div>` : '';
-      return { danger: true, tools, saved: ui.save };
+      const tools = st.potions.life ? `<div class="tile-tools big-tools"><button class="potion life ${ui.save ? 'on' : ''}" data-act="save" aria-pressed="${ui.save}" aria-label="${ui.save ? 'Annuler la potion de vie' : 'Sauver ' + esc(p.name)}">${potionImg('vie')} ${ui.save ? 'Sauvé' : 'Sauver'}</button></div>` : '';
+      return { danger: true, big: true, tools, saved: ui.save };
     }
     if (!st.potions.death || p.id === me.id) return {};
     const on = ui.kill === p.id;
     return {
-      tools: `<div class="tile-tools"><button class="potion death ${on ? 'on' : ''}" data-act="kill" data-id="${p.id}" aria-pressed="${on}" aria-label="Empoisonner ${esc(p.name)}">${icon('poison', 16)} ${on ? 'Empoisonné' : 'Poison'}</button></div>`,
+      tools: `<div class="tile-tools"><button class="potion death ${on ? 'on' : ''}" data-act="kill" data-id="${p.id}" aria-pressed="${on}" aria-label="${on ? 'Retirer le poison de ' : 'Empoisonner '}${esc(p.name)}">${potionImg('mort')} ${on ? 'Empoisonné' : 'Poison'}</button></div>`,
       poisoned: on
     };
   }
@@ -830,7 +859,7 @@
       const info = [p.role ? roleName(p.role) : null, d.when ? d.when.toLowerCase() : causes[d.cause]].filter(Boolean).join(' · ');
       return `<span class="dchip has-video-host ${isMe ? 'me' : ''} ${freshDead.has(p.id) ? 'fresh' : ''}" data-speak="${p.id}">
         <span class="dav"><span class="avatar" aria-hidden="true">${esc(p.name[0])}</span><span class="vslot" data-vslot="${isMe ? 'me2' : p.id}"></span></span>
-        <span class="dname">${esc(p.name)}${isMe ? ' (toi)' : ''}</span><span class="dinfo">${esc(info)}</span></span>`;
+        ${p.role ? cardImg(p.role, 'dead-art') : ''}<span class="dtext"><span class="dname">${esc(p.name)}${isMe ? ' (toi)' : ''}</span><span class="dinfo">${esc(info)}</span></span></span>`;
     }).join('')}</div>`;
   }
 
@@ -840,7 +869,7 @@
     const d = me.role ? ROLES[me.role] : null;
     const L = Media.local;
     const roleBtn = me.isMJ ? '<span class="dock-role"><small>Rôle</small><b>Maître du jeu</b></span>'
-      : d ? `<button class="dock-role" data-act="help" aria-label="Comment jouer ${esc(d.name)} ?"><small>${isON() ? (r.phase === 'end' ? 'Au départ' : 'Ta carte au départ') : me.alive || r.phase === 'end' ? 'Ton rôle' : 'Tu étais'}</small><b class="t-${d.team}">${esc(d.name)}<span class="qmark" aria-hidden="true">?</span></b></button>` : '';
+      : d ? `<button class="dock-role" data-act="help" aria-label="Comment jouer ${esc(d.name)} ?">${cardImg(me.role, 'dock-art')}<span class="dr-t"><small>${isON() ? (r.phase === 'end' ? 'Au départ' : 'Ta carte au départ') : me.alive || r.phase === 'end' ? 'Ton rôle' : 'Tu étais'}</small><b class="t-${d.team}">${esc(d.name)}<span class="qmark" aria-hidden="true">?</span></b></span></button>` : '';
     const mic = `<button class="round ${L.audioTrack ? (L.mic ? 'on' : 'off') : ''}" data-act="media-mic" aria-pressed="${!!(L.audioTrack && L.mic)}" aria-label="${L.audioTrack && L.mic ? 'Couper le micro' : 'Activer le micro'}" ${L.busy.audio ? 'disabled' : ''}>${icon(L.audioTrack && L.mic ? 'mic' : 'micoff', 20)}</button>`;
     const cam = `<button class="round ${L.cam ? 'on' : ''}" data-act="media-cam" aria-pressed="${L.cam}" aria-label="${L.cam ? 'Couper la caméra' : 'Activer la caméra'}" ${L.busy.video ? 'disabled' : ''}>${icon(L.cam ? 'cam' : 'camoff', 20)}</button>`;
     const self = `<div class="dock-self has-video-host" data-speak="${me.id}"><span class="avatar" style="background:${colorOf(me.id)}" aria-hidden="true">${esc(me.name[0])}</span><div class="vslot" data-vslot="me"></div></div>`;
