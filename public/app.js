@@ -77,7 +77,14 @@
   };
   const forget = () => { sessionStorage.removeItem('lg'); localStorage.removeItem('lg-last'); };
   const urlCode = (new URLSearchParams(location.search).get('code') || '').toUpperCase();
-  let home = { step: urlCode ? 'join' : 'choose', code: urlCode, info: null };
+  const TEST = location.pathname.replace(/\/+$/, '') === '/test';
+  const homeStart = () => (TEST ? 'test' : 'choose');
+  let home = { step: urlCode ? 'join' : homeStart(), code: urlCode, info: null };
+  // Page de test (/test) : choix du rôle, faux joueurs, triche.
+  const testForm = (() => {
+    try { return Object.assign({ game: 'thiercelieux', role: 'voyante', bots: 7, extra: [], reveal: false, auto: true, speed: 1 }, JSON.parse(localStorage.getItem('lg-test') || '{}')); } catch (e) { return { game: 'thiercelieux', role: 'voyante', bots: 7, extra: [], reveal: false, auto: true, speed: 1 }; }
+  })();
+  const saveTest = () => { try { localStorage.setItem('lg-test', JSON.stringify(testForm)); } catch (e) { /* stockage indisponible */ } };
   let lastAnimKey = null;
   let animT = null;
   const freshDead = new Set();
@@ -105,7 +112,7 @@
       if (home.step === 'join' && home.code && !home.info) lookup(home.code);
     }
   });
-  socket.on('kicked', () => { forget(); home = { step: 'choose', code: '', info: null }; setView(null); toast("Tu as été exclu de la partie par l'hôte."); });
+  socket.on('kicked', () => { forget(); home = { step: homeStart(), code: '', info: null }; setView(null); toast("Tu as été exclu de la partie par l'hôte."); });
   socket.on('disconnect', () => toast('Connexion perdue… reconnexion en cours'));
   socket.on('state', (v) => {
     if (!v) return;
@@ -254,7 +261,29 @@
     const nameField = `<label for="f-name">Ton pseudo</label>
       <input type="text" id="f-name" maxlength="20" value="${esc(name)}" autocomplete="nickname" enterkeyhint="go">`;
     let body;
-    if (home.step === 'game') {
+    if (home.step === 'test') {
+      const t = testForm;
+      const one = t.game === 'onenight';
+      const roles = Object.entries(ROLES).filter(([, d]) => (one ? d.game === 'onenight' : d.game !== 'onenight'));
+      if (!roles.some(([k]) => k === t.role)) t.role = roles[0][0];
+      const minB = one ? 2 : 3, maxB = one ? 9 : 17;
+      t.bots = Math.min(maxB, Math.max(minB, t.bots));
+      body = `<h1 class="h">Page de test</h1><p class="muted small">Choisis ton rôle et joue avec des faux joueurs. Cette page n'est liée nulle part.</p>
+        ${nameField}
+        <label>Jeu</label><div class="seg" role="group">${Object.entries(GAMES).map(([k, g]) => `<button class="${t.game === k ? 'on' : ''}" data-act="t-game" data-v="${k}" aria-pressed="${t.game === k}">${esc(g.short)}</button>`).join('')}</div>
+        <label for="t-role">Ton rôle</label>
+        <select id="t-role" data-t="role">${roles.map(([k, d]) => `<option value="${k}" ${t.role === k ? 'selected' : ''}>${esc(d.name)}</option>`).join('')}</select>
+        <div class="row" style="justify-content:space-between"><label style="margin:0">Faux joueurs</label>
+          <div class="stepper"><button data-act="t-bots" data-d="-1" aria-label="Un faux joueur de moins">−</button><span>${t.bots}</span><button data-act="t-bots" data-d="1" aria-label="Un faux joueur de plus">+</button></div></div>
+        <p class="muted small" style="margin:-6px 0 0">${t.bots + 1} joueurs en tout${one ? `, ${t.bots + 4} cartes` : ''}</p>
+        <label>Autres rôles à mettre en jeu</label>
+        <div class="chips">${roles.filter(([k]) => k !== t.role && !['villageois', 'n_villageois'].includes(k)).map(([k, d]) => `<button class="chip-btn ${t.extra.includes(k) ? 'on' : ''}" data-act="t-extra" data-v="${k}" aria-pressed="${t.extra.includes(k)}">${esc(d.name)}</button>`).join('')}</div>
+        <label class="check"><input type="checkbox" data-t="auto" ${t.auto ? 'checked' : ''}> Les faux joueurs jouent tout seuls</label>
+        <label class="check"><input type="checkbox" data-t="reveal" ${t.reveal ? 'checked' : ''}> Voir tous les rôles (triche)</label>
+        <div class="row" style="justify-content:space-between"><label for="t-speed" style="margin:0">Minuteurs</label>
+          <select id="t-speed" data-t="speed" style="width:auto">${[[1, 'Normaux'], [2, 'Rapides'], [3, 'Très rapides']].map(([v, l]) => `<option value="${v}" ${+t.speed === v ? 'selected' : ''}>${l}</option>`).join('')}</select></div>
+        <button class="primary" data-act="t-start">Lancer le test</button>`;
+    } else if (home.step === 'game') {
       body = `${back}<h1 class="h">À quoi on joue ?</h1>
         ${Object.entries(GAMES).map(([k, g]) => `<button class="game-pick" data-act="pick-game" data-game="${k}">
           <span class="gp-icon">${icon(g.icon, 26)}</span><span><b>${g.name}</b><small>${g.sub}</small></span></button>`).join('')}`;
@@ -305,6 +334,7 @@
     if (p.captain) tl.push(`<span class="chip cap">${icon('crown', 12, '#7A4210')} Capitaine</span>`);
     if (p.idiotRevealed) tl.push('<span class="chip">Ne vote plus</span>');
     if (p.charmed) tl.push('<span class="chip charm">Charmé</span>');
+    if (p.bot) tl.push('<span class="chip">Faux joueur</span>');
     if (p.startRole && p.startRole !== p.role) tl.push(`<span class="chip" title="Carte au départ">était ${esc(roleName(p.startRole))}</span>`);
     if (isON() && view.room.phase === 'end') tl.push(p.won ? '<span class="chip ok">Gagné</span>' : '<span class="chip">Perdu</span>');
     if (isON() && view.room.phase === 'end' && !p.alive) tl.push('<span class="chip danger">Éliminé</span>');
@@ -1069,6 +1099,19 @@
     const st = view && view.step;
     switch (act) {
       case 'home-create': home = { step: 'game', code: '', info: null }; render(); break;
+      case 't-game': testForm.game = el.dataset.v; testForm.extra = []; saveTest(); render(); break;
+      case 't-bots': testForm.bots += +el.dataset.d; saveTest(); render(); break;
+      case 't-extra': {
+        const v = el.dataset.v;
+        testForm.extra = testForm.extra.includes(v) ? testForm.extra.filter((x) => x !== v) : testForm.extra.concat(v);
+        saveTest(); render(); break;
+      }
+      case 't-start': {
+        const name = document.getElementById('f-name').value.trim() || 'Testeur';
+        localStorage.setItem('lg-name', name);
+        send('createTest', Object.assign({ name }, testForm), (r) => save(r.code, r.token, name));
+        break;
+      }
       case 'pick-game': home = { step: 'create', game: el.dataset.game, code: '', info: null }; render(); focus('f-name'); break;
       case 'home-join': home = { step: 'join', code: '', info: null }; render(); focus('f-code'); break;
       case 'home-back': home = { step: home.step === 'joinInfo' ? 'join' : home.step === 'create' ? 'game' : 'choose', code: home.code, info: null }; render(); break;
@@ -1114,7 +1157,7 @@
         break;
       }
       case 'leave':
-        send('leave', {}, () => { forget(); home = { step: 'choose', code: '', info: null }; setView(null); });
+        send('leave', {}, () => { forget(); home = { step: homeStart(), code: '', info: null }; setView(null); });
         break;
       case 'media-cam': Media.toggle('cam'); break;
       case 'media-mic': Media.toggle('mic'); break;
@@ -1216,10 +1259,16 @@
   });
 
   $app.addEventListener('input', (e) => {
+    if (e.target.id === 'f-name' && TEST) localStorage.setItem('lg-name', e.target.value);
     if (e.target.dataset.act === 'amb-vol') Amb.setVolume(+e.target.value / 100);
   });
   $app.addEventListener('change', (e) => {
     const el = e.target;
+    if (el.dataset.t) {
+      testForm[el.dataset.t] = el.type === 'checkbox' ? el.checked : el.dataset.t === 'speed' ? +el.value : el.value;
+      if (el.dataset.t === 'role') testForm.extra = testForm.extra.filter((x) => x !== el.value);
+      saveTest(); render(); return;
+    }
     if (el.tagName === 'SELECT' || el.type === 'range') setTimeout(() => el.blur(), 0);
     if (el.dataset.act === 'cv') {
       const st = view.step;

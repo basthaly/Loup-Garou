@@ -177,8 +177,18 @@ class OneNightRoom extends Room {
     const cards = [];
     for (const [r, k] of Object.entries(this.compo)) for (let i = 0; i < k; i++) cards.push(r);
     const deck = shuffle(cards);
-    this.gamePlayers().forEach((p, i) => { p.card = p.startRole = p.role = deck[i]; });
+    this.gamePlayers().forEach((p, i) => { p.card = deck[i]; });
     this.center = deck.slice(n);
+    // Page de test : le testeur reçoit la carte choisie.
+    const f = this.test && this.test.roles;
+    if (f) for (const [pid, role] of Object.entries(f)) {
+      const p = this.players.get(pid);
+      if (!p || p.card === role) continue;
+      const holder = this.gamePlayers().find((q) => q.card === role && f[q.id] !== role);
+      if (holder) [p.card, holder.card] = [holder.card, p.card];
+      else { const i = this.center.indexOf(role); if (i >= 0) [p.card, this.center[i]] = [this.center[i], p.card]; }
+    }
+    for (const p of this.gamePlayers()) p.startRole = p.role = p.card;
     this.phase = 'setup';
     this.addLog('La partie commence.', true);
     this.phaseSteps = ['roles_reveal'];
@@ -463,18 +473,19 @@ class OneNightRoom extends Room {
     if (!me) return null;
     const end = this.phase === 'end';
     const started = this.phase !== 'lobby';
+    const reveal = !!(this.test && this.test.reveal && this.test.me === id) && started;
     const winners = end && this.winner ? this.winner.winners || [] : [];
     const n = this.gamePlayers().length;
     const players = this.order.map((pid) => {
       const p = this.players.get(pid);
       let role = null;
-      if (end) role = this.finalRole(p.card);
+      if (end || reveal) role = this.finalRole(p.card);
       else if (started && pid === id) role = p.startRole;
       else if (started && me.known[pid]) role = me.known[pid];
       return {
         id: p.id, name: p.name, connected: p.connected, alive: end ? p.alive : true, isMJ: false, captain: false, idiotRevealed: false,
         cam: p.cam, mic: p.mic, conn: p.conn, kicked: !!p.kicked, death: p.death, role, lover: null,
-        startRole: end ? p.startRole : null, won: winners.includes(p.id), seenRole: !end && pid !== id && !!me.known[pid]
+        startRole: end || reveal ? p.startRole : null, bot: !!p.bot, won: winners.includes(p.id), seenRole: !end && pid !== id && !!me.known[pid]
       };
     });
     const s = this.step;
@@ -503,7 +514,7 @@ class OneNightRoom extends Room {
       lastVote: end ? this.lastVote : null,
       center: started ? {
         label: 'Au centre',
-        cards: this.center.map((c, i) => (end ? c : me.knownCenter[i] || null)),
+        cards: this.center.map((c, i) => (end || reveal ? c : me.knownCenter[i] || null)),
         startCards: null
       } : null,
       step: this.stepView(me, end)

@@ -403,6 +403,11 @@ Vérifier que ça tourne : `docker compose ps` et `curl -k https://127.0.0.1:300
 - Bouton note de musique en bas : couper, régler le volume ou retirer le tonnerre, pour soi seulement (mémorisé).
 - Les vignettes s'adaptent à la taille de l'écran et au nombre de joueurs.
 
+**Page de test** (cachée, aucun lien) : ouvre `/test` sur le site, par exemple `https://ton-adresse/test`.
+- Choisis le jeu, **ton rôle**, le nombre de **faux joueurs** et d'autres rôles à mettre en jeu.
+- Les faux joueurs jouent tout seuls (ou pas), les minuteurs peuvent être accélérés, et « Voir tous les rôles » aide à vérifier un cas précis.
+- Pratique pour tester seul. Pour la désactiver sur un serveur : variable d'environnement `TEST_PAGE=0`.
+
 **Caméra et micro** (indépendants : on peut parler sans se montrer)
 - Salon et jour : tout le monde se voit et s'entend.
 - Nuit : les joueurs endormis ne voient plus personne ; les rôles réveillés voient tout le monde, et les loups s'entendent entre eux.

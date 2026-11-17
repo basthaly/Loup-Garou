@@ -73,6 +73,8 @@ class Room {
   constructor(code, onChange) {
     this.code = code;
     this.game = 'thiercelieux';
+    this.speed = 1;   // page de test : minuteurs accélérés
+    this.test = null; // page de test : { me, roles, reveal, auto }
     this.NIGHT = NIGHT_TYPES;
     this.DAY = DAY_STEPS;
     this.onChange = onChange || (() => {});
@@ -367,6 +369,7 @@ class Room {
     gp.forEach((p, i) => { p.role = shuffled[i]; });
     // Les cartes en trop restent au centre pour le Voleur.
     this.extraCards = shuffled.slice(gp.length);
+    this.applyForced();
     this.phase = 'setup';
     if (!this.phaseSteps.includes('roles_reveal')) this.phaseSteps = ['roles_reveal'];
     this.startStep({ type: 'roles_reveal', actors: this.gamePlayers().map((p) => p.id), seconds: 20 });
@@ -385,10 +388,10 @@ class Room {
     step.rounds = step.rounds || [];
     if (step.type === 'check') { this.step = step; return this.resolveStep(); }
     const secs = this.stepSeconds(step);
-    step.deadline = Date.now() + secs * 1000 * F;
+    step.deadline = Date.now() + secs * 1000 * F * this.speed;
     this.step = step;
     if (step.type === 'dawn') return this.resolveStep();
-    this.timer = setTimeout(() => this.resolveStep(), secs * 1000 * F);
+    this.timer = setTimeout(() => this.resolveStep(), secs * 1000 * F * this.speed);
     this.changed();
   }
 
@@ -605,8 +608,8 @@ class Room {
           // Désaccord : les choix sont révélés aux loups, nouveau tour.
           s.round = 2;
           s.inputs = {};
-          s.deadline = Date.now() + 30000 * F;
-          this.timer = setTimeout(() => this.resolveStep(), 30000 * F);
+          s.deadline = Date.now() + 30000 * F * this.speed;
+          this.timer = setTimeout(() => this.resolveStep(), 30000 * F * this.speed);
           return this.changed();
         }
         let victim = null;
@@ -751,8 +754,8 @@ class Room {
       return this.changed();
     }
     if (delay > 0) {
-      this.step.nextAt = Date.now() + delay * 1000 * F;
-      this.timer = setTimeout(() => this.next(), delay * 1000 * F);
+      this.step.nextAt = Date.now() + delay * 1000 * F * this.speed;
+      this.timer = setTimeout(() => this.next(), delay * 1000 * F * this.speed);
       return this.changed();
     }
     this.next();
@@ -835,6 +838,21 @@ class Room {
   }
 
   // Les votants du vote sont calculés au moment du vote (un joueur a pu mourir entre-temps).
+  // Page de test : le testeur reçoit le rôle qu'il a choisi (échange avec la carte qui le portait).
+  applyForced() {
+    const f = this.test && this.test.roles;
+    if (!f) return;
+    const gp = this.gamePlayers();
+    for (const [pid, role] of Object.entries(f)) {
+      const p = this.players.get(pid);
+      if (!p || p.role === role) continue;
+      const holder = gp.find((q) => q.role === role && f[q.id] !== role);
+      if (holder) { [p.role, holder.role] = [holder.role, p.role]; continue; }
+      const i = this.extraCards.indexOf(role);
+      if (i >= 0) [p.role, this.extraCards[i]] = [this.extraCards[i], p.role];
+    }
+  }
+
   startStepHook(step) {
     // Étapes de nuit : les acteurs sont ceux qui ont le rôle au moment de l'étape (le Voleur a pu en changer).
     if (step.roleStep) step.actors = this.aliveWithRole(STEP_ROLE[step.type]).map((p) => p.id);
@@ -1029,6 +1047,7 @@ class Room {
     if (this.phase === 'end') return true;
     if (viewer.id === target.id) return true;
     if (this.isMJ(viewer.id)) return true;
+    if (this.test && this.test.reveal && this.test.me === viewer.id) return true;
     if (this.seesAll(viewer)) return true;
     if (!target.alive && this.settings.revealOnDeath) return true;
     if (target.idiotRevealed) return true;
@@ -1039,7 +1058,7 @@ class Room {
   viewFor(id) {
     const me = this.players.get(id);
     if (!me) return null;
-    const omniscient = this.isMJ(id) || this.seesAll(me) || this.phase === 'end';
+    const omniscient = this.isMJ(id) || this.seesAll(me) || this.phase === 'end' || !!(this.test && this.test.reveal && this.test.me === id);
     const meWolf = this.isWolf(me);
     const seeCharm = omniscient || me.charmed || me.role === 'flute';
     const players = this.order.map((pid) => {
@@ -1053,7 +1072,7 @@ class Room {
         id: p.id, name: p.name, connected: p.connected, alive: p.alive, isMJ: this.isMJ(p.id),
         captain: this.captainId === p.id, idiotRevealed: p.idiotRevealed, cam: p.cam, mic: p.mic, conn: p.conn, kicked: !!p.kicked,
         death: p.death,
-        role,
+        role, bot: !!p.bot,
         charmed: seeCharm && p.charmed,
         infected: (omniscient || pid === id) && (p.infected || (p.role === 'enfant' && p.wildTurned)),
         lover: (omniscient || pid === id || me.lover === pid) && p.lover ? p.lover : null

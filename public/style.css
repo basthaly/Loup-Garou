@@ -608,3 +608,8 @@ details.night-log ol { margin: 6px 0 0; padding-left: 20px; display: flex; flex-
 @media (max-width: 700px) { .reveal { padding: 24px 20px 18px; } .reveal .bigrole { font-size: 40px; } }
 @media (prefers-reduced-motion: reduce) { .reveal.anim { animation: fade .2s ease; } }
 .amb-storm { font-size: 14px; min-height: 32px; }
+
+/* ---------- Page de test ---------- */
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+button.chip-btn { min-height: 34px; padding: 0 12px; border-radius: 999px; font-size: 13.5px; font-weight: 600; background: var(--surface2); }
+button.chip-btn.on { background: var(--accent); color: var(--accent-text); border-color: var(--accent); }

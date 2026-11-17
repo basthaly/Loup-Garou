@@ -9,6 +9,8 @@ const { Server } = require('socket.io');
 const { Room } = require('./game');
 const { ROLES, RULES, EXTENSIONS } = require('./roles');
 const ON = require('./onenight');
+const Bots = require('./bots');
+const { ROLES: TH_ROLES } = require('./roles');
 const LK = require('./livekit');
 
 const PORT = parseInt(process.env.PORT || '3000', 10);
@@ -39,6 +41,11 @@ function loadCert() {
 }
 
 app.use(express.static(path.join(__dirname, '..', 'public')));
+// Page de test cachée (aucun lien) : choisir son rôle et jouer avec des faux joueurs. TEST_PAGE=0 la désactive.
+app.get('/test', (req, res) => {
+  if (process.env.TEST_PAGE === '0') return res.status(404).end();
+  res.sendFile(path.join(__dirname, '..', 'public', 'index.html'));
+});
 app.use('/vendor', express.static(path.join(__dirname, '..', 'node_modules', 'livekit-client', 'dist')));
 app.get('/api/roles', (req, res) => res.json({ roles: Object.assign({}, ROLES, ON.ROLES), rules: RULES, rulesByGame: { thiercelieux: RULES, onenight: ON.RULES }, extensions: Object.assign({}, EXTENSIONS, { onenight: 'Loup-Garou pour une nuit' }), iceServers: ICE_SERVERS, video: LK.enabled ? 'livekit' : 'mesh' }));
 const connectedCount = () => [...rooms.values()].reduce((n, r) => n + [...r.players.values()].filter((p) => p.connected).length, 0);
@@ -129,6 +136,39 @@ io.on('connection', (socket) => {
     const p = room.addPlayer(name);
     attach(socket, room, p);
     return { code, token: p.token };
+  }));
+
+  socket.on('createTest', handle((o) => {
+    if (process.env.TEST_PAGE === '0') throw new Error('Page de test désactivée.');
+    const one = o.game === 'onenight';
+    const defs = one ? ON.ROLES : TH_ROLES;
+    if (!defs[o.role]) throw new Error('Choisis ton rôle.');
+    const min = one ? 2 : 3, max = one ? 9 : 17;
+    const bots = Math.min(max, Math.max(min, parseInt(o.bots, 10) || min));
+    const code = newCode();
+    const room = one ? new ON.OneNightRoom(code, (r) => { broadcast(r); Bots.drive(r); }) : new Room(code, (r) => { broadcast(r); Bots.drive(r); });
+    if (!one) room.settings.extensions = { nouvelleLune: true, personnages: true };
+    room.speed = { 1: 1, 2: 0.4, 3: 0.15 }[o.speed] || 1;
+    const me = room.addPlayer(String(o.name || 'Testeur').slice(0, 20) || 'Testeur');
+    for (let i = 0; i < bots; i++) { const b = room.addPlayer(Bots.NAMES[i]); b.bot = true; b.connected = true; }
+    room.test = { me: me.id, roles: { [me.id]: o.role }, reveal: !!o.reveal, auto: o.auto !== false };
+    // Composition : celle d'origine, avec ton rôle et les rôles demandés (les villageois s'ajustent).
+    room.customCompo = Object.assign({}, room.effectiveCompo());
+    for (const r of [o.role, ...(Array.isArray(o.extra) ? o.extra : [])]) {
+      if (defs[r] && !(room.customCompo[r] > 0)) room.changeCompo(me.id, r, 1);
+    }
+    // Trop de cartes : on retire des rôles non demandés (les moins importants d'abord).
+    const asked = new Set([o.role, ...(Array.isArray(o.extra) ? o.extra : [])]);
+    const order = one ? ['n_villageois', 'n_insomniaque', 'n_soulard', 'n_macon', 'n_sbire', 'n_noiseuse', 'n_voleur', 'n_voyante', 'n_loup']
+      : ['bouc', 'idiot', 'ancien', 'petitefille', 'salvateur', 'renard', 'chevalier', 'cupidon', 'chasseur', 'sorciere', 'voyante', 'loup'];
+    const size = () => Object.values(room.customCompo).reduce((a, b) => a + b, 0);
+    for (const r of order) {
+      while (size() > room.cardsNeeded() && room.customCompo[r] > (r === 'loup' || r === 'n_loup' ? 1 : 0) && !asked.has(r)) room.changeCompo(me.id, r, -1);
+    }
+    try { room.start(me.id); } catch (e) { throw new Error(`${e.message} Ajoute des faux joueurs ou retire des rôles.`); }
+    rooms.set(code, room);
+    attach(socket, room, me);
+    return { code, token: me.token };
   }));
 
   socket.on('join', handle(({ code, name }) => {
