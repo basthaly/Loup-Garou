@@ -167,6 +167,7 @@
   // ---------- Helpers ----------
   const P = (id) => view.players.find((p) => p.id === id);
   const nm = (id) => { const p = P(id); return p ? esc(p.name) : '?'; };
+  const rawName = (id) => { const p = P(id); return p ? p.name : '?'; };
   const colorOf = (id) => COLORS[Math.max(0, view.players.findIndex((p) => p.id === id)) % COLORS.length];
   const alivePlayers = () => view.players.filter((p) => p.alive && !p.isMJ);
   const roleName = (r) => (ROLES && ROLES[r] ? ROLES[r].name : r);
@@ -345,6 +346,19 @@
       <div class="zone"><div class="zb">${body}</div></div></main>`;
   }
 
+  // Classement des voix avec les visages des votants (vote du jour, meute des loups).
+  function rankHTML(choices, tally, abstLabel = 'Abstention') {
+    const from = {}, t = tally || {};
+    for (const c of choices || []) if (c.target) { (from[c.target] = from[c.target] || []).push(c.voter); if (!tally) t[c.target] = (t[c.target] || 0) + 1; }
+    const ranked = Object.keys(t).filter((k) => t[k] > 0).sort((a, b) => t[b] - t[a]);
+    if (!ranked.length) return '';
+    const top = t[ranked[0]];
+    const abst = (choices || []).filter((c) => !c.target).map((c) => c.voter);
+    const list = ranked.map((id) => `<span class="rank ${t[id] === top ? 'top' : ''}">${face(id, 26)}<b>${(nm(id))}</b><span class="faces">${(from[id] || []).map((x) => face(x, 20)).join('')}</span><b class="n">${t[id]}</b></span>`).join('')
+      + (abst.length && tally ? `<span class="rank abst"><b>${abstLabel}</b><span class="faces">${abst.map((x) => face(x, 20)).join('')}</span></span>` : '');
+    return `<div class="ranks">${list}</div>`;
+  }
+
   // Petit visage rond (initiale et couleur du joueur).
   const face = (id, size = 24) => { const p = P(id); return `<span class="face" style="width:${size}px;height:${size}px;font-size:${Math.round(size * .45)}px;background:${colorOf(id)}" aria-hidden="true">${esc(p ? p.name[0] : '?')}</span>`; };
 
@@ -438,7 +452,7 @@
     if (r && r.recv.blur) tl.push('<span class="chip">Flou</span>');
     const tr = [];
     if (p.lover || me.lover === p.id) tr.push(`<span class="chip" title="Amoureux">${icon('heart', 12, '#F08A6C')}</span>`);
-    if (opts.voteTo !== undefined) tr.push(`<span class="chip vote-to" title="${esc(p.name)} a voté contre ${opts.voteTo ? esc(nm(opts.voteTo)) : 'personne'}">${icon('arrow', 13)}${opts.voteTo ? face(opts.voteTo, 20) + `<span class="vt-name">${esc(nm(opts.voteTo))}</span>` : 'personne'}</span>`);
+    if (opts.voteTo !== undefined) tr.push(`<span class="chip vote-to" title="${esc(p.name)} a voté contre ${opts.voteTo ? (nm(opts.voteTo)) : 'personne'}">${icon('arrow', 13)}${opts.voteTo ? face(opts.voteTo, 20) + `<span class="vt-name">${(nm(opts.voteTo))}</span>` : 'personne'}</span>`);
     else if (opts.votes != null && opts.votes > 0) tr.push(`<span class="chip votes-chip">${opts.votes} voix</span>`);
     else if (voted) tr.push(`<span class="chip ok">${icon('check', 12)} ${st.type === 'debate' || st.type === 'roles_reveal' ? 'Prêt' : 'A voté'}</span>`);
     const canKick = !opts.noKick && (me.isHost || me.isMJ) && !isMe && !p.kicked && view.room.phase !== 'end';
@@ -448,7 +462,7 @@
       <div class="tl">${tl.join('')}</div><div class="tr">${tr.join('')}</div>
       ${opts.picked ? `<span class="picked-mark">${icon('check', 14)}<span class="pm-t">${opts.mark || (st && st.type === 'vote' ? 'Ton vote' : 'Choisi')}</span></span>` : ''}
       ${opts.tools || ''}
-      ${opts.voteFrom && opts.voteFrom.length ? `<span class="vote-from ${opts.topVoted ? 'top' : ''}" title="Contre ${esc(p.name)} : ${opts.voteFrom.map((x) => esc(nm(x))).join(', ')}"><span class="faces">${opts.voteFrom.map((x) => face(x, 24)).join('')}</span><b>${opts.votes || opts.voteFrom.length}</b></span>` : ''}
+      ${opts.voteFrom && opts.voteFrom.length ? `<span class="vote-from ${opts.topVoted ? 'top' : ''}" title="Contre ${esc(p.name)} : ${opts.voteFrom.map((x) => (nm(x))).join(', ')}"><span class="faces">${opts.voteFrom.map((x) => face(x, 24)).join('')}</span><b>${opts.votes || opts.voteFrom.length}</b></span>` : ''}
       <span class="nm">${p.mic ? '<span class="vu" aria-hidden="true"><i></i><i></i><i></i></span>' : icon('micoff', 13)}${esc(p.name)}${isMe ? ' (toi)' : ''}</span>`;
     const cls = `tile has-video-host ${isMe ? 'me' : ''} ${asleep ? 'asleep' : ''} ${opts.wolfMate ? 'wolfmate' : ''} ${opts.pick ? 'pickable' : ''} ${opts.picked ? 'picked' : ''} ${opts.danger ? 'danger' : ''} ${opts.big ? 'big' : ''} ${opts.out ? 'out' : ''} ${opts.poisoned ? 'poisoned' : ''} ${opts.saved ? 'saved' : ''} ${opts.tools ? 'has-tools' : ''}`;
     if (opts.pick) return `<button class="${cls}" data-speak="${p.id}" data-act="pick" data-id="${p.id}" aria-pressed="${!!opts.picked}" aria-label="${esc((st && VERB[st.type]) || 'Choisir')} ${esc(p.name)}">${inner}</button>`;
@@ -813,9 +827,14 @@
       case 'renard':
         hint = 'Il flaire ce joueur et ses deux voisins';
         break;
-      case 'loups':
-        if (st.rounds && st.rounds.length) extra = `<p class="desc">Désaccord : ${st.rounds[st.rounds.length - 1].map((c) => `${nm(c.voter)} → ${c.target ? nm(c.target) : 'personne'}`).join(', ')}</p>`;
+      case 'loups': {
+        const live = st.live || [];
+        const n = live.length;
+        hint = n > 1 ? 'Touchez la même victime : dès que toute la meute est d\'accord, c\'est décidé.' : 'Touche ta victime.';
+        if (st.agreed) hint = `La meute est d'accord : ${(nm(st.agreed))}.`;
+        extra = rankHTML(live);
         break;
+      }
       case 'vote': case 'captain_vote':
         extra = progressHTML(st, 'ont voté') + (isON() ? onNotesHTML() : '');
         if (st.type === 'vote') hint = isON() ? 'Débattez, puis touche un joueur · éliminé dès 2 voix' : 'Débattez, puis touche un joueur · le vote se clôt quand tout le monde a voté';
@@ -891,6 +910,8 @@
     // Votes révélés : sur chaque vignette, ceux qui ont voté contre ce joueur et la cible de son propre vote.
     const voteTo = {}, voteFrom = {};
     if (tally && st.result.choices) for (const c of st.result.choices) { voteTo[c.voter] = c.target || null; if (c.target) (voteFrom[c.target] = voteFrom[c.target] || []).push(c.voter); }
+    const wolfLive = st && st.type === 'loups' && !st.resolved && Array.isArray(st.live) ? st.live : null;
+    if (wolfLive) for (const c of wolfLive) { if (c.target) { voteTo[c.voter] = c.target; (voteFrom[c.target] = voteFrom[c.target] || []).push(c.voter); } }
     const mj = view.players.find((p) => p.isMJ && p.id !== me.id);
     const alive = view.players.filter((p) => !p.isMJ && (p.alive || (isON() && r.phase === 'end') || (tally && voteFrom[p.id] && st.type === 'vote')));
     const night = r.phase === 'night' && !isDayCtx();
@@ -899,9 +920,10 @@
       const can = mode && mode.ids.includes(p.id);
       const o = {
         pick: can, picked: sel.includes(p.id), votes: tally ? tally[p.id] || 0 : null,
-        voteFrom: tally ? voteFrom[p.id] || [] : null, voteTo: tally && p.id in voteTo ? voteTo[p.id] : undefined,
+        voteFrom: tally || wolfLive ? voteFrom[p.id] || [] : null, voteTo: (tally || wolfLive) && p.id in voteTo ? voteTo[p.id] : undefined,
+        votesLive: wolfLive ? (voteFrom[p.id] || []).length : null,
         out: tally && st.type === 'vote' && !p.alive ? 'Éliminé' : null,
-        topVoted: tally && (tally[p.id] || 0) > 0 && (tally[p.id] || 0) === Math.max(...Object.values(tally)),
+        topVoted: (tally && (tally[p.id] || 0) > 0 && (tally[p.id] || 0) === Math.max(...Object.values(tally))) || (wolfLive && st.agreed === p.id),
         wolfMate: night && me.isWolf && me.wolves.includes(p.id) && p.id !== me.id, noKick: true
       };
       if (witch) Object.assign(o, witchTile(st, p));
@@ -980,10 +1002,14 @@
       sub = isON() ? (me.won ? 'Tu as gagné !' : 'Tu as perdu') : 'La partie est terminée';
     } else if (!st) {
       return '';
-    } else if (!st.resolved && st.isActor && !st.submitted && st.type !== 'roles_reveal') {
+    } else if (!st.resolved && st.isActor && (!st.submitted || st.type === 'loups') && st.type !== 'roles_reveal') {
       kind = 'mine';
       title = `À toi · ${STEP_LABEL[st.type] || 'ton tour'}`;
       sub = QUESTION[st.type] || 'À toi de jouer';
+      if (st.type === 'loups' && st.live) {
+        const n = st.live.length, agree = st.agreed ? n : Math.max(0, ...Object.values(st.live.reduce((m, c) => { if (c.target) m[c.target] = (m[c.target] || 0) + 1; return m; }, {})));
+        sub = st.agreed ? `La meute est d'accord : ${rawName(st.agreed)}` : n > 1 ? `${agree} / ${n} loups d'accord · touchez la même victime` : 'Touche ta victime';
+      }
       if (st.deadline) right = `<span class="ev-time" data-deadline="${st.deadline}">${fmt(st.deadline - Date.now() - offset)}</span>`;
     } else if (st.resolved && st.result && st.result.text) {
       kind = 'result';
@@ -1049,6 +1075,11 @@
         const keep = st.mustTake ? '' : '<button class="ghost" data-act="keep">Garder ma carte</button>';
         return `${sent}${keep}<button class="primary attn" data-act="submit" ${i != null ? '' : 'disabled'}>${i != null ? `Prendre ${esc(roleName(st.cards[+i]))}` : 'Choisis une carte'}</button>`;
       }
+      case 'loups': {
+        if (st.agreed) return `<span class="sent wolf-ok">${icon('check', 14)} D'accord : ${(nm(st.agreed))}</span>`;
+        const mine = st.myInput;
+        return `<span class="sent">${mine ? `Ton choix : <b>${(nm(mine))}</b>` : 'Touche une victime'}</span>`;
+      }
       case 'infect':
         return `${sent}<button class="ghost" data-act="infect" data-v="0">Dévorer</button><button class="wolf attn" data-act="infect" data-v="1">Infecter ${nm(st.victim)}</button>`;
       case 'soeurs': case 'amoureux':
@@ -1101,14 +1132,7 @@
     const res = st.result;
     if (!res) return '<h1>Étape terminée</h1>';
     if (st.type === 'vote' || st.type === 'captain_vote') {
-      const from = {};
-      for (const c of res.choices) if (c.target) (from[c.target] = from[c.target] || []).push(c.voter);
-      const ranked = Object.keys(res.tally || {}).filter((k) => res.tally[k] > 0).sort((a, b) => res.tally[b] - res.tally[a]);
-      const top = ranked.length ? res.tally[ranked[0]] : 0;
-      const abst = res.choices.filter((c) => !c.target).map((c) => c.voter);
-      const list = ranked.map((id) => `<span class="rank ${res.tally[id] === top ? 'top' : ''}">${face(id, 26)}<b>${esc(nm(id))}</b><span class="faces">${(from[id] || []).map((x) => face(x, 20)).join('')}</span><b class="n">${res.tally[id]}</b></span>`).join('')
-        + (abst.length ? `<span class="rank abst"><b>Abstention</b><span class="faces">${abst.map((x) => face(x, 20)).join('')}</span></span>` : '');
-      return `<h1>${esc(res.text)}</h1><div class="ranks">${list}</div>`;
+      return `<h1>${esc(res.text)}</h1>${rankHTML(res.choices, res.tally)}`;
     }
     if (st.type === 'voyante' && res.seen) return `<p class="hint">Vision</p><h1>${nm(res.seen.id)} est <span class="t-${teamOf(res.seen.role)}">${esc(roleName(res.seen.role))}</span></h1>`;
     if (st.type === 'renard' && res.fox) return `<p class="hint">Flair</p><h1>${res.fox.hasWolf ? 'Il y a un loup parmi' : 'Aucun loup parmi'} ${res.fox.ids.map(nm).join(', ')}</h1>${res.fox.hasWolf ? '' : '<p class="hint">Tu perds ton flair.</p>'}`;
@@ -1328,6 +1352,7 @@
       case 'sel': ui.sel = [el.dataset.id]; render(); break;
       case 'pick': {
         const id = el.dataset.id;
+        if (st.type === 'loups') { if (st.myInput !== id) { ui.sel = [id]; send('act', { target: id }); render(); } break; }
         if (st.type === 'n_voyante') ui.csel = [];
         if (TWO.includes(st.type)) {
           const cur = picked(st).slice();

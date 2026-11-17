@@ -823,3 +823,4 @@ button.potion.life.on { background: #4CC38A; border-color: #4CC38A; }
   .evbar .ev-text b { white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; line-height: 1.2; }
 }
 .tile:has(.vote-from) .picked-mark { display: none; }
+.sent.wolf-ok { color: #4CC38A; font-weight: 700; }

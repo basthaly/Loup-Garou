@@ -489,8 +489,22 @@ class Room {
     }
     s.inputs[id] = value;
     if (!p) return;
+    if (s.type === 'loups') return this.wolvesLive(s);
     if (s.actors.every((a) => a in s.inputs)) this.resolveStep();
     else this.changed();
+  }
+
+  // Loups : vote en temps réel, chacun voit les choix de la meute et peut changer d'avis.
+  // Dès que tous les loups désignent la même victime, c'est décidé (après un court instant pour le voir).
+  wolvesLive(s) {
+    clearTimeout(this.wolfAgreeT);
+    const picks = s.actors.map((a) => s.inputs[a]);
+    const agreed = picks.length > 0 && picks.every((t) => t && t === picks[0]);
+    s.agreed = agreed ? picks[0] : null;
+    if (agreed) {
+      this.wolfAgreeT = setTimeout(() => { if (this.step === s && !s.resolved && s.agreed) this.resolveStep(); }, 1500 * F * Math.min(1, this.speed));
+    }
+    this.changed();
   }
 
   resolveStep() {
@@ -610,15 +624,8 @@ class Room {
         const choices = s.actors.map((a) => ({ voter: a, target: inputs[a] || null }));
         const targets = choices.map((c) => c.target).filter(Boolean);
         s.rounds.push(choices);
-        const unanimous = targets.length === s.actors.length && targets.every((t) => t === targets[0]);
-        if (!unanimous && s.round < 2 && s.actors.length > 1 && targets.length > 0) {
-          // Désaccord : les choix sont révélés aux loups, nouveau tour.
-          s.round = 2;
-          s.inputs = {};
-          s.deadline = Date.now() + 30000 * F * this.speed;
-          this.timer = setTimeout(() => this.resolveStep(), 30000 * F * this.speed);
-          return this.changed();
-        }
+        clearTimeout(this.wolfAgreeT);
+        // Pas de second tour : à la fin du temps, la majorité l'emporte (tirage entre les ex æquo).
         let victim = null;
         if (targets.length) {
           const tally = {};
@@ -1168,6 +1175,9 @@ class Room {
     };
     if (s.type === 'loups' && (isActor || omniscient)) {
       v.rounds = s.rounds.map((r) => r.map((c) => ({ voter: c.voter, target: c.target })));
+      // Choix de la meute en direct.
+      v.live = s.actors.map((a) => ({ voter: a, target: s.inputs[a] || null }));
+      v.agreed = s.agreed || null;
     }
     if (s.type === 'sorciere' && (isActor || omniscient)) {
       v.victim = s.victim || null;
