@@ -392,10 +392,14 @@ class Room {
     step.rounds = step.rounds || [];
     if (step.type === 'check') { this.step = step; return this.resolveStep(); }
     const secs = this.stepSeconds(step);
-    step.deadline = Date.now() + secs * 1000 * F * this.speed;
+    // Page de test accélérée : les tours où un vrai joueur agit gardent leur temps normal.
+    const human = (id) => { const p = this.players.get(id); return p && !p.bot && p.alive && !this.isMJ(id); };
+    const humanTurn = this.speed < 1 && ((step.actors || []).some(human) || (step.dynamicActors && [...this.players.keys()].some(human)));
+    const k = humanTurn ? 1 : this.speed;
+    step.deadline = Date.now() + secs * 1000 * F * k;
     this.step = step;
     if (step.type === 'dawn') return this.resolveStep();
-    this.timer = setTimeout(() => this.resolveStep(), secs * 1000 * F * this.speed);
+    this.timer = setTimeout(() => this.resolveStep(), secs * 1000 * F * k);
     this.changed();
   }
 

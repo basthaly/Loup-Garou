@@ -948,3 +948,5 @@ table.hist td.dim { color: var(--muted); }
   .tile .lean-to { display: none; }
   .tile:has(.lean-from) .nm { max-width: calc(100% - 70px); }
 }
+.know-strip { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
+.know-strip .know { font-size: 13px; padding: 4px 10px 4px 5px; }

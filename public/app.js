@@ -701,7 +701,7 @@
     const spect = document.body.dataset.dead === '1' ? `<span class="pill spect-pill">${icon('ear', 14)} Spectateur</span>` : '';
     const head = `<header class="band"><div class="in">
         <span class="ph-title">${title}</span>${steps}${spect}<span class="grow"></span>${timer}
-        ${helpButton()}${settingsButton()}
+        ${!isON() && (view.voteHistory || []).length ? `<button class="appear" data-act="history" aria-label="Historique des votes" title="Historique des votes">${icon('ballot', 18)}</button>` : ''}${helpButton()}${settingsButton()}
         ${me.isHost && r.phase !== 'end' ? `<button class="stop leave" data-act="abort" aria-label="Arrêter la partie">${icon('stop', 14)}<span class="lbl">Arrêter</span></button>` : ''}</div>
 </header>`;
     return head + `<main class="stage">${promptHTML()}${centerHTML()}${gridHTML()}${cemeteryHTML()}</main>${dockHTML()}${drawerHTML()}${helpHTML()}${revealHTML() || changeHTML()}`;
@@ -988,7 +988,7 @@
         <div class="${gridCls}">${rest.map(build).join('')}</div>`;
     }
     if (nightStep && !st.isActor && me.alive && !me.isMJ && !me.seesAll) {
-      return `${sleeperPanelHTML(st)}<div class="village-label"><b>Le village dort</b></div><div class="${gridCls}">${list.map(build).join('')}</div>`;
+      return `${sleeperKnowHTML()}<div class="${gridCls}">${list.map(build).join('')}</div>`;
     }
     return `<div class="${gridCls}">${list.map(build).join('')}${table}</div>`;
   }
@@ -1047,17 +1047,15 @@
     return `<div class="ap-aside know"><span class="ap-kicker">${title}</span><div class="know-list">${items.map((x) => `<span class="know">${x}</span>`).join('')}</div></div>`;
   }
 
-  // Ceux qui dorment : qui est réveillé (sans dire combien) et ce que je sais.
-  function sleeperPanelHTML(st) {
+  // Ceux qui dorment : seulement « Ce que tu sais », s'il y a quelque chose (le bandeau du bas dit qui est réveillé).
+  function sleeperKnowHTML() {
     const me = view.me;
     const mine = [];
     if (me.lover) mine.push(`${icon('heart', 14, '#F7A2AE')}<b>Amoureux(se) de ${nm(me.lover)}</b>`);
     if (me.role === 'enfant' && me.model && !me.wild) mine.push(`${face(me.model, 22)}<b>Ton modèle : ${nm(me.model)}</b>`);
     if (me.charmed) mine.push(`${icon('music', 14)}<b>Tu es charmé(e)</b>`);
-    const know = mine.length ? `<div class="ap-aside know small"><span class="ap-kicker">Ce que tu sais</span><div class="know-list">${mine.map((x) => `<span class="know">${x}</span>`).join('')}</div></div>` : '';
-    return `<section class="active-panel sleep" aria-label="Réveillés en ce moment"><div class="ap-body">
-      <img class="sleep-card" src="/img/carte-dos.svg" alt="">
-      <span class="ap-note"><b>${esc(st.narration || 'Le village dort')}</b><span>Tu ne vois ni n'entends personne. Garde les yeux fermés jusqu'à ton tour ou jusqu'à l'aube.</span></span>${know}</div></section>`;
+    if (!mine.length) return '';
+    return `<div class="know-strip"><span class="ap-kicker">Ce que tu sais</span>${mine.map((x) => `<span class="know">${x}</span>`).join('')}</div>`;
   }
 
   // Une nuit : les cartes posées au milieu de la table (placées par layoutGrid).
@@ -1367,6 +1365,7 @@
         ${players}`;
     }
     if (kind === 'history') body = historyHTML();
+    if (kind === 'journal' && (view.voteHistory || []).length) body += `<section><h3>Historique des votes</h3>${historyHTML().replace(/^<section>|<\/section>$/g, '')}</section>`;
     const title = { roles: isON() ? 'Deck' : 'Rôles', settings: 'Paramètres', journal: 'Mon rôle et journal', history: 'Historique des votes' }[kind];
     return `<aside class="drawer ${lobby && kind === 'roles' ? 'wide' : ''} ${drawerOpen ? 'open' : ''} ${drawerAnim ? 'slide' : ''}" aria-hidden="${!drawerOpen}" aria-label="${title}">
       <div class="drawer-head"><h2>${title}</h2><button class="round" data-act="drawer-close" aria-label="Fermer">${icon('x', 18)}</button></div>
@@ -1615,7 +1614,7 @@
         else if (st.type === 'n_voyante' && ui.csel.length === 2) payload = { center: ui.csel.map(Number) };
         else if (st.type === 'n_soulard' || st.type === 'n_loups') payload = { center: +ui.csel[0] };
         else if (st.type === 'sorciere') payload = { save: ui.save, kill: ui.kill };
-        else payload = { target: ui.sel[0] || st.myInput };
+        else payload = { target: picked(st)[0] || st.myInput };
         send('act', payload);
         break;
       }
