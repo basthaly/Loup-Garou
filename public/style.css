@@ -619,10 +619,10 @@ button.chip-btn.on { background: var(--accent); color: var(--accent-text); borde
 .steps::-webkit-scrollbar { display: none; }
 .steps li { flex: none; white-space: nowrap; }
 .narr p { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.stage > .prompt:first-child { min-height: 112px; }
+.stage > .prompt:first-child { min-height: 0; }
 @media (max-width: 700px) {
   .narr p { white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; min-height: 2.5em; }
-  .stage > .prompt:first-child { min-height: 140px; }
+  .stage > .prompt:first-child { min-height: 0; }
 }
 @media (max-width: 700px) {
   .band .ph-title { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

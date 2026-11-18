@@ -769,7 +769,26 @@
   }
 
   // Bandeau de consigne au-dessus des visages : la question, ou le résultat.
+  // La consigne du haut ne répète pas le bandeau du bas : on n'y garde que ce qu'il ne dit pas
+  // (résultats détaillés, classement des voix, potions, cartes, précisions).
   function promptHTML() {
+    let h = promptCore();
+    const st = view.step, r = view.room;
+    if (!h || !st || r.phase === 'end' || r.phase === 'lobby' || st.type === 'roles_reveal') return h;
+    const plain = (x) => x.replace(/<[^>]+>/g, '').replace(/&nbsp;/g, ' ').trim();
+    h = h.replace(/<h1[^>]*>([\s\S]*?)<\/h1>/, (m, t) => {
+      const txt = plain(t);
+      if (/muted-prompt/.test(h)) return '';
+      if (st.resolved) return st.result && txt === plain(esc(st.result.text || '')) ? '' : m;
+      if (st.type === 'sorciere') return m;
+      return txt === plain(QUESTION[st.type] || '') || txt === 'À toi' ? '' : m;
+    });
+    h = h.replace(/<p class="hint">(Touche un joueur|Touche deux joueurs)<\/p>/, '');
+    const rest = h.replace(/<div class="prompt[^"]*">|<div class="prompt-row">|<div>|<\/div>/g, '').trim();
+    return rest ? h : '';
+  }
+
+  function promptCore() {
     const st = view.step, me = view.me, r = view.room;
     if (r.phase === 'end') {
       if (!isON()) return `<div class="prompt"><h1>${esc(r.winner ? r.winner.text : 'Fin de partie')}</h1></div>`;
