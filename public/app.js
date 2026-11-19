@@ -29,7 +29,7 @@
     loups: 'Loups-Garous', sorciere: 'Sorcière', dawn: 'Aube', captain_vote: 'Capitaine', debate: 'Débat', vote: 'Vote',
     voleur: 'Voleur', soeurs: 'Sœurs', amoureux: 'Amoureux', enfant: 'Enfant Sauvage', renard: 'Renard', infect: 'Infect', grandloup: 'Grand Méchant Loup',
     loupblanc: 'Loup Blanc', flute: 'Flûte', hunter: 'Chasseur', successor: 'Capitaine',
-    n_double: 'Double', n_loups: 'Loups', n_sbire: 'Sbire', n_macons: 'Francs-Maçons', n_voyante: 'Voyante', n_voleur: 'Voleur',
+    n_double: 'Doppelgänger', n_loups: 'Loups', n_sbire: 'Sbire', n_macons: 'Francs-Maçons', n_voyante: 'Voyante', n_voleur: 'Voleur',
     n_noiseuse: 'Noiseuse', n_soulard: 'Soûlard', n_insomniaque: 'Insomniaque'
   };
   const ICON = {
@@ -539,7 +539,7 @@
     else if (nGame < r.recommended) warn.push(`${r.recommended} joueurs ou plus conseillés.`);
     const csize = Object.values(view.compo).reduce((a, b) => a + b, 0);
     const need = view.expectedCards != null ? view.expectedCards : nGame;
-    if (s.distribution === 'auto' && csize !== need) warn.push(`${csize} cartes, il en faut ${need}${view.compo.voleur ? ' (2 au centre pour le Voleur)' : ''}.`);
+    if (s.distribution === 'auto' && !view.anarchy && csize !== need) warn.push(`${csize} cartes, il en faut ${need}${view.compo.voleur ? ' (2 au centre pour le Voleur)' : ''}.`);
     if (s.distribution === 'auto' && view.compo.soeur && view.compo.soeur !== 2) warn.push('Les Sœurs vont par deux.');
     if (s.mjMode === 'joueur' && !s.mjId) warn.push('Choisis le MJ.');
     return warn;
@@ -599,7 +599,7 @@
     const title = nGame < r.minPlayers ? 'En attente des joueurs' : host ? 'Prêt à lancer' : "En attente de l'hôte";
     const summary = isON() ? `<div class="lobby-summary">
         <span class="pill">${icon('cards', 14)} Une nuit</span>
-        <span class="pill">${csize} cartes · ${wolves} loup${wolves > 1 ? 's' : ''}</span>
+        <span class="pill">${view.anarchy ? 'Anarchie · tirage secret' : `${csize} cartes · ${wolves} loup${wolves > 1 ? 's' : ''}`}</span>
         <span class="pill">Débat : ${Math.round(s.debateSeconds / 60)} min</span>
         <button class="ghost small-btn" data-act="drawer" data-kind="roles">${icon('cards', 14)} Deck</button>
         <button class="ghost small-btn" data-act="drawer" data-kind="settings">${icon('gear', 14)} Paramètres</button>
@@ -650,8 +650,10 @@
     const host = view.me.isHost, compo = view.compo;
     const size = Object.values(compo).reduce((a, b) => a + b, 0);
     const same = (c) => Object.keys(c).length === Object.keys(compo).length && Object.entries(c).every(([k, v]) => compo[k] === v);
-    const presets = (view.presets || []).map((p) => `<button class="preset ${same(p.compo) ? 'on' : ''}" data-act="preset" data-i="${p.id}" ${host ? '' : 'disabled'}>
-        <b>${esc(p.name)}</b><small>${Object.entries(p.compo).map(([k, v]) => `${v > 1 ? v + ' ' : ''}${esc(roleName(k))}`).join(' · ')}</small></button>`).join('');
+    const list = (c) => Object.entries(c).map(([k, v]) => `${v > 1 ? v + ' ' : ''}${esc(roleName(k))}`).join(' · ');
+    const presets = (view.presets || []).map((p) => `<button class="preset ${(p.random ? view.anarchy : !view.anarchy && same(p.compo)) ? 'on' : ''}" data-act="preset" data-i="${p.id}" ${host ? '' : 'disabled'}>
+        <span class="preset-head"><b>${esc(p.name)}</b><em class="lvl lvl-${esc(p.level.toLowerCase())}">${esc(p.level)}</em></span>
+        <small>${p.random ? `${list(p.compo)} + ${p.random} cartes tirées au hasard, en secret` : list(p.compo)}</small></button>`).join('');
     const counts = { loups: 0, village: 0, solitaire: 0, variable: 0 };
     for (const [r, k] of Object.entries(compo)) counts[teamOf(r)] = (counts[teamOf(r)] || 0) + k;
     const roles = Object.entries(ROLES).filter(([, d]) => d.game === 'onenight').map(([key, d]) => {
@@ -659,10 +661,14 @@
       const ctrl = host ? `<div class="stepper"><button data-act="compo" data-role="${key}" data-delta="-1" aria-label="Retirer ${esc(d.name)}">−</button><span>${k}</span><button data-act="compo" data-role="${key}" data-delta="1" aria-label="Ajouter ${esc(d.name)}">+</button></div>` : `<div class="stepper"><span>${k}</span></div>`;
       return `<div class="role ${k ? 'on' : ''}">${cardImg(key, 'role-art')}<div class="role-body"><div class="head"><span>${esc(d.name)}</span><small class="t-${d.team}">${TEAM[d.team]}</small></div><p>${esc(d.desc)}</p>${ctrl}</div></div>`;
     }).join('');
+    if (view.anarchy) return `<div class="row"><strong>${n + 3} cartes · ${n} joueurs + 3 au centre</strong><span class="pill t-solitaire">Tirage secret</span></div>
+      <div class="label">Scénarios du livret pour ${Math.min(10, Math.max(3, n))} joueurs</div><div class="presets">${presets}</div>
+      <p class="note">Anarchie : 2 Loups-Garous et 1 Villageois, plus une carte par joueur tirée au hasard dans le reste de la boîte. Personne ne sait quelles cartes sont en jeu : tous les rôles sont appelés la nuit. Touche un rôle ci-dessous pour revenir à une composition libre.</p>
+      <div class="label">Composition libre</div><div class="roles">${roles}</div>`;
     return `<div class="row"><strong>${size} cartes · ${n} joueurs + 3 au centre</strong>
         <span class="pill t-loups">${counts.loups} Loups</span><span class="pill t-village">${counts.village} Village</span>
         ${counts.solitaire + counts.variable ? `<span class="pill t-solitaire">${counts.solitaire + counts.variable} Autre</span>` : ''}</div>
-      ${presets ? `<div class="label">Decks prêts pour ${Math.min(10, Math.max(3, n))} joueurs</div><div class="presets">${presets}</div>` : ''}
+      ${presets ? `<div class="label">Scénarios du livret pour ${Math.min(10, Math.max(3, n))} joueurs</div><div class="presets">${presets}</div>` : ''}
       <div class="label">Composition libre</div><div class="roles">${roles}</div>`;
   }
 
@@ -705,12 +711,16 @@
     const r = view.room, st = view.step, me = view.me;
     const day = isDayCtx();
     const title = r.phase === 'end' ? 'Fin de partie' : r.phase === 'setup' ? 'Préparation' : isON() ? (day ? 'Le jour' : 'La nuit') : day ? `Jour ${Math.max(1, r.day)}` : `Nuit ${r.night}`;
-    const steps = r.phase === 'end' ? '' : `<ol class="steps" aria-label="Déroulé de la phase">${r.phaseSteps.map((s) =>
-      `<li class="${s.state}">${esc(STEP_LABEL[s.type] || s.type)}${s.state === 'done' ? ' ✓' : ''}</li>`).join('')}</ol>`;
+    // Une nuit : les rôles appelés pendant la nuit restent affichés au jour, pour le débat.
+    const recap = isON() && r.nightOrder && r.nightOrder.length ? `<ol class="steps night-recap" aria-label="Rôles appelés cette nuit, dans l'ordre">
+      <li class="recap-label">${icon('moon', 13)} Cette nuit</li>${r.nightOrder.map((t) => `<li class="done">${esc(STEP_LABEL[t] || t)}</li>`).join('')}</ol>` : '';
+    const steps = recap || (r.phase === 'end' ? '' : `<ol class="steps" aria-label="Déroulé de la phase">${r.phaseSteps.map((s) =>
+      `<li class="${s.state}">${esc(STEP_LABEL[s.type] || s.type)}${s.state === 'done' ? ' ✓' : ''}</li>`).join('')}</ol>`);
     const timer = st && !st.resolved && st.deadline ? `<span class="timer" data-deadline="${st.deadline}">${fmt(st.deadline - Date.now() - offset)}</span>` : '';
     const spect = me.waiting ? `<span class="pill spect-pill">${icon('clock', 14)} En attente</span>` : document.body.dataset.dead === '1' ? `<span class="pill spect-pill">${icon('ear', 14)} Spectateur</span>` : '';
     const head = `<header class="band"><div class="in">
         <span class="ph-title">${title}</span>${steps}${spect}<span class="grow"></span>${timer}
+        ${isON() && r.phase !== 'lobby' ? `<button class="appear" data-act="deck" aria-label="Cartes en jeu" title="Cartes en jeu">${icon('cards', 18)}</button>` : ''}
         ${!isON() && (view.voteHistory || []).length ? `<button class="appear" data-act="history" aria-label="Historique des votes" title="Historique des votes">${icon('ballot', 18)}</button>` : ''}${helpButton()}${settingsButton()}
         ${me.isHost && r.phase !== 'end' ? `<button class="stop leave" data-act="abort" aria-label="Arrêter la partie">${icon('stop', 14)}<span class="lbl">Arrêter</span></button>` : ''}</div>
 </header>`;
@@ -734,9 +744,11 @@
     const mine = d ? `<section class="help-mine">${cardImg(me.role, 'help-art')}<div class="hm-text"><p class="hint">Ta carte</p><div class="bigrole t-${d.team}">${esc(d.name)}</div>
         <p class="muted small">${goal[d.team] || ''}</p><ul class="how">${(d.how || [d.desc]).map((x) => `<li>${esc(x)}</li>`).join('')}</ul>
         ${me.infected || me.wild ? '<div class="note">Tu es devenu loup : tu te réveilles aussi avec la meute.</div>' : ''}</div></section>` : '';
-    const inGame = Object.keys(view.compo || {}).filter((k) => ROLES[k] && k !== me.role);
-    const cards = inGame.length ? `<section><h3>${view.room.phase === 'lobby' ? 'Cartes prévues' : 'Cartes de la partie'}</h3>${inGame.map((k) => `
-        <details class="card-help"><summary><span class="ch-name">${cardImg(k, 'thumb')}${esc(ROLES[k].name)}</span><small class="t-${ROLES[k].team}">${TEAM[ROLES[k].team]}</small></summary>
+    const compo = view.compo || {};
+    const inGame = Object.keys(compo).filter((k) => ROLES[k] && compo[k] > 0 && (isON() || k !== me.role));
+    const total = Object.values(compo).reduce((a, b) => a + b, 0);
+    const cards = inGame.length ? `<section><h3>${view.anarchy ? 'Cartes possibles (tirage secret)' : view.room.phase === 'lobby' ? 'Cartes prévues' : 'Cartes de la partie'}${isON() ? ` · ${view.anarchy ? view.expectedCards + ' sur ' + total : total}` : ''}</h3>${inGame.map((k) => `
+        <details class="card-help"><summary><span class="ch-name">${cardImg(k, 'thumb')}${esc(ROLES[k].name)}${isON() ? `<b class="ch-count">×${compo[k]}</b>` : ''}</span><small class="t-${ROLES[k].team}">${TEAM[ROLES[k].team]}</small></summary>
         <ul class="how">${(ROLES[k].how || [ROLES[k].desc]).map((x) => `<li>${esc(x)}</li>`).join('')}</ul></details>`).join('')}</section>` : '';
     return `<aside class="drawer sheet open ${helpAnim ? 'slide' : ''}" role="dialog" aria-modal="true" aria-label="Comment jouer">
       <div class="drawer-head"><h2>Comment jouer</h2><button class="round" data-act="help" aria-label="Fermer">${icon('x', 18)}</button></div>
@@ -1333,6 +1345,19 @@
     return '<h1>Étape terminée</h1>';
   }
 
+  // Une nuit : le nombre de chaque carte du deck (joueurs + 3 au centre).
+  function deckHTML() {
+    const compo = view.compo || {};
+    const keys = Object.keys(ROLES).filter((k) => compo[k] > 0);
+    const total = keys.reduce((a, k) => a + compo[k], 0);
+    const tiles = keys.map((k) => `<div class="deck-card">${cardImg(k, 'deck-art')}<b class="deck-n">×${compo[k]}</b>
+      <span class="deck-name">${esc(ROLES[k].name)}</span><small class="t-${ROLES[k].team}">${TEAM[ROLES[k].team]}</small></div>`).join('');
+    const intro = view.anarchy
+      ? `<p class="muted small">Anarchie : ${view.expectedCards} cartes tirées en secret parmi ces ${total}. Seuls 2 Loups-Garous et 1 Villageois sont sûrs d'y être.</p>`
+      : `<p class="muted small">${total} cartes : une par joueur, 3 au centre. Certaines dorment peut-être au centre.</p>`;
+    return `<section>${intro}<div class="deck-grid">${tiles}</div></section>`;
+  }
+
   // Historique des votes : qui a voté contre qui, jour après jour (rôle révélé des éliminés).
   function historyHTML() {
     const h = view.voteHistory || [];
@@ -1399,8 +1424,9 @@
         ${players}`;
     }
     if (kind === 'history') body = historyHTML();
+    if (kind === 'deck') body = deckHTML();
     if (kind === 'journal' && (view.voteHistory || []).length) body += `<section><h3>Historique des votes</h3>${historyHTML().replace(/^<section>|<\/section>$/g, '')}</section>`;
-    const title = { roles: isON() ? 'Deck' : 'Rôles', settings: 'Paramètres', journal: 'Mon rôle et journal', history: 'Historique des votes' }[kind];
+    const title = { roles: isON() ? 'Deck' : 'Rôles', settings: 'Paramètres', journal: 'Mon rôle et journal', history: 'Historique des votes', deck: 'Cartes en jeu' }[kind];
     return `<aside class="drawer ${lobby && kind === 'roles' ? 'wide' : ''} ${drawerOpen ? 'open' : ''} ${drawerAnim ? 'slide' : ''}" aria-hidden="${!drawerOpen}" aria-label="${title}">
       <div class="drawer-head"><h2>${title}</h2><button class="round" data-act="drawer-close" aria-label="Fermer">${icon('x', 18)}</button></div>
       ${body}</aside>
@@ -1560,6 +1586,7 @@
       case 'ready': send('act', {}); break;
       case 'unready': send('act', { ready: false }); break;
       case 'lean-clear': send('act', { lean: null }); break;
+      case 'deck': drawerKind = 'deck'; drawerOpen = true; drawerAnim = true; render(); setTimeout(() => { drawerAnim = false; }, 400); break;
       case 'history': drawerKind = 'history'; drawerOpen = true; drawerAnim = true; render(); setTimeout(() => { drawerAnim = false; }, 400); break;
       case 'rc-ok': try { localStorage.setItem(changeStore(), changeKey()); } catch (e) { /* stockage indisponible */ } render(); break;
       case 'sel': ui.sel = [el.dataset.id]; render(); break;

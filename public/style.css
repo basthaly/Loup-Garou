@@ -535,6 +535,9 @@ button.game-pick small { display: block; color: var(--muted); font-size: 13px; m
 .presets { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 10px; }
 button.preset { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; text-align: left; padding: 12px 14px; border-radius: 14px; background: var(--surface2); min-height: 0; }
 button.preset b { font-size: 15px; }
+.preset-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; width: 100%; }
+.lvl { font-style: normal; font-size: 11px; font-weight: 700; letter-spacing: .02em; padding: 2px 8px; border-radius: 99px; background: var(--surface); color: var(--muted); white-space: nowrap; }
+.lvl-initiation, .lvl-facile { color: #7fd1a0; } .lvl-moyen { color: #f0c36a; } .lvl-difficile { color: #f08a7a; }
 button.preset small { color: var(--muted); font-size: 12.5px; line-height: 1.4; font-weight: 500; }
 button.preset.on { border-color: var(--accent); border-width: 2px; }
 
@@ -954,3 +957,13 @@ table.hist td.dim { color: var(--muted); }
 .waitroom .wr-k { display: inline-flex; align-items: center; gap: 6px; font-weight: 700; }
 .waitroom .wr-p { display: inline-flex; align-items: center; gap: 6px; padding: 3px 10px 3px 3px; border-radius: 999px; background: var(--surface2); font-size: 14px; font-weight: 600; }
 .waitroom .wr-note { font-size: 13px; color: var(--muted); }
+
+.ch-count { margin-left: 6px; font-size: 13px; font-weight: 700; color: var(--muted); font-variant-numeric: tabular-nums; }
+.deck-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 12px; }
+.deck-card { position: relative; display: flex; flex-direction: column; align-items: center; gap: 2px; text-align: center; }
+.deck-art { width: 100%; aspect-ratio: 2 / 3; object-fit: contain; }
+.deck-n { position: absolute; top: 4px; right: 4px; min-width: 28px; padding: 2px 7px; border-radius: 99px; background: var(--accent); color: #fff; font-size: 14px; font-variant-numeric: tabular-nums; box-shadow: 0 2px 6px rgba(0,0,0,.35); }
+.deck-name { font-size: 13px; font-weight: 600; line-height: 1.2; }
+.deck-card small { font-size: 11px; }
+.night-recap .recap-label { border: 0; padding-left: 0; display: inline-flex; align-items: center; gap: 4px; color: var(--muted); font-weight: 600; }
+.night-recap li.done { opacity: 1; }

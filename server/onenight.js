@@ -4,7 +4,7 @@ const crypto = require('crypto');
 const { Room, shuffle, pick, F } = require('./game');
 
 const ROLES = {
-  n_double:      { name: 'Double',         team: 'variable', max: 1, desc: "Regarde la carte d'un joueur et devient ce rôle.",
+  n_double:      { name: 'Doppelgänger',        team: 'variable', max: 1, desc: "Regarde la carte d'un joueur et devient ce rôle.",
     how: ["Au début de la nuit, touche un joueur : tu découvres sa carte et tu deviens ce rôle.", 'Voyante, Voleur, Noiseuse ou Soûlard : tu joues aussitôt son action.', 'Loup-Garou, Sbire, Franc-Maçon ou Insomniaque : tu te réveilles plus tard avec eux.', 'Tu gagnes avec le camp du rôle copié.'] },
   n_loup:        { name: 'Loup-Garou',     team: 'loups',    max: 2, desc: "Les loups se reconnaissent. Seul, il peut regarder une carte du centre.",
     how: ['La nuit, tu vois les autres loups.', "Si tu es le seul loup, tu peux regarder une carte du centre.", "Le jour, bluffe : les loups gagnent si aucun loup n'est éliminé."] },
@@ -40,30 +40,64 @@ const RULES = [
   'On joue avec sa carte finale : on peut avoir changé de camp sans le savoir.'
 ];
 
-// Decks prêts à jouer : toujours joueurs + 3 cartes.
-const PRESETS = {
-  3: [['Découverte', { n_loup: 2, n_voyante: 1, n_voleur: 1, n_noiseuse: 1, n_villageois: 1 }],
-      ['Bluff', { n_loup: 2, n_voyante: 1, n_voleur: 1, n_noiseuse: 1, n_tanneur: 1 }]],
-  4: [['Découverte', { n_loup: 2, n_voyante: 1, n_voleur: 1, n_noiseuse: 1, n_villageois: 2 }],
-      ['Bluff', { n_loup: 2, n_voyante: 1, n_voleur: 1, n_noiseuse: 1, n_soulard: 1, n_insomniaque: 1 }]],
-  5: [['Découverte', { n_loup: 2, n_voyante: 1, n_voleur: 1, n_noiseuse: 1, n_insomniaque: 1, n_villageois: 2 }],
-      ['Bluff', { n_loup: 2, n_sbire: 1, n_voyante: 1, n_voleur: 1, n_noiseuse: 1, n_soulard: 1, n_tanneur: 1 }]],
-  6: [['Découverte', { n_loup: 2, n_voyante: 1, n_voleur: 1, n_noiseuse: 1, n_insomniaque: 1, n_macon: 2, n_villageois: 1 }],
-      ['Bluff', { n_loup: 2, n_sbire: 1, n_voyante: 1, n_voleur: 1, n_noiseuse: 1, n_soulard: 1, n_chasseur: 1, n_tanneur: 1 }]],
-  7: [['Découverte', { n_loup: 2, n_sbire: 1, n_voyante: 1, n_voleur: 1, n_noiseuse: 1, n_insomniaque: 1, n_macon: 2, n_villageois: 1 }],
-      ['Chaos', { n_double: 1, n_loup: 2, n_sbire: 1, n_voyante: 1, n_voleur: 1, n_noiseuse: 1, n_soulard: 1, n_insomniaque: 1, n_tanneur: 1 }]],
-  8: [['Classique', { n_loup: 2, n_sbire: 1, n_voyante: 1, n_voleur: 1, n_noiseuse: 1, n_soulard: 1, n_insomniaque: 1, n_macon: 2, n_chasseur: 1 }],
-      ['Chaos', { n_double: 1, n_loup: 2, n_sbire: 1, n_voyante: 1, n_voleur: 1, n_noiseuse: 1, n_soulard: 1, n_insomniaque: 1, n_chasseur: 1, n_tanneur: 1 }]],
-  9: [['Classique', { n_double: 1, n_loup: 2, n_sbire: 1, n_macon: 2, n_voyante: 1, n_voleur: 1, n_noiseuse: 1, n_soulard: 1, n_insomniaque: 1, n_chasseur: 1 }],
-      ['Village', { n_loup: 2, n_sbire: 1, n_macon: 2, n_voyante: 1, n_voleur: 1, n_noiseuse: 1, n_soulard: 1, n_insomniaque: 1, n_chasseur: 1, n_villageois: 1 }]],
-  10: [['Complet', { n_double: 1, n_loup: 2, n_sbire: 1, n_macon: 2, n_voyante: 1, n_voleur: 1, n_noiseuse: 1, n_soulard: 1, n_insomniaque: 1, n_chasseur: 1, n_tanneur: 1 }],
-       ['Village', { n_loup: 2, n_sbire: 1, n_macon: 2, n_voyante: 1, n_voleur: 1, n_noiseuse: 1, n_soulard: 1, n_insomniaque: 1, n_chasseur: 1, n_villageois: 2 }]]
-};
+// Scénarios officiels (livret du jeu) : composition de base + ajouts selon le nombre de joueurs.
+// Toujours joueurs + 3 cartes. Anarchie : 2 loups + 1 villageois, le reste tiré au hasard au lancement.
+const L = { n_loup: 2 };
+const SCENARIOS = [
+  { name: 'La Première Nuit', level: 'Initiation', min: 3, max: 5, base: { ...L, n_voyante: 1, n_voleur: 1, n_noiseuse: 1, n_villageois: 1 },
+    add: { 4: { n_villageois: 1 }, 5: { n_villageois: 2 } } },
+  { name: 'Pleine Lune', level: 'Facile', min: 3, max: 6, base: { ...L, n_insomniaque: 1, n_voleur: 1, n_noiseuse: 1, n_villageois: 1 },
+    add: { 4: { n_villageois: 1 }, 5: { n_villageois: 1, n_voyante: 1 }, 6: { n_villageois: 2, n_voyante: 1 } } },
+  { name: 'Nuit solitaire', level: 'Facile', min: 3, max: 4, base: { n_loup: 1, n_voyante: 1, n_voleur: 1, n_noiseuse: 1, n_villageois: 2 },
+    add: { 4: { n_villageois: 1 } } },
+  { name: 'Confusion', level: 'Moyen', min: 3, max: 9, base: { ...L, n_soulard: 1, n_voleur: 1, n_noiseuse: 1, n_insomniaque: 1 },
+    add: { 4: { n_villageois: 1 }, 5: { n_villageois: 1, n_voyante: 1 }, 6: { n_villageois: 2, n_voyante: 1 }, 7: { n_villageois: 3, n_voyante: 1 },
+      8: { n_villageois: 3, n_voyante: 1, n_sbire: 1 }, 9: { n_villageois: 2, n_voyante: 1, n_sbire: 1, n_macon: 2 } } },
+  { name: 'Bénéfice', level: 'Moyen', min: 4, max: 7, base: { ...L, n_chasseur: 1, n_voyante: 1, n_voleur: 1, n_soulard: 1, n_insomniaque: 1 },
+    add: { 5: { n_noiseuse: 1 }, 6: { n_noiseuse: 1, n_villageois: 1 }, 7: { n_noiseuse: 1, n_villageois: 2 } } },
+  { name: 'Mystérieux compagnons', level: 'Moyen', min: 6, max: 7, base: { ...L, n_sbire: 1, n_chasseur: 1, n_voyante: 1, n_voleur: 1, n_noiseuse: 1, n_macon: 2 },
+    add: { 7: { n_villageois: 1 } } },
+  { name: 'Incertitudes', level: 'Moyen', min: 4, max: 10, base: { ...L, n_tanneur: 1, n_voyante: 1, n_voleur: 1, n_soulard: 1, n_insomniaque: 1 },
+    add: { 5: { n_noiseuse: 1 }, 6: { n_noiseuse: 1, n_villageois: 1 }, 7: { n_noiseuse: 1, n_macon: 2 }, 8: { n_noiseuse: 1, n_macon: 2, n_chasseur: 1 },
+      9: { n_noiseuse: 1, n_macon: 2, n_chasseur: 1, n_sbire: 1 }, 10: { n_noiseuse: 1, n_macon: 2, n_chasseur: 1, n_sbire: 1, n_villageois: 1 } } },
+  { name: 'Alliance dans la pénombre', level: 'Difficile', min: 5, max: 10, base: { ...L, n_macon: 2, n_sbire: 1, n_voleur: 1, n_noiseuse: 1, n_insomniaque: 1 },
+    add: { 6: { n_soulard: 1 }, 7: { n_soulard: 1, n_voyante: 1 }, 8: { n_soulard: 1, n_voyante: 1, n_villageois: 1 }, 9: { n_soulard: 1, n_voyante: 1, n_villageois: 2 },
+      10: { n_soulard: 1, n_voyante: 1, n_villageois: 2, n_tanneur: 1 } } },
+  { name: 'Revenants', level: 'Difficile', min: 8, max: 10,
+    base: { ...L, n_double: 1, n_sbire: 1, n_chasseur: 1, n_voyante: 1, n_voleur: 1, n_noiseuse: 1, n_villageois: 1, n_macon: 2 },
+    add: { 9: { n_insomniaque: 1 }, 10: { n_insomniaque: 1, n_soulard: 1 } } },
+  { name: 'Anarchie', level: 'Difficile', min: 3, max: 10, random: true, base: { ...L, n_villageois: 1 }, add: {} }
+];
+// La boîte complète, d'où Anarchie tire ses cartes (hors 2 loups + 1 villageois mis de côté).
+const BOX = { n_double: 1, n_loup: 2, n_sbire: 1, n_macon: 2, n_voyante: 1, n_voleur: 1, n_noiseuse: 1, n_soulard: 1, n_insomniaque: 1, n_chasseur: 1, n_tanneur: 1, n_villageois: 3 };
+function scenarioCompo(sc, n) {
+  const c = { ...sc.base };
+  for (const [r, k] of Object.entries(sc.add[n] || {})) c[r] = (c[r] || 0) + k;
+  return c;
+}
+const PRESETS = {};
+for (let n = 3; n <= 10; n++) {
+  PRESETS[n] = SCENARIOS.filter((sc) => n >= sc.min && n <= sc.max).map((sc) => [sc.name, scenarioCompo(sc, n), sc]);
+}
+// Anarchie : une carte par joueur tirée parmi les autres ; les Francs-Maçons restent par deux.
+function drawAnarchy(n) {
+  const rest = [];
+  for (const [r, k] of Object.entries(BOX)) for (let i = 0; i < k - (r === 'n_loup' ? 2 : r === 'n_villageois' ? 1 : 0); i++) rest.push(r);
+  const deck = shuffle(rest);
+  const take = deck.slice(0, n), left = deck.slice(n);
+  if (take.filter((r) => r === 'n_macon').length === 1) {
+    const other = left.findIndex((r) => r !== 'n_macon');
+    take[take.indexOf('n_macon')] = left[other];
+  }
+  const c = { n_loup: 2, n_villageois: 1 };
+  for (const r of take) c[r] = (c[r] || 0) + 1;
+  return c;
+}
 const MIN = 3;
 const MAX = 10;
 const size = (c) => Object.values(c).reduce((a, b) => a + b, 0);
-for (const [n, list] of Object.entries(PRESETS)) for (const [name, c] of list) {
-  if (size(c) !== +n + 3) throw new Error(`Deck ${name} (${n} joueurs) : ${size(c)} cartes`);
+for (const [n, list] of Object.entries(PRESETS)) for (const [name, c, sc] of list) {
+  if (!sc.random && size(c) !== +n + 3) throw new Error(`Deck ${name} (${n} joueurs) : ${size(c)} cartes`);
 }
 
 // Étapes de nuit, dans l'ordre d'appel, et le rôle (carte de départ) qui agit.
@@ -72,7 +106,7 @@ const STEP_ROLE = { n_double: 'n_double', n_loups: 'n_loup', n_sbire: 'n_sbire',
 const ACTION_STEP = { n_voyante: 'n_voyante', n_voleur: 'n_voleur', n_noiseuse: 'n_noiseuse', n_soulard: 'n_soulard' };
 const NARRATION = {
   roles_reveal: 'Découvrez votre carte en secret.',
-  n_double: 'Le Double se réveille et copie un joueur.',
+  n_double: 'Le Doppelgänger se réveille et copie un joueur.',
   n_loups: 'Les Loups-Garous se réveillent et se reconnaissent.',
   n_sbire: 'Le Sbire se réveille et découvre les loups.',
   n_macons: 'Les Francs-Maçons se réveillent et se reconnaissent.',
@@ -130,7 +164,10 @@ class OneNightRoom extends Room {
     this.changed();
   }
 
-  presetsFor(n) { return (PRESETS[Math.min(MAX, Math.max(MIN, n))] || []).map(([name, compo], i) => ({ id: i, name, compo })); }
+  presetsFor(n) {
+    const k = Math.min(MAX, Math.max(MIN, n));
+    return (PRESETS[k] || []).map(([name, compo, sc], i) => ({ id: i, name, compo, level: sc.level, random: sc.random ? k : 0 }));
+  }
   effectiveCompo() {
     if (this.compo) return this.compo;
     if (this.customCompo) return this.customCompo;
@@ -138,12 +175,14 @@ class OneNightRoom extends Room {
     return p ? Object.assign({}, p.compo) : {};
   }
   cardsNeeded() { return this.gamePlayers().length + 3; }
+  resetCompo(id) { if (id === this.hostId) this.anarchy = false; super.resetCompo(id); }
 
   applyPreset(id, index) {
     if (id !== this.hostId || this.phase !== 'lobby') throw new Error("Seul l'hôte peut choisir le deck.");
     const p = this.presetsFor(this.gamePlayers().length)[index];
     if (!p) throw new Error('Deck inconnu.');
     this.customCompo = Object.assign({}, p.compo);
+    this.anarchy = !!p.random;
     this.changed();
   }
 
@@ -152,6 +191,7 @@ class OneNightRoom extends Room {
     const def = ROLES[role];
     if (!def) throw new Error('Rôle inconnu.');
     const c = Object.assign({}, this.effectiveCompo());
+    this.anarchy = false;
     const step = def.count || 1;
     c[role] = Math.min(def.max, Math.max(0, (c[role] || 0) + (delta > 0 ? step : -step)));
     if (!c[role]) delete c[role];
@@ -169,7 +209,7 @@ class OneNightRoom extends Room {
     const n = this.gamePlayers().length;
     if (n < MIN) throw new Error(`Il faut au moins ${MIN} joueurs.`);
     if (n > MAX) throw new Error(`${MAX} joueurs maximum.`);
-    const c = this.effectiveCompo();
+    const c = this.anarchy ? drawAnarchy(n) : this.effectiveCompo();
     if (size(c) !== n + 3) throw new Error(`Le deck compte ${size(c)} cartes, il en faut ${n + 3}.`);
     if (!c.n_loup) throw new Error('Il faut au moins un Loup-Garou dans le deck.');
     if (c.n_macon && c.n_macon !== 2) throw new Error('Les Francs-Maçons vont par deux.');
@@ -200,8 +240,10 @@ class OneNightRoom extends Room {
     this.phase = 'night';
     this.night = 1;
     this.addLog("La nuit tombe sur le village.", true);
-    const steps = NIGHT.filter((t) => this.compo[STEP_ROLE[t]]).map((type) => ({ type, actors: [] }));
+    // Anarchie : personne ne sait quelles cartes sont en jeu, donc tous les rôles sont appelés.
+    const steps = NIGHT.filter((t) => (this.anarchy ? BOX : this.compo)[STEP_ROLE[t]]).map((type) => ({ type, actors: [] }));
     this.phaseSteps = steps.map((s) => s.type);
+    this.nightOrder = this.phaseSteps.slice();
     this.phaseCursor = -1;
     this.queue = steps;
     this.next();
@@ -216,14 +258,14 @@ class OneNightRoom extends Room {
     this.next();
   }
 
-  // Qui se réveille : la carte de départ (le Double copié compte pour le rôle copié).
+  // Qui se réveille : la carte de départ (le Doppelgänger copié compte pour le rôle copié).
   wakes(p, role) { return p.startRole === role || (p.startRole === 'n_double' && this.doppelRole === role); }
 
   startStepHook(step) {
     if (step.dynamicActors) step.actors = this.gamePlayers().filter((p) => !p.kicked).map((p) => p.id);
     if (step.fixedActors || !STEP_ROLE[step.type]) return;
     const role = STEP_ROLE[step.type];
-    // Le Double agit à sa propre étape : on ne le rappelle pas avec la Voyante, le Voleur…
+    // Le Doppelgänger agit à sa propre étape : on ne le rappelle pas avec la Voyante, le Voleur…
     const solo = ['n_double', 'n_voyante', 'n_voleur', 'n_noiseuse', 'n_soulard'].includes(step.type);
     step.actors = this.gamePlayers().filter((p) => !p.kicked && (solo ? p.startRole === role : this.wakes(p, role))).map((p) => p.id);
     step.priv = {};
@@ -335,8 +377,8 @@ class OneNightRoom extends Room {
     this.doppelRole = t.card;
     p.known[t.id] = t.card;
     s.priv[p.id] = { players: [{ id: t.id, role: t.card }], copied: t.card };
-    this.nightLog.push(`${p.name} (Double) copie ${t.name} : ${ROLES[t.card].name}.`);
-    // Rôle à action immédiate : le Double la joue juste après.
+    this.nightLog.push(`${p.name} (Doppelgänger) copie ${t.name} : ${ROLES[t.card].name}.`);
+    // Rôle à action immédiate : le Doppelgänger la joue juste après.
     const action = ACTION_STEP[t.card];
     if (action) this.queue.unshift({ type: action, actors: [p.id], fixedActors: true, doppel: true, phaseType: 'n_double' });
   }
@@ -502,12 +544,14 @@ class OneNightRoom extends Room {
         code: this.code, game: this.game, phase: this.phase, hostId: this.hostId, settings: this.settings, night: this.night, day: this.day,
         minPlayers: MIN, recommended: 4, maxPlayers: MAX, captainId: null, potions: null, waitingMJ: false,
         winner: this.winner, serverNow: Date.now(), powersLost: false,
+        nightOrder: (this.phase === 'day' || end) && this.nightOrder ? this.nightOrder : null,
         phaseSteps: this.phaseSteps.map((t, i) => ({ type: t, state: i < this.phaseCursor || (i === this.phaseCursor && s && s.resolved) ? 'done' : i === this.phaseCursor ? 'now' : 'next' }))
       },
       media: this.mediaFor(me),
       players,
-      compo: this.effectiveCompo(),
+      compo: this.anarchy && started && !end ? BOX : this.effectiveCompo(),
       customCompo: !!this.customCompo,
+      anarchy: !!this.anarchy,
       presets: this.phase === 'lobby' ? this.presetsFor(n) : [],
       expectedCards: n + 3,
       compoVoteResult: null,

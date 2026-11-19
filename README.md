@@ -393,10 +393,10 @@ Vérifier que ça tourne : `docker compose ps` et `curl -k https://127.0.0.1:300
 | --- | --- |
 | Loups | Loup-Garou (×2), Sbire |
 | Village | Franc-Maçon (×2), Voyante, Voleur, Noiseuse, Soûlard, Insomniaque, Villageois (×3), Chasseur |
-| Autres | Double (prend le camp du rôle copié), Tanneur (gagne s'il est éliminé) |
+| Autres | Doppelgänger (prend le camp du rôle copié), Tanneur (gagne s'il est éliminé) |
 
 - Cartes = joueurs + 3. Les 3 cartes du centre sont affichées face cachée, et se retournent quand on les regarde (Voyante, loup seul) puis toutes à la fin.
-- Decks prêts à jouer pour chaque nombre de joueurs (2 au choix), ou composition libre.
+- Les 10 scénarios du livret officiel (de Première Nuit à Anarchie, avec leur difficulté), ou composition libre. Pendant la partie : le nombre de chaque carte (bouton Cartes en jeu) et, au jour, les rôles appelés dans la nuit.
 - Chaque rôle a le même temps la nuit (réglable), qu'il soit joué ou au centre : le temps ne trahit rien.
 - Fin de partie : cartes finales et de départ de chacun, gagnants, votes et tout ce qui s'est passé la nuit.
 
