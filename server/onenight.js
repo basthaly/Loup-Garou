@@ -229,6 +229,7 @@ class OneNightRoom extends Room {
       else { const i = this.center.indexOf(role); if (i >= 0) [p.card, this.center[i]] = [this.center[i], p.card]; }
     }
     for (const p of this.gamePlayers()) p.startRole = p.role = p.card;
+    this.startCenter = this.center.slice();
     this.phase = 'setup';
     this.addLog('La partie commence.', true);
     this.phaseSteps = ['roles_reveal'];
@@ -274,6 +275,39 @@ class OneNightRoom extends Room {
     if (step.type === 'n_loups') { step.lone = step.actors.length === 1; mark(step.actors, step.actors, 'n_loup'); }
     if (step.type === 'n_macons') mark(step.actors, step.actors, 'n_macon');
     if (step.type === 'n_sbire') mark(this.wolfIds(), step.actors, 'n_loup');
+    this.logWake(step);
+  }
+
+  // Récit de la nuit, révélé à la fin : chaque entrée est rangée sous l'étape où elle a eu lieu.
+  nlog(text, t) { this.nightLog.push({ t: t || (this.step && (this.step.phaseType || this.step.type)) || '', text }); }
+
+  // Début d'une étape de nuit : qui se réveille, qui se reconnaît.
+  logWake(step) {
+    if (step.fixedActors) return;
+    const names = (ids) => ids.map((x) => this.name(x)).join(', ');
+    if (!step.actors.length) {
+      const where = this.startCenter.includes(STEP_ROLE[step.type]) ? 'la carte dort au centre' : "cette carte n'est pas en jeu";
+      return this.nlog(`Personne ne se réveille : ${where}.`, step.type);
+    }
+    if (step.type === 'n_loups') {
+      this.nlog(step.actors.length === 1 ? `${names(step.actors)} est le seul loup.` : `${names(step.actors)} se réveillent et se reconnaissent comme loups.`, step.type);
+    } else if (step.type === 'n_sbire') {
+      const w = this.wolfIds();
+      this.nlog(`${names(step.actors)} (Sbire) voit ${w.length ? 'les loups : ' + names(w) : "qu'il n'y a aucun loup parmi les joueurs"}.`, step.type);
+    } else if (step.type === 'n_macons') {
+      this.nlog(step.actors.length > 1 ? `${names(step.actors)} se reconnaissent comme Francs-Maçons.` : `${names(step.actors)} est le seul Franc-Maçon : l'autre carte est au centre.`, step.type);
+    }
+  }
+
+  // Fin d'une étape : ceux qui ont passé ou n'ont rien fait.
+  logPass(s) {
+    if (!['n_loups', 'n_voyante', 'n_voleur', 'n_noiseuse'].includes(s.type)) return;
+    for (const a of s.actors) {
+      const v = s.inputs[a];
+      if (s.type === 'n_loups') { if (s.lone && (v === undefined || v.center === undefined || v.center === null)) this.nlog(`${this.name(a)} ne regarde aucune carte du centre.`); continue; }
+      if (v === undefined) this.nlog(`${this.name(a)} n'a rien fait à temps.`);
+      else if ((s.type === 'n_noiseuse' && v.targets === null) || (s.type !== 'n_noiseuse' && v.target === null && !Array.isArray(v.center))) this.nlog(`${this.name(a)} passe son tour.`);
+    }
   }
 
   wolfIds() { return this.gamePlayers().filter((p) => this.wakes(p, 'n_loup')).map((p) => p.id); }
@@ -308,7 +342,7 @@ class OneNightRoom extends Room {
           if (!centerIdx(payload.center)) throw new Error('Carte invalide.');
           p.knownCenter[payload.center] = this.center[payload.center];
           s.priv[id] = { center: [{ i: payload.center, role: this.center[payload.center] }] };
-          this.nightLog.push(`${p.name} (loup seul) regarde la carte ${payload.center + 1} du centre : ${ROLES[this.center[payload.center]].name}.`);
+          this.nlog(`${p.name} (loup seul) regarde la carte ${payload.center + 1} du centre : ${ROLES[this.center[payload.center]].name}.`);
         }
         break;
       }
@@ -318,13 +352,13 @@ class OneNightRoom extends Room {
           if (c.length !== 2 || !c.every(centerIdx)) throw new Error('Choisis deux cartes du centre.');
           for (const i of c) p.knownCenter[i] = this.center[i];
           s.priv[id] = { center: c.map((i) => ({ i, role: this.center[i] })) };
-          this.nightLog.push(`${p.name} (Voyante) regarde les cartes ${c.map((i) => i + 1).join(' et ')} du centre : ${c.map((i) => ROLES[this.center[i]].name).join(', ')}.`);
+          this.nlog(`${p.name} (Voyante) regarde les cartes ${c.map((i) => i + 1).join(' et ')} du centre : ${c.map((i) => ROLES[this.center[i]].name).join(', ')}.`);
         } else if (payload.target) {
           if (!this.others(id).includes(payload.target)) throw new Error('Cible invalide.');
           const t = pl(payload.target);
           p.known[t.id] = t.card;
           s.priv[id] = { players: [{ id: t.id, role: t.card }] };
-          this.nightLog.push(`${p.name} (Voyante) regarde la carte de ${t.name} : ${ROLES[t.card].name}.`);
+          this.nlog(`${p.name} (Voyante) regarde la carte de ${t.name} : ${ROLES[t.card].name}.`);
         } else if (payload.target !== null) throw new Error('Choisis un joueur ou deux cartes.');
         break;
       }
@@ -335,7 +369,7 @@ class OneNightRoom extends Room {
           [p.card, t.card] = [t.card, p.card];
           p.knownSelf = p.card;
           s.priv[id] = { took: p.card, from: t.id };
-          this.nightLog.push(`${p.name} (Voleur) échange sa carte avec ${t.name} et devient ${ROLES[p.card].name}.`);
+          this.nlog(`${p.name} (Voleur) échange sa carte avec ${t.name} et devient ${ROLES[p.card].name}.`);
         } else if (payload.target !== null) throw new Error('Choisis un joueur.');
         break;
       }
@@ -346,7 +380,7 @@ class OneNightRoom extends Room {
           const [a, b] = t.map(pl);
           [a.card, b.card] = [b.card, a.card];
           s.priv[id] = { swapped: t };
-          this.nightLog.push(`${p.name} (Noiseuse) échange les cartes de ${a.name} et ${b.name}.`);
+          this.nlog(`${p.name} (Noiseuse) échange les cartes de ${a.name} et ${b.name}.`);
         }
         break;
       }
@@ -377,7 +411,7 @@ class OneNightRoom extends Room {
     this.doppelRole = t.card;
     p.known[t.id] = t.card;
     s.priv[p.id] = { players: [{ id: t.id, role: t.card }], copied: t.card };
-    this.nightLog.push(`${p.name} (Doppelgänger) copie ${t.name} : ${ROLES[t.card].name}.`);
+    this.nlog(`${p.name} (Doppelgänger) copie ${t.name} : ${ROLES[t.card].name}.`);
     // Rôle à action immédiate : le Doppelgänger la joue juste après.
     const action = ACTION_STEP[t.card];
     if (action) this.queue.unshift({ type: action, actors: [p.id], fixedActors: true, doppel: true, phaseType: 'n_double' });
@@ -386,7 +420,7 @@ class OneNightRoom extends Room {
   drunk(p, i, s) {
     [p.card, this.center[i]] = [this.center[i], p.card];
     s.priv[p.id] = { center: [{ i, role: null }] };
-    this.nightLog.push(`${p.name} (Soûlard) échange sa carte avec la carte ${i + 1} du centre.`);
+    this.nlog(`${p.name} (Soûlard) échange sa carte avec la carte ${i + 1} du centre.`);
   }
 
   resolveStep() {
@@ -406,10 +440,11 @@ class OneNightRoom extends Room {
         const p = this.players.get(a);
         p.knownSelf = p.card;
         p.notes.push({ self: p.card });
-        this.nightLog.push(`${p.name} (Insomniaque) voit sa carte : ${ROLES[p.card].name}.`);
+        this.nlog(`${p.name} (Insomniaque) voit sa carte : ${ROLES[p.card].name}.`);
       }
     }
     if (s.type === 'vote') return this.resolveVote(s);
+    this.logPass(s);
     s.resolved = true;
     this.next();
   }
@@ -446,7 +481,7 @@ class OneNightRoom extends Room {
     for (const d of dead) { const p = this.players.get(d); p.alive = false; p.death = { cause: hunterKills.includes(d) ? 'chasseur' : 'vote', when: 'Jour' }; }
     s.result = { choices, tally, dead };
     s.resolved = true;
-    this.lastVote = { choices, tally, dead };
+    this.lastVote = { choices, tally, dead, hunterKills };
     this.endGame(this.outcome(dead));
   }
 
@@ -557,6 +592,11 @@ class OneNightRoom extends Room {
       compoVoteResult: null,
       log: this.log.filter((l) => l.pub || end).slice(-40),
       nightLog: end ? this.nightLog : null,
+      recap: end && this.startCenter ? {
+        players: this.gamePlayers().map((p) => ({ id: p.id, start: p.startRole, final: p.card })),
+        center: this.startCenter.map((c, i) => ({ start: c, final: this.center[i] })),
+        hunter: this.lastVote ? this.lastVote.hunterKills || [] : []
+      } : null,
       lastVote: end ? this.lastVote : null,
       center: started ? {
         label: 'Au centre',

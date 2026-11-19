@@ -816,7 +816,7 @@
       if (!isON()) return `<div class="prompt"><h1>${esc(r.winner ? r.winner.text : 'Fin de partie')}</h1></div>`;
       const lv = view.lastVote;
       const votes = lv ? `<div class="votes">${lv.choices.map((c) => `<span class="vote-card">${nm(c.voter)} → <b>${c.target ? nm(c.target) : 'personne'}</b></span>`).join('')}</div>` : '';
-      const log = view.nightLog && view.nightLog.length ? `<details class="night-log"><summary>Ce qui s'est passé cette nuit</summary><ol>${view.nightLog.map((l) => `<li>${esc(l)}</li>`).join('')}</ol></details>` : '';
+      const log = view.recap ? `<button class="ghost small-btn recap-btn" data-act="drawer" data-kind="journal">${icon('scroll', 14)} Tout ce qui s'est passé</button>` : '';
       return `<div class="prompt"><p class="hint">${me.won ? 'Tu as gagné !' : 'Tu as perdu'} · ta carte finale : <span class="t-${teamOf(me.finalRole)}">${esc(roleName(me.finalRole))}</span></p>
         <h1>${esc(r.winner ? r.winner.text : 'Fin de partie')}</h1>${votes}${log}</div>`;
     }
@@ -1358,6 +1358,34 @@
     return `<section>${intro}<div class="deck-grid">${tiles}</div></section>`;
   }
 
+  // Une nuit, fin de partie : le récit complet (cartes distribuées, chaque étape de la nuit, cartes finales, vote).
+  function recapHTML() {
+    const rc = view.recap;
+    if (!rc) return '';
+    const card = (r, cls = '') => r ? `<span class="rc-card ${cls}">${cardImg(r, 'rc-art')}<span class="t-${teamOf(r)}">${esc(roleName(r))}</span></span>` : '';
+    const dealt = rc.players.map((x) => `<li>${face(x.id, 22)} <b>${nm(x.id)}</b> ${card(x.start)}</li>`).join('')
+      + rc.center.map((c, i) => `<li class="rc-center">${icon('cards', 16)} <b>Centre ${i + 1}</b> ${card(c.start)}</li>`).join('');
+    const groups = [];
+    for (const e of view.nightLog || []) {
+      const t = typeof e === 'string' ? '' : e.t, text = typeof e === 'string' ? e : e.text;
+      if (!groups.length || groups[groups.length - 1].t !== t) groups.push({ t, lines: [] });
+      groups[groups.length - 1].lines.push(text);
+    }
+    const night = groups.map((g, i) => `<li><span class="rc-step">${i + 1}. ${esc(STEP_LABEL[g.t] || 'Nuit')}</span>${g.lines.map((l) => `<p>${esc(l)}</p>`).join('')}</li>`).join('');
+    const moved = (a, b) => a !== b;
+    const final = rc.players.map((x) => `<li class="${moved(x.start, x.final) ? 'rc-moved' : ''}">${face(x.id, 22)} <b>${nm(x.id)}</b> ${card(x.start, moved(x.start, x.final) ? 'was' : '')}${moved(x.start, x.final) ? `<span class="rc-arrow">→</span>${card(x.final)}` : '<small class="muted">inchangée</small>'}</li>`).join('')
+      + rc.center.map((c, i) => `<li class="rc-center ${moved(c.start, c.final) ? 'rc-moved' : ''}">${icon('cards', 16)} <b>Centre ${i + 1}</b> ${card(c.start, moved(c.start, c.final) ? 'was' : '')}${moved(c.start, c.final) ? `<span class="rc-arrow">→</span>${card(c.final)}` : '<small class="muted">inchangée</small>'}</li>`).join('');
+    const lv = view.lastVote;
+    const votes = lv ? lv.choices.map((c) => `<li>${face(c.voter, 22)} <b>${nm(c.voter)}</b> → ${c.target ? `${face(c.target, 22)} ${nm(c.target)}` : '<i class="muted">personne</i>'}</li>`).join('') : '';
+    const dead = lv && lv.dead.length ? lv.dead.map((d) => `${nm(d)}${rc.hunter.includes(d) ? ' (emporté par le Chasseur)' : ''}`).join(', ') : 'personne';
+    return `<section class="recap"><h3>Ce qui s'est vraiment passé</h3>
+      <h4>1. La distribution</h4><ul class="rc-list">${dealt}</ul>
+      <h4>2. La nuit</h4><ol class="rc-night">${night || '<li><p class="muted">Aucune action.</p></li>'}</ol>
+      <h4>3. Les cartes au réveil</h4><ul class="rc-list">${final}</ul>
+      <h4>4. Le vote</h4><ul class="rc-list">${votes}</ul><p><b>Éliminé${lv && lv.dead.length > 1 ? 's' : ''} :</b> ${dead}</p>
+      ${view.room.winner ? `<p class="rc-win">${esc(view.room.winner.text)}</p>` : ''}</section>`;
+  }
+
   // Historique des votes : qui a voté contre qui, jour après jour (rôle révélé des éliminés).
   function historyHTML() {
     const h = view.voteHistory || [];
@@ -1413,7 +1441,7 @@
         ${me.isHost && p.connected ? `<button class="ghost small-btn" data-act="giveHost" data-id="${p.id}">Nommer hôte</button>` : ''}
         <button class="ghost small-btn" data-act="kick" data-id="${p.id}">Exclure</button></span></div>`).join('') || '<p class="muted small">Personne d\'autre pour l\'instant.</p>'}</section>` : '';
     const log = kind === 'journal' && view.log.length ? `<section><h3>Journal</h3><ol class="log">${view.log.slice().reverse().map((l) => `<li class="${l.pub ? '' : 'priv'}"><span class="when">${esc(l.when || '')}</span><span>${esc(l.text)}</span></li>`).join('')}</ol></section>` : '';
-    let body = top + log;
+    let body = (kind === 'journal' && isON() && view.recap ? recapHTML() : '') + top + log;
     if (kind === 'settings') {
       const dark = document.body.dataset.appearance === 'dark';
       body = `${lobby ? gameSettingsHTML() : ''}
