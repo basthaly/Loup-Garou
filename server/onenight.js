@@ -479,20 +479,22 @@ class OneNightRoom extends Room {
     const players = this.order.map((pid) => {
       const p = this.players.get(pid);
       let role = null;
-      if (end || reveal) role = this.finalRole(p.card);
+      const known = me.known || {};
+      if (p.waiting) role = null;
+      else if (end || reveal) role = this.finalRole(p.card);
       else if (started && pid === id) role = p.startRole;
-      else if (started && me.known[pid]) role = me.known[pid];
+      else if (started && known[pid]) role = known[pid];
       return {
-        id: p.id, name: p.name, connected: p.connected, alive: end ? p.alive : true, isMJ: false, captain: false, idiotRevealed: false,
-        cam: p.cam, mic: p.mic, conn: p.conn, kicked: !!p.kicked, death: p.death, role, lover: null,
-        startRole: end || reveal ? p.startRole : null, bot: !!p.bot, won: winners.includes(p.id), seenRole: !end && pid !== id && !!me.known[pid]
+        id: p.id, name: p.name, connected: p.connected, alive: p.waiting ? false : end ? p.alive : true, isMJ: false, captain: false, idiotRevealed: false,
+        cam: p.cam, mic: p.mic, conn: p.conn, kicked: !!p.kicked, death: p.death, role, lover: null, waiting: !!p.waiting,
+        startRole: end || reveal ? p.startRole : null, bot: !!p.bot, won: winners.includes(p.id), seenRole: !end && pid !== id && !!known[pid]
       };
     });
     const s = this.step;
     return {
       me: {
         id, name: me.name, isHost: id === this.hostId, isMJ: false, canControl: id === this.hostId,
-        alive: true, role: started ? me.startRole : null, lover: null, canVote: true, conn: me.conn, seesAll: end,
+        alive: !me.waiting, waiting: !!me.waiting, role: started && !me.waiting ? me.startRole : null, lover: null, canVote: !me.waiting, conn: me.conn, seesAll: end,
         seen: [], wolves: [], isWolf: false, knownSelf: me.knownSelf, finalRole: end ? this.finalRole(me.card) : null,
         won: winners.includes(id), notes: me.notes || []
       },
@@ -514,7 +516,7 @@ class OneNightRoom extends Room {
       lastVote: end ? this.lastVote : null,
       center: started ? {
         label: 'Au centre',
-        cards: this.center.map((c, i) => (end || reveal ? c : me.knownCenter[i] || null)),
+        cards: this.center.map((c, i) => (end || reveal ? c : (me.knownCenter || {})[i] || null)),
         startCards: null
       } : null,
       step: this.stepView(me, end)

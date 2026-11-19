@@ -950,3 +950,7 @@ table.hist td.dim { color: var(--muted); }
 }
 .know-strip { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
 .know-strip .know { font-size: 13px; padding: 4px 10px 4px 5px; }
+.waitroom { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; padding: 10px 14px; border-radius: 16px; border: 1.5px dashed var(--border); }
+.waitroom .wr-k { display: inline-flex; align-items: center; gap: 6px; font-weight: 700; }
+.waitroom .wr-p { display: inline-flex; align-items: center; gap: 6px; padding: 3px 10px 3px 3px; border-radius: 999px; background: var(--surface2); font-size: 14px; font-weight: 600; }
+.waitroom .wr-note { font-size: 13px; color: var(--muted); }

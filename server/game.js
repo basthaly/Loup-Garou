@@ -118,13 +118,14 @@ class Room {
     this.phaseSteps = [];
     this.phaseCursor = -1;
     for (const p of this.players.values()) {
-      Object.assign(p, { alive: true, role: null, lover: null, seen: {}, idiotRevealed: false, ancienHit: false, canVote: true, death: null, infected: false, model: null, wildTurned: false, charmed: false, origRole: null, foxNotes: [] });
+      Object.assign(p, { waiting: false, alive: true, role: null, lover: null, seen: {}, idiotRevealed: false, ancienHit: false, canVote: true, death: null, infected: false, model: null, wildTurned: false, charmed: false, origRole: null, foxNotes: [] });
     }
   }
 
   // ---------- Joueurs ----------
+  // Pendant une partie, un nouveau venu entre dans le salon d'attente : il regarde sans jouer
+  // et rejoint la partie suivante.
   addPlayer(name) {
-    if (this.phase !== 'lobby') throw new Error('La partie a déjà commencé.');
     if (this.players.size >= MAX_PLAYERS + 1) throw new Error('Le salon est plein.');
     name = String(name || '').trim().slice(0, 20);
     if (!name) throw new Error('Choisis un pseudo.');
@@ -134,6 +135,7 @@ class Room {
       connected: true, alive: true, role: null, lover: null, seen: {}, idiotRevealed: false, ancienHit: false, canVote: true,
       death: null, cam: false, mic: false, conn: null
     };
+    if (this.phase !== 'lobby') Object.assign(p, { waiting: true, alive: false });
     this.players.set(p.id, p);
     this.order.push(p.id);
     if (!this.hostId) this.hostId = p.id;
@@ -142,7 +144,8 @@ class Room {
   }
 
   removePlayer(id) {
-    if (this.phase !== 'lobby') return;
+    const w = this.players.get(id);
+    if (this.phase !== 'lobby' && !(w && w.waiting)) return;
     this.players.delete(id);
     this.order = this.order.filter((x) => x !== id);
     if (this.settings.mjId === id) this.settings.mjId = null;
@@ -167,7 +170,8 @@ class Room {
     let changed = false;
     const host = this.players.get(this.hostId);
     if (!host || !host.connected || host.kicked) {
-      const next = this.order.map((id) => this.players.get(id)).find((p) => p && p.connected && !p.kicked);
+      const cands = this.order.map((id) => this.players.get(id)).filter((p) => p && p.connected && !p.kicked);
+      const next = cands.find((p) => !p.waiting) || cands[0]; // un joueur en attente ne mène pas la partie en cours
       if (next && next.id !== this.hostId) {
         this.hostId = next.id;
         this.addLog(`${next.name} devient l'hôte.`, true);
@@ -199,7 +203,7 @@ class Room {
   // Infos publiques d'un salon (écran « Rejoindre ») : qui est déconnecté, peut-on entrer ?
   publicInfo() {
     return {
-      code: this.code, game: this.game, phase: this.phase, canJoin: this.phase === 'lobby',
+      code: this.code, game: this.game, phase: this.phase, canJoin: this.players.size < MAX_PLAYERS + 1, inGame: this.phase !== 'lobby',
       players: this.order.map((id) => this.players.get(id)).filter((p) => p && !p.kicked)
         .map((p) => ({ id: p.id, name: p.name, connected: p.connected }))
     };
@@ -264,7 +268,7 @@ class Room {
 
   isMJ(id) { return this.settings.mjMode === 'joueur' && this.settings.mjId === id; }
   canControl(id) { return this.settings.mjMode === 'joueur' ? this.isMJ(id) : id === this.hostId; }
-  gamePlayers() { return this.order.map((id) => this.players.get(id)).filter((p) => p && !this.isMJ(p.id)); }
+  gamePlayers() { return this.order.map((id) => this.players.get(id)).filter((p) => p && !this.isMJ(p.id) && !p.waiting); }
   alive() { return this.gamePlayers().filter((p) => p.alive); }
   name(id) { const p = this.players.get(id); return p ? p.name : '?'; }
   hasRoleInGame(role) { return this.gamePlayers().some((p) => p.role === role); }
@@ -1125,7 +1129,7 @@ class Room {
         id: p.id, name: p.name, connected: p.connected, alive: p.alive, isMJ: this.isMJ(p.id),
         captain: this.captainId === p.id, idiotRevealed: p.idiotRevealed, cam: p.cam, mic: p.mic, conn: p.conn, kicked: !!p.kicked,
         death: p.death,
-        role, bot: !!p.bot,
+        role, bot: !!p.bot, waiting: !!p.waiting,
         charmed: seeCharm && p.charmed,
         infected: (omniscient || pid === id) && (p.infected || (p.role === 'enfant' && p.wildTurned)),
         // Cupidon voit le couple qu'il a formé.
@@ -1134,7 +1138,7 @@ class Room {
     });
     const view = {
       me: {
-        id, name: me.name, isHost: id === this.hostId, isMJ: this.isMJ(id), canControl: this.canControl(id),
+        id, name: me.name, isHost: id === this.hostId, isMJ: this.isMJ(id), canControl: this.canControl(id), waiting: !!me.waiting,
         alive: me.alive, role: me.role, lover: me.lover, canVote: me.canVote, conn: me.conn, seesAll: this.seesAll(me),
         seen: Object.entries(me.seen || {}).map(([t, r]) => ({ id: t, name: this.name(t), role: r })),
         wolves: meWolf ? this.gamePlayers().filter((p) => this.isWolf(p)).map((p) => p.id) : [],
