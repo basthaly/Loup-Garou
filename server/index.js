@@ -40,7 +40,14 @@ function loadCert() {
   return { key: fs.readFileSync(keyFile), cert: fs.readFileSync(certFile) };
 }
 
-app.use(express.static(path.join(__dirname, '..', 'public')));
+// Chaque démarrage = une nouvelle version : les navigateurs rechargent app.js et style.css
+// au lieu de garder l'ancienne version en cache après un ./update.sh.
+const BUILD = Date.now().toString(36);
+const PAGE = fs.readFileSync(path.join(__dirname, '..', 'public', 'index.html'), 'utf8')
+  .replace(/(src|href)="\/(app\.js|media\.js|ambience\.js|style\.css)"/g, `$1="/$2?v=${BUILD}"`);
+const sendPage = (req, res) => { res.set('Cache-Control', 'no-cache'); res.type('html').send(PAGE); };
+app.get(['/', '/index.html'], sendPage);
+app.use(express.static(path.join(__dirname, '..', 'public'), { index: false, setHeaders: (res) => res.set('Cache-Control', 'no-cache') }));
 // Page de test cachée (aucun lien) : choisir son rôle et jouer avec des faux joueurs. TEST_PAGE=0 la désactive.
 app.get('/audio', (req, res) => {
   if (process.env.TEST_PAGE === '0') return res.status(404).end();
@@ -48,12 +55,12 @@ app.get('/audio', (req, res) => {
 });
 app.get('/test', (req, res) => {
   if (process.env.TEST_PAGE === '0') return res.status(404).end();
-  res.sendFile(path.join(__dirname, '..', 'public', 'index.html'));
+  sendPage(req, res);
 });
 app.use('/vendor', express.static(path.join(__dirname, '..', 'node_modules', 'livekit-client', 'dist')));
 app.get('/api/roles', (req, res) => res.json({ roles: Object.assign({}, ROLES, ON.ROLES), rules: RULES, rulesByGame: { thiercelieux: RULES, onenight: ON.RULES }, extensions: Object.assign({}, EXTENSIONS, { onenight: 'Loup-Garou pour une nuit' }), iceServers: ICE_SERVERS, video: LK.enabled ? 'livekit' : 'mesh' }));
 const connectedCount = () => [...rooms.values()].reduce((n, r) => n + [...r.players.values()].filter((p) => p.connected).length, 0);
-app.get('/health', (req, res) => res.json({ ok: true, rooms: rooms.size, players: connectedCount() }));
+app.get('/health', (req, res) => res.json({ ok: true, build: BUILD, rooms: rooms.size, players: connectedCount() }));
 
 // Qui est connecté ? Réservé au serveur lui-même (deploy/who.sh) : jamais via Internet.
 app.get('/admin/who', (req, res) => {
