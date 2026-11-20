@@ -78,12 +78,30 @@
   // utilisent la même image. Pour changer une illustration, il suffit de remplacer le fichier.
   const CARD_ALIAS = { n_loup: 'loup', n_voyante: 'voyante', n_voleur: 'voleur', n_villageois: 'villageois', n_chasseur: 'chasseur' };
   const CARD_FILE = {}; // ex. { loup: 'loup.png' } si une image n'est pas en .webp (format 2:3, 600 × 900)
-  const cardSrc = (role) => {
+  // Cartes : miniature 220 × 330 (≈ 10 Ko) partout, image complète seulement pour la grande carte de la révélation.
+  // ?v= : la version du site, pour que le navigateur les garde en cache jusqu'à la prochaine mise à jour.
+  const ASSET_V = (document.querySelector('meta[name="asset-v"]') || {}).content || 'dev';
+  const BIG_CARD = /\brv-(face|back)\b/;
+  const cardSrc = (role, big) => {
     if (!role) return '/img/carte-dos.svg';
     const k = CARD_ALIAS[role] || role;
-    return `/cards/${CARD_FILE[k] || k + '.webp'}`;
+    return `/cards/${big ? '' : 's/'}${CARD_FILE[k] || k + '.webp'}?v=${ASSET_V}`;
   };
-  const cardImg = (role, cls = '', alt = '') => `<img class="card-img ${cls}" src="${cardSrc(role)}" alt="${alt ? esc(alt) : ''}" draggable="false">`;
+  // Chargement différé seulement dans les panneaux (aide, rôles, récit) : les cartes à l'écran s'affichent tout de suite.
+  const LAZY_CARD = /\b(help-art|deck-art|role-art|rt-card|hist-card|rc-bigart|rc-stepart)\b/;
+  const cardImg = (role, cls = '', alt = '') => {
+    const big = BIG_CARD.test(cls);
+    // Miniature absente (carte ajoutée sans sa miniature) : on retombe sur l'image complète.
+    return `<img class="card-img ${cls}" src="${cardSrc(role, big)}" alt="${alt ? esc(alt) : ''}" draggable="false"${LAZY_CARD.test(cls) ? ' loading="lazy" decoding="async"' : ''}${big ? '' : ' onerror="this.onerror=null;this.src=this.src.replace(\'/cards/s/\',\'/cards/\')"'}>`;
+  };
+  // Précharge les cartes de la partie (miniatures) et la grande carte de son rôle, avant qu'on en ait besoin.
+  const warmed = new Set();
+  function warmCards() {
+    if (!view) return;
+    const want = Object.keys(view.compo || {}).map((r) => cardSrc(r));
+    if (view.me && view.me.role) want.push(cardSrc(view.me.role, true));
+    for (const u of want) if (!warmed.has(u)) { warmed.add(u); const im = new Image(); im.decoding = 'async'; im.src = u; }
+  }
   const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
   // ---------- Connexion ----------
@@ -158,7 +176,15 @@
     view = v;
     Media.update(v);
     if (v) notify(prev, v);
-    render();
+    scheduleRender();
+  }
+  // Plusieurs mises à jour d'affilée (votes, faux joueurs) : un seul rendu par image affichée.
+  let renderQueued = false;
+  function scheduleRender() {
+    if (renderQueued) return;
+    renderQueued = true;
+    const run = () => { renderQueued = false; render(); };
+    if (document.hidden) setTimeout(run, 0); else requestAnimationFrame(run);
   }
   function stepKey(st) { return st ? `${st.type}:${st.round}:${st.deadline}` : null; }
   function send(ev, data, ok) {
@@ -257,6 +283,7 @@
   let resizeT = null;
   window.addEventListener('resize', () => { clearTimeout(resizeT); resizeT = setTimeout(layoutGrid, 120); });
   function render() {
+    warmCards();
     if (!ROLES) return;
     const ae = document.activeElement;
     if (ae && (ae.tagName === 'SELECT' || ae.type === 'range') && $app.contains(ae)) { pendingRender = true; return; }

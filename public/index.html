@@ -6,8 +6,9 @@
   <meta name="theme-color" content="#1B1F3A">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <title>Loup-Garou</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="preload" href="/fonts/inter.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="/fonts/cormorant-700.woff2" as="font" type="font/woff2" crossorigin>
+  <meta name="asset-v" content="dev">
   <link rel="icon" href="/favicon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="/style.css">
 </head>
@@ -16,7 +17,7 @@
   <div id="toast" role="alert" aria-live="assertive"></div>
   <div id="alert" class="alert" role="status" aria-live="polite"></div>
   <div id="media-pool" hidden></div>
-  <script src="/socket.io/socket.io.js"></script>
+  <script src="/socket.io/socket.io.min.js"></script>
   <script src="/media.js"></script>
   <script src="/ambience.js"></script>
   <script src="/app.js"></script>

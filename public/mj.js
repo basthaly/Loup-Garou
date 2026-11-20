@@ -34,14 +34,15 @@
     revive: '<path d="M12 21s-7-4.5-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 11c0 5.5-7 10-7 10z"/><path d="M12 9v5M9.5 11.5h5"/>'
   };
   const icon = (k, s = 18) => `<svg class="ic" width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICON[k] || ''}</svg>`;
-  const card = (role, cls = 'mj-card') => `<img class="${cls}" src="${role ? `/cards/${role}.webp` : '/img/carte-dos.svg'}" alt="">`;
+  const ASSET_V = (document.querySelector('meta[name="asset-v"]') || {}).content || 'dev';
+  const card = (role, cls = 'mj-card') => `<img class="${cls}" src="${role ? `/cards/s/${role}.webp?v=${ASSET_V}` : '/img/carte-dos.svg'}" alt="" decoding="async" loading="lazy" onerror="this.onerror=null;this.src=this.src.replace('/cards/s/','/cards/')">`;
   const rn = (role) => (R[role] && R[role].name) || role || '?';
   const team = (role) => (R[role] && R[role].team) || 'village';
   const shuffle = (a) => { a = a.slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
   const COLORS = ['#E8A75D', '#8DB4F0', '#C7A6E8', '#7FC8A9', '#F08A6C', '#E8C25D', '#F7A2AE', '#9CC0F0', '#B7D98A', '#F2B4E0', '#7FD1C8', '#D9A3F0'];
   const P = (id) => S.players.find((p) => p.id === id);
   const name = (id) => (P(id) || {}).name || '?';
-  const avatar = (p, s = 28) => S.nameless && p.baseRole ? `<span class="mj-av card" style="width:${s}px;height:${s}px"><img src="/cards/${p.baseRole}.webp" alt=""></span>` : `<span class="mj-av" style="width:${s}px;height:${s}px;font-size:${Math.round(s * 0.42)}px;background:${COLORS[S.players.indexOf(p) % COLORS.length]}">${esc(p.name[0] || '?')}</span>`;
+  const avatar = (p, s = 28) => S.nameless && p.baseRole ? `<span class="mj-av card" style="width:${s}px;height:${s}px"><img src="/cards/s/${p.baseRole}.webp?v=${ASSET_V}" alt="" decoding="async"></span>` : `<span class="mj-av" style="width:${s}px;height:${s}px;font-size:${Math.round(s * 0.42)}px;background:${COLORS[S.players.indexOf(p) % COLORS.length]}">${esc(p.name[0] || '?')}</span>`;
   function toast(m) { $toast.textContent = m; $toast.classList.add('show', 'info'); clearTimeout(toast.t); toast.t = setTimeout(() => $toast.classList.remove('show'), 3500); }
 
   const WOLF_ROLES = ['loup', 'grandloup', 'infect', 'loupblanc'];

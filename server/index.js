@@ -19,7 +19,8 @@ const HOST = process.env.HOST || '0.0.0.0';
 const USE_HTTPS = process.env.HTTPS === '1';
 const app = express();
 const server = USE_HTTPS ? https.createServer(loadCert(), app) : http.createServer(app);
-const io = new Server(server);
+// Messages compressés au-delà de 2 Ko (l'état de la partie envoyé à chaque joueur).
+const io = new Server(server, { perMessageDeflate: { threshold: 2048 } });
 
 // Serveurs STUN/TURN transmis aux navigateurs (ICE_SERVERS = JSON pour ajouter un TURN).
 let ICE_SERVERS = [{ urls: 'stun:stun.l.google.com:19302' }];
@@ -45,14 +46,25 @@ function loadCert() {
 // au lieu de garder l'ancienne version en cache après un ./update.sh.
 const BUILD = Date.now().toString(36);
 const PAGE = fs.readFileSync(path.join(__dirname, '..', 'public', 'index.html'), 'utf8')
-  .replace(/(src|href)="\/(app\.js|media\.js|ambience\.js|style\.css)"/g, `$1="/$2?v=${BUILD}"`);
+  .replace(/(src|href)="\/(app\.js|media\.js|ambience\.js|style\.css)"/g, `$1="/$2?v=${BUILD}"`)
+  .replace('<meta name="asset-v" content="dev">', `<meta name="asset-v" content="${BUILD}">`);
 const sendPage = (req, res) => { res.set('Cache-Control', 'no-cache'); res.type('html').send(PAGE); };
 app.get(['/', '/index.html'], sendPage);
 // Page cachée « MJ » : l'assistant du meneur pour une vraie partie autour d'une table.
 const MJ_PAGE = fs.readFileSync(path.join(__dirname, '..', 'public', 'mj.html'), 'utf8')
-  .replace(/(src|href)="\/(mj\.js|mj\.css|style\.css)"/g, `$1="/$2?v=${BUILD}"`);
+  .replace(/(src|href)="\/(mj\.js|mj\.css|style\.css)"/g, `$1="/$2?v=${BUILD}"`)
+  .replace('<meta name="asset-v" content="dev">', `<meta name="asset-v" content="${BUILD}">`);
 app.get(['/mj', '/mj.html'], (req, res) => { res.set('Cache-Control', 'no-cache'); res.type('html').send(MJ_PAGE); });
-app.use(express.static(path.join(__dirname, '..', 'public'), { index: false, setHeaders: (res) => res.set('Cache-Control', 'no-cache') }));
+// Cache : un fichier demandé avec ?v=<version> ne change jamais (la version change à chaque mise à jour) :
+// le navigateur le garde un an. Polices et images sans version : un jour. Le reste : revalidé à chaque fois.
+app.use((req, res, next) => { if (req.query.v) res.set('Cache-Control', 'public, max-age=31536000, immutable'); next(); });
+app.use(express.static(path.join(__dirname, '..', 'public'), {
+  index: false,
+  setHeaders: (res, file) => {
+    if (res.get('Cache-Control')) return;
+    res.set('Cache-Control', /[\\/](fonts|img|cards)[\\/]/.test(file) ? 'public, max-age=86400' : 'no-cache');
+  }
+}));
 // Page de test cachée (aucun lien) : choisir son rôle et jouer avec des faux joueurs. TEST_PAGE=0 la désactive.
 app.get('/audio', (req, res) => {
   if (process.env.TEST_PAGE === '0') return res.status(404).end();

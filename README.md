@@ -437,7 +437,7 @@ Pour désactiver `/test` et `/audio` sur un serveur : variable d'environnement `
 | `server/index.js` | Serveur web et Socket.IO |
 | `server/livekit.js` | Jetons et permissions du serveur vidéo |
 | `public/app.js` | Interface |
-| `public/cards/` | Illustrations des cartes, un fichier par rôle (`loup.webp`, `sorciere.webp`, `n_tanneur.webp`…) : remplacer un fichier suffit pour changer une carte |
+| `public/cards (et public/cards/s : miniatures 220 × 330, utilisées partout sauf la grande carte de la révélation)/` | Illustrations des cartes, un fichier par rôle (`loup.webp`, `sorciere.webp`, `n_tanneur.webp`…) : remplacer un fichier suffit pour changer une carte |
 | `public/img/` | Décors du village (nuit, jour), dos de carte, potions |
 | `public/media.js` | Micro et caméra (LiveKit ou maillage direct) |
 | `Dockerfile`, `docker-compose.yml` | Le site seul dans Docker (PC ou serveur) |
