@@ -303,7 +303,7 @@ Toujours depuis le dossier `Loup-Garou/deploy` (après `ssh` puis `sudo -i`, tap
 | --- | --- |
 | Vérifier que tout tourne | `./status.sh` |
 | Voir les salons et les joueurs connectés | `./who.sh` (en continu : `watch -n 5 ./who.sh`) |
-| Mettre à jour vers la dernière version | `./update.sh` |
+| Mettre à jour vers la dernière version (les salons sont gardés : les joueurs se reconnectent seuls, une partie en cours revient au salon) | `./update.sh` |
 | Revenir à une ancienne version | `./rollback.sh` (liste les versions et demande laquelle ; ou `./rollback.sh "15/11 21:30"` pour celle en ligne à ce moment-là, ou `./rollback.sh 3`) |
 | Voir ce qui se passe (journaux) | `docker compose logs -f app` (quitter avec `Ctrl + C`) |
 | Redémarrer | `docker compose restart` |

@@ -13,6 +13,9 @@ services:
       MIN_PLAYERS: "3"
     volumes:
       - certs:/app/certs
+      # Salons gardés pendant une mise à jour : les joueurs se reconnectent tout seuls.
+      - data:/app/data
 
 volumes:
   certs: {}
+  data: {}

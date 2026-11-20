@@ -1125,3 +1125,4 @@ table.hist td.hit span { display: inline-flex; align-items: center; gap: 4px; pa
   .band button.stop { min-height: 34px; padding: 4px 9px; }
   .band .ph-title { font-size: 24px; }
 }
+#toast.info { background: #2D4E9A; color: #fff; }

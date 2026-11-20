@@ -12,6 +12,9 @@ services:
       LIVEKIT_HOST: http://127.0.0.1:7880
       LIVEKIT_API_KEY: ${LIVEKIT_API_KEY}
       LIVEKIT_API_SECRET: ${LIVEKIT_API_SECRET}
+    volumes:
+      # Salons gardés pendant une mise à jour : les joueurs se reconnectent tout seuls.
+      - app_data:/app/data
 
   livekit:
     # Version figée : testée avec livekit-client 2.9.9 (voir package.json). Mettre à jour les deux ensemble.
@@ -34,5 +37,6 @@ services:
       - caddy_config:/config
 
 volumes:
+  app_data: {}
   caddy_data: {}
   caddy_config: {}

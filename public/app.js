@@ -126,16 +126,19 @@
     render();
   });
 
+  // Coupure courte (mise à jour du site, réseau qui hoquette) : on ne dérange personne si ça revient vite.
+  let lostTimer = null;
   socket.on('connect', () => {
+    clearTimeout(lostTimer);
     const s = saved();
-    if (s) socket.emit('resume', s, (r) => { if (!r.ok) { sessionStorage.removeItem('lg'); setView(null); toast(r.error); } });
+    if (s) socket.emit('resume', s, (r) => { if (!r.ok) { sessionStorage.removeItem('lg'); setView(null); toast(r.error); } else if (r.notice) toast(r.notice, true); });
     else {
       render();
       if (home.step === 'join' && home.code && !home.info) lookup(home.code);
     }
   });
   socket.on('kicked', () => { forget(); home = { step: homeStart(), code: '', info: null }; setView(null); toast("Tu as été exclu de la partie par l'hôte."); });
-  socket.on('disconnect', () => toast('Connexion perdue… reconnexion en cours'));
+  socket.on('disconnect', () => { clearTimeout(lostTimer); lostTimer = setTimeout(() => toast('Connexion perdue… reconnexion en cours'), 4000); });
   socket.on('state', (v) => {
     if (!v) return;
     offset = v.room.serverNow - Date.now();
@@ -162,11 +165,12 @@
     socket.emit(ev, data || {}, (r) => { if (!r || !r.ok) toast((r && r.error) || 'Erreur'); else if (ok) ok(r); });
   }
   let toastT;
-  function toast(msg) {
+  function toast(msg, info) {
     $toast.textContent = msg;
+    $toast.classList.toggle('info', !!info);
     $toast.classList.add('show');
     clearTimeout(toastT);
-    toastT = setTimeout(() => $toast.classList.remove('show'), 3500);
+    toastT = setTimeout(() => $toast.classList.remove('show'), info ? 6000 : 3500);
   }
 
   // ---------- Helpers ----------

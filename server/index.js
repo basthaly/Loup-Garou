@@ -12,6 +12,7 @@ const ON = require('./onenight');
 const Bots = require('./bots');
 const { ROLES: TH_ROLES } = require('./roles');
 const LK = require('./livekit');
+const Persist = require('./persist');
 
 const PORT = parseInt(process.env.PORT || '3000', 10);
 const HOST = process.env.HOST || '0.0.0.0';
@@ -240,7 +241,10 @@ io.on('connection', (socket) => {
     const p = room.byToken(token);
     if (!p || p.kicked) throw new Error('Session expirée.');
     attach(socket, room, p);
-    return { code: room.code };
+    // Après une mise à jour du site : un mot discret, une seule fois par joueur.
+    const notice = room.notice && !(room.noticed || (room.noticed = new Set())).has(p.id) ? room.notice : null;
+    if (notice) room.noticed.add(p.id);
+    return { code: room.code, notice };
   }));
 
   socket.on('leave', handle(() => {
@@ -324,6 +328,18 @@ setInterval(() => {
 }, 15 * 60 * 1000).unref();
 
 if (require.main === module) {
+  // Salons enregistrés avant la dernière mise à jour : recréés, les joueurs se reconnectent seuls.
+  const restored = Persist.restore(rooms, (game, code) => (game === 'onenight' ? new ON.OneNightRoom(code, broadcast) : new Room(code, broadcast)));
+  if (restored) console.log(`  ${restored} salon(s) recréé(s) après la mise à jour`);
+  let stopping = false;
+  const stop = (sig) => {
+    if (stopping) return;
+    stopping = true;
+    try { const n = Persist.save(rooms); if (n) console.log(`${sig} : ${n} salon(s) enregistré(s) pour le redémarrage`); } catch (e) { console.error('Sauvegarde des salons impossible :', e.message); }
+    process.exit(0);
+  };
+  process.on('SIGTERM', () => stop('SIGTERM'));
+  process.on('SIGINT', () => stop('SIGINT'));
   server.listen(PORT, HOST, () => {
     const proto = USE_HTTPS ? 'https' : 'http';
     console.log(`Loup-Garou : ${proto}://localhost:${PORT}`);
