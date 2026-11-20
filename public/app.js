@@ -802,6 +802,10 @@
   // La consigne du haut ne répète pas le bandeau du bas : on n'y garde que ce qu'il ne dit pas
   // (résultats détaillés, classement des voix, potions, cartes, précisions).
   function promptHTML() {
+    // Toutes les infos sont dans le bandeau du bas : le centre de l'écran reste aux joueurs.
+    // Exceptions : ce qui se manipule (étagère de la Sorcière, vote de la composition).
+    const st0 = view.step;
+    if (!st0 || st0.resolved || !st0.isActor || st0.submitted || !['sorciere', 'compoVote'].includes(st0.type)) return '';
     let h = promptCore();
     const st = view.step, r = view.room;
     if (!h || !st || r.phase === 'end' || r.phase === 'lobby' || st.type === 'roles_reveal') return h;
@@ -1185,6 +1189,41 @@
     </div>${L.error ? `<div class="dock-error">${esc(L.error)}</div>` : ''}</nav>`;
   }
 
+  // Consigne utile de l'étape (texte simple), affichée dans le bandeau orange quand c'est à toi.
+  function stepHint(st) {
+    const names = (ids) => ids && ids.length ? ids.map(rawName).join(', ') : '';
+    if (isON()) {
+      let h = '';
+      if (st.type === 'n_voyante') h = 'Touche un joueur, ou deux cartes du centre';
+      if (st.type === 'n_soulard') h = 'Touche une carte du centre : elle devient la tienne, sans la voir';
+      if (st.type === 'n_loups') h = st.lone ? 'Tu es le seul loup : touche une carte du centre, ou passe' : st.mates && st.mates.length ? `Ta meute : ${names(st.mates)}` : '';
+      if (st.type === 'n_sbire') h = st.wolves && st.wolves.length ? `Les loups : ${names(st.wolves)}` : 'Aucun loup parmi les joueurs';
+      if (st.type === 'n_macons') h = st.mates && st.mates.length ? `L'autre Franc-Maçon : ${names(st.mates)}` : "Tu es seul : l'autre carte est au centre";
+      if (st.type === 'n_noiseuse') h = 'Touche deux joueurs pour échanger leurs cartes, ou passe';
+      if (st.type === 'n_voleur') h = 'Touche un joueur pour échanger ta carte avec la sienne, ou passe';
+      return st.doppel && h ? `Doppelgänger · ${h}` : h;
+    }
+    switch (st.type) {
+      case 'voleur': return st.mustTake ? 'Deux loups : tu dois en prendre un' : '';
+      case 'infect': return st.victim ? `Victime : ${rawName(st.victim)} · une seule fois par partie` : '';
+      case 'grandloup': return st.victim ? `Victime de la meute : ${rawName(st.victim)} · touche une deuxième victime` : '';
+      case 'loupblanc': return 'Touche un loup, ou passe';
+      case 'renard': return 'Il flaire ce joueur et ses deux voisins';
+      default: return '';
+    }
+  }
+  // Résultat d'une étape (y compris ce que toi seul as appris), en texte simple.
+  function resultText(st) {
+    const res = st.result;
+    if (!res) return '';
+    if (st.type === 'voyante' && res.seen) return `Vision : ${rawName(res.seen.id)} est ${roleName(res.seen.role)}`;
+    if (st.type === 'renard' && res.fox) return `Flair : ${res.fox.hasWolf ? 'il y a un loup parmi' : 'aucun loup parmi'} ${res.fox.ids.map(rawName).join(', ')}${res.fox.hasWolf ? '' : ' · tu perds ton flair'}`;
+    if (st.type === 'voleur' && 'took' in res) return res.took ? `Tu es maintenant ${roleName(res.took)}` : 'Tu gardes ta carte';
+    if (st.type === 'loups' && 'victim' in res) return res.victim ? `Victime : ${rawName(res.victim)}` : 'Aucune victime';
+    if (st.type === 'compoVote' && res.compo) return `Composition retenue : ${Object.entries(res.compo).map(([k, n]) => `${n} ${roleName(k)}`).join(', ')}`;
+    return res.text || '';
+  }
+
   // Bandeau d'événement, au-dessus des commandes : orange quand c'est à toi, bleu pour ce qui se passe.
   const STEP_ICON = {
     voyante: 'eye', n_voyante: 'eye', loups: 'wolf', n_loups: 'wolf', grandloup: 'wolf', loupblanc: 'wolf', infect: 'wolf', n_sbire: 'wolf',
@@ -1226,7 +1265,7 @@
     } else if (!st.resolved && st.isActor && (!st.submitted || st.type === 'loups') && st.type !== 'roles_reveal') {
       kind = 'mine';
       title = st.type === 'vote' && !isON() ? 'À toi · Vote — 10 secondes' : `À toi · ${STEP_LABEL[st.type] || 'ton tour'}`;
-      sub = st.type === 'vote' && st.lean ? `Ton intention (${rawName(st.lean)}) est pré-sélectionnée : confirme ou change` : QUESTION[st.type] || 'À toi de jouer';
+      sub = st.type === 'vote' && st.lean ? `Ton intention (${rawName(st.lean)}) est pré-sélectionnée : confirme ou change` : stepHint(st) || QUESTION[st.type] || 'À toi de jouer';
       if (st.type === 'vote' && isON()) sub += ' · éliminé dès 2 voix';
       if (st.type === 'vote' && r.captainId) sub += ` · ${rawName(r.captainId)} compte double`;
       if (st.type === 'loups' && st.live) {
@@ -1234,15 +1273,16 @@
         sub = st.agreed ? `La meute est d'accord : ${rawName(st.agreed)}` : n > 1 ? `${agree} / ${n} loups d'accord · touchez la même victime` : 'Touche ta victime';
       }
       if (st.deadline) right = `<span class="ev-time" data-deadline="${st.deadline}">${fmt(st.deadline - Date.now() - offset)}</span>`;
-    } else if (st.resolved && st.result && st.result.text) {
+    } else if (st.resolved && resultText(st)) {
       kind = 'result';
-      title = st.result.text;
+      title = resultText(st);
       sub = st.nextAt ? 'La suite arrive…' : r.waitingMJ ? 'En attente du MJ' : '';
       if (st.nextAt) right = `<span class="ev-next">Suite dans <span data-deadline="${st.nextAt}"></span></span>`;
     } else {
       const night = !DAY_STEPS.includes(st.type) && !['roles_reveal', 'compoVote'].includes(st.type);
       title = st.narration || STEP_LABEL[st.type] || '';
-      if (st.isActor && st.submitted) sub = 'C\'est fait. En attente des autres…';
+      if (me.isMJ && !st.isActor && st.actors) sub = `En attente : ${st.actors.filter((a) => !st.done.includes(a)).map(rawName).join(', ') || '—'}`;
+      else if (st.isActor && st.submitted) sub = 'C\'est fait. En attente des autres…';
       else if (!me.alive && !me.isMJ) sub = 'Tu regardes la partie en spectateur.';
       else if (night && !st.isActor) sub = view.anarchy && isON() ? 'Le village dort. Anarchie : ce rôle n\'est peut-être pas en jeu.' : 'Le village dort. Garde les yeux fermés.';
       else if (st.actorsCount != null) sub = `${st.done.length} / ${st.actorsCount} ${night ? 'ont agi' : st.type === 'roles_reveal' ? 'prêts' : 'ont voté'}`;
