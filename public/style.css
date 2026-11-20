@@ -968,17 +968,95 @@ table.hist td.dim { color: var(--muted); }
 .night-recap .recap-label { border: 0; padding-left: 0; display: inline-flex; align-items: center; gap: 4px; color: var(--muted); font-weight: 600; }
 .night-recap li.done { opacity: 1; }
 .recap-btn { margin-top: 10px; width: auto; display: inline-flex; }
-.recap h4 { margin: 16px 0 6px; font-size: 14px; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
-.rc-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
-.rc-list li { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 14px; }
-.rc-list li.rc-moved { background: var(--surface2); border-radius: 10px; padding: 4px 8px; margin: 0 -8px; }
-.rc-center { color: var(--muted); }
-.rc-card { display: inline-flex; align-items: center; gap: 5px; font-weight: 600; }
-.rc-card.was { opacity: .55; text-decoration: line-through; }
-.rc-art { width: 18px; height: 27px; object-fit: contain; }
-.rc-arrow { color: var(--muted); }
-.rc-night { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 10px; }
-.rc-night li { border-left: 2px solid var(--band-line, rgba(255,255,255,.15)); padding-left: 10px; }
-.rc-step { display: block; font-weight: 700; font-size: 13px; margin-bottom: 2px; }
-.rc-night p { margin: 2px 0; font-size: 14px; line-height: 1.4; }
-.rc-win { font-weight: 700; margin-top: 10px; }
+
+/* ---------- Panneaux au centre de l'écran (journal, votes, réglages, aide) ---------- */
+.drawer-body { display: flex; flex-direction: column; gap: 22px; }
+.drawer-head h2 { flex: 1; min-width: 0; line-height: 1.2; }
+.drawer-head { gap: 16px; }
+.tabs { display: flex; gap: 4px; padding: 4px; border-radius: 14px; background: var(--surface2); border: 1px solid var(--border); flex: none; }
+.tabs button { min-height: 38px; padding: 6px 16px; border-radius: 10px; border: 0; background: transparent; color: var(--muted); font-weight: 600; font-size: 15px; box-shadow: none; }
+.tabs button.on { background: var(--text); color: var(--zone); font-weight: 700; box-shadow: 0 1px 3px rgba(0,0,0,.25); }
+@media (min-width: 701px) {
+  .drawer, .drawer.sheet { top: 50%; left: 50%; right: auto; bottom: auto; width: min(640px, calc(100vw - 48px)); max-height: calc(100dvh - 48px); border: 1px solid var(--border); border-radius: 24px;
+    transform: translate(-50%, -48%) scale(.98); opacity: 0; box-shadow: 0 30px 80px rgba(0,0,0,.45); padding-bottom: 24px; }
+  .drawer.wide { width: min(1120px, calc(100vw - 48px)); height: min(840px, calc(100dvh - 48px)); }
+  .drawer.open, .drawer.sheet.open { transform: translate(-50%, -50%); opacity: 1; }
+  .drawer.open.slide { animation: popin .25s cubic-bezier(.2,.8,.2,1); }
+  .drawer-head { border-radius: 24px 24px 0 0; padding-top: 18px; padding-bottom: 14px; }
+  .scrim { background: rgba(6,8,16,.55); -webkit-backdrop-filter: blur(3px); backdrop-filter: blur(3px); }
+}
+@keyframes popin { from { opacity: 0; transform: translate(-50%, -48%) scale(.98); } to { opacity: 1; transform: translate(-50%, -50%); } }
+@media (max-width: 700px) { .drawer-head { flex-wrap: wrap; } .drawer-head .tabs { order: 3; width: 100%; } .tabs button { flex: 1; padding: 6px 8px; font-size: 14px; } }
+@media (prefers-reduced-motion: reduce) { .drawer.open.slide { animation: fade .2s ease; } }
+
+/* Récit Thiercelieux */
+.recit { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 28px; align-items: start; }
+.rt-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 18px; }
+.rt-ch h4 { display: flex; align-items: center; gap: 10px; margin: 0 0 4px; font-size: 16px; }
+.rt-dot { width: 28px; height: 28px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; background: #A9B8F0; color: #141826; flex: none; }
+.rt-ch.day .rt-dot { background: var(--accent); color: #1A1408; }
+.rt-ch ul { list-style: none; margin: 0 0 0 13px; padding: 0 0 0 23px; border-left: 2px solid var(--border); display: flex; flex-direction: column; }
+.rt-ch ul li { display: flex; align-items: flex-start; gap: 12px; padding: 6px 0; font-size: 15px; line-height: 1.45; }
+.rt-card { width: 24px; height: 36px; object-fit: contain; flex: none; filter: drop-shadow(0 2px 5px rgba(0,0,0,.4)); }
+.rt-ic { width: 26px; height: 26px; border-radius: 8px; display: inline-flex; align-items: center; justify-content: center; background: var(--surface2); color: var(--muted); flex: none; }
+.rt-out { margin: 8px 0 0 38px; padding: 8px 12px; border-radius: 10px; background: var(--surface2); font-size: 14.5px; font-weight: 600; }
+.rt-aside { position: sticky; top: 76px; padding: 16px; border-radius: 18px; background: var(--surface2); border: 1px solid var(--border); }
+.rt-aside h3 { margin: 0 0 8px; color: var(--text); }
+.rt-aside ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
+.rt-aside li { display: flex; align-items: center; gap: 10px; padding: 7px 8px; border-radius: 12px; }
+.rt-aside li.alive { background: color-mix(in srgb, var(--accent) 12%, transparent); }
+.rt-aside li:not(.alive) .rt-who b { color: var(--muted); }
+.rt-who { flex: 1; min-width: 0; display: flex; flex-direction: column; line-height: 1.25; }
+.rt-who small { font-size: 12.5px; color: var(--muted); }
+.rt-role { font-size: 13px; width: 96px; }
+@media (max-width: 900px) { .recit { grid-template-columns: 1fr; } .rt-aside { position: static; order: -1; } }
+
+/* Récit Une nuit */
+.recap { display: flex; flex-direction: column; gap: 8px; }
+.rc-h { display: flex; align-items: baseline; gap: 10px; margin: 6px 0 8px; font-size: 15px; color: var(--text) !important; }
+.rc-h small { font-weight: 500; font-size: 13px; color: var(--muted); }
+.rc-num { width: 24px; height: 24px; border-radius: 50%; background: var(--accent); color: #1A1408; font: 800 13px/24px Inter, system-ui, sans-serif; text-align: center; flex: none; align-self: center; }
+.rc-flow { list-style: none; margin: 0 0 14px; padding: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(84px, 1fr)); gap: 8px; align-items: stretch; }
+@media (max-width: 700px) { .rc-flow { grid-template-columns: repeat(auto-fill, minmax(76px, 1fr)); gap: 6px; } .rc-bigart { width: 40px; height: 60px; } .rc-h small { display: none; } }
+.rc-col { min-width: 0; display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 12px 6px; border-radius: 16px; border: 1px solid var(--border); background: var(--surface2); text-align: center; }
+.rc-col.moved { border-color: color-mix(in srgb, var(--accent) 55%, transparent); background: color-mix(in srgb, var(--accent) 10%, var(--surface2)); }
+.rc-head { display: flex; align-items: center; gap: 6px; font-weight: 700; font-size: 14px; white-space: nowrap; }
+.rc-big { display: flex; flex-direction: column; align-items: center; gap: 3px; }
+.rc-big small { font-size: 12px; font-weight: 700; }
+.rc-big.was { opacity: .5; }
+.rc-bigart { width: 52px; height: 78px; object-fit: contain; filter: drop-shadow(0 4px 10px rgba(0,0,0,.4)); }
+.rc-swap { color: var(--accent); display: inline-flex; }
+.rc-same { font-size: 12px; color: var(--muted); padding-top: 6px; }
+.rc-sep { display: none; }
+.rc-col.center { border-style: dashed; }
+.rc-cols { display: grid; grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr); gap: 24px; align-items: start; }
+.rc-steps { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.rc-stepcard { display: flex; gap: 10px; align-items: flex-start; padding: 10px 12px; border-radius: 14px; background: var(--surface2); }
+.rc-stepcard > span:last-child { display: flex; flex-direction: column; font-size: 14px; line-height: 1.45; }
+.rc-n { font-weight: 800; font-size: 13px; color: var(--muted); width: 14px; flex: none; margin-top: 3px; }
+.rc-stepart { width: 30px; height: 45px; object-fit: contain; flex: none; }
+.rc-votes { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
+.rc-vote { display: inline-flex; align-items: center; gap: 5px; padding: 4px 10px 4px 4px; border-radius: 99px; background: var(--surface2); font-size: 14px; }
+.rc-vote.hit { background: color-mix(in srgb, var(--accent) 18%, transparent); }
+.rc-out { margin: 0; padding: 12px 14px; border-radius: 14px; background: color-mix(in srgb, var(--accent) 12%, transparent); border: 1px solid color-mix(in srgb, var(--accent) 40%, transparent); font-size: 15px; line-height: 1.5; }
+@media (max-width: 900px) { .rc-cols, .rc-steps { grid-template-columns: 1fr; } }
+
+/* Historique des votes, en grand */
+table.hist { font-size: 14.5px; }
+table.hist th, table.hist td { padding: 8px 10px; }
+table.hist thead th small { max-width: 220px; font-size: 13px; }
+table.hist tbody th.dead { text-decoration: none; }
+table.hist tbody th.dead > :not(.hist-role):not(.hist-card) { opacity: .7; }
+table.hist td.hit span { display: inline-flex; align-items: center; gap: 4px; padding: 2px 10px 2px 3px; border-radius: 99px; background: color-mix(in srgb, var(--accent) 18%, transparent); }
+.hist-card { width: 16px; height: 24px; object-fit: contain; }
+
+/* Cartes en jeu, en petit dans l'en-tête */
+.band button.card-strip { display: inline-flex; align-items: center; gap: 10px; min-height: 40px; padding: 5px 12px 5px 10px; border-radius: 14px; background: var(--step-done); border: 1px solid var(--band-line); color: var(--band-sub); font-size: 12px; font-weight: 600; box-shadow: none; flex: none; }
+.card-strip .cs-cards { display: flex; gap: 9px; align-items: center; }
+.cs-card { position: relative; display: inline-flex; }
+.cs-art { width: 22px; height: 33px; object-fit: contain; filter: drop-shadow(0 2px 4px rgba(0,0,0,.35)); }
+.cs-card b { position: absolute; right: -6px; bottom: -4px; min-width: 16px; height: 16px; padding: 0 3px; box-sizing: border-box; border-radius: 99px; background: var(--accent); color: var(--accent-text); font: 800 10px/16px Inter, system-ui, sans-serif; text-align: center; }
+@media (max-width: 1100px) { .card-strip .cs-label { display: none; } }
+@media (max-width: 700px) { .band button.card-strip { order: 6; min-height: 36px; padding: 4px 10px; max-width: 100%; overflow-x: auto; } .cs-art { width: 18px; height: 27px; } }
+.prompt button.recap-btn, .prompt .recap-btn { width: auto; align-self: flex-start; display: inline-flex; gap: 6px; }
+.drawer .log { max-height: none; overflow: visible; }

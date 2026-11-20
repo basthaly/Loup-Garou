@@ -50,6 +50,7 @@
     target: '<circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3"/>',
     sliders: '<path d="M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12M20 18h0"/><circle cx="16" cy="6" r="2"/><circle cx="10" cy="12" r="2"/><circle cx="18" cy="18" r="2"/>',
     cards: '<rect x="3" y="5" width="12" height="16" rx="2"/><path d="M9 3h10a2 2 0 0 1 2 2v14"/>',
+    swap: '<path d="M7 7h11l-3-3M17 17H6l3 3"/>',
     scroll: '<path d="M8 6h12M8 12h12M8 18h12M4 6h0M4 12h0M4 18h0"/>',
     x: '<path d="M6 6l12 12M18 6L6 18"/>',
     music: '<path d="M9 18V5l11-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="17" cy="16" r="3"/>',
@@ -108,6 +109,7 @@
   const freshDead = new Set();
   let drawerOpen = false;
   let drawerKind = 'settings';
+  let journalTab = null; // 'recit' | 'votes' | 'role' : onglet du panneau Mon rôle et journal
   let drawerAnim = false;
   // Apparence choisie (clair / sombre), indépendante de la phase : la nuit et le jour ne font que nuancer les teintes.
   const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
@@ -719,8 +721,7 @@
     const timer = st && !st.resolved && st.deadline ? `<span class="timer" data-deadline="${st.deadline}">${fmt(st.deadline - Date.now() - offset)}</span>` : '';
     const spect = me.waiting ? `<span class="pill spect-pill">${icon('clock', 14)} En attente</span>` : document.body.dataset.dead === '1' ? `<span class="pill spect-pill">${icon('ear', 14)} Spectateur</span>` : '';
     const head = `<header class="band"><div class="in">
-        <span class="ph-title">${title}</span>${steps}${spect}<span class="grow"></span>${timer}
-        ${isON() && r.phase !== 'lobby' ? `<button class="appear" data-act="deck" aria-label="Cartes en jeu" title="Cartes en jeu">${icon('cards', 18)}</button>` : ''}
+        <span class="ph-title">${title}</span>${steps}${spect}<span class="grow"></span>${cardStripHTML()}${timer}
         ${!isON() && (view.voteHistory || []).length ? `<button class="appear" data-act="history" aria-label="Historique des votes" title="Historique des votes">${icon('ballot', 18)}</button>` : ''}${helpButton()}${settingsButton()}
         ${me.isHost && r.phase !== 'end' ? `<button class="stop leave" data-act="abort" aria-label="Arrêter la partie">${icon('stop', 14)}<span class="lbl">Arrêter</span></button>` : ''}</div>
 </header>`;
@@ -813,10 +814,10 @@
   function promptCore() {
     const st = view.step, me = view.me, r = view.room;
     if (r.phase === 'end') {
-      if (!isON()) return `<div class="prompt"><h1>${esc(r.winner ? r.winner.text : 'Fin de partie')}</h1></div>`;
+      if (!isON()) return `<div class="prompt"><h1>${esc(r.winner ? r.winner.text : 'Fin de partie')}</h1><button class="ghost small-btn recap-btn" data-act="drawer" data-kind="journal" data-tab="recit">${icon('scroll', 14)} Tout ce qui s'est passé</button></div>`;
       const lv = view.lastVote;
       const votes = lv ? `<div class="votes">${lv.choices.map((c) => `<span class="vote-card">${nm(c.voter)} → <b>${c.target ? nm(c.target) : 'personne'}</b></span>`).join('')}</div>` : '';
-      const log = view.recap ? `<button class="ghost small-btn recap-btn" data-act="drawer" data-kind="journal">${icon('scroll', 14)} Tout ce qui s'est passé</button>` : '';
+      const log = view.recap ? `<button class="ghost small-btn recap-btn" data-act="drawer" data-kind="journal" data-tab="recit">${icon('scroll', 14)} Tout ce qui s'est passé</button>` : '';
       return `<div class="prompt"><p class="hint">${me.won ? 'Tu as gagné !' : 'Tu as perdu'} · ta carte finale : <span class="t-${teamOf(me.finalRole)}">${esc(roleName(me.finalRole))}</span></p>
         <h1>${esc(r.winner ? r.winner.text : 'Fin de partie')}</h1>${votes}${log}</div>`;
     }
@@ -1345,7 +1346,18 @@
     return '<h1>Étape terminée</h1>';
   }
 
-  // Une nuit : le nombre de chaque carte du deck (joueurs + 3 au centre).
+  // Les cartes de la partie en petit dans l'en-tête, avec leur nombre : un coup d'œil, et en grand d'un geste.
+  function cardStripHTML() {
+    const r = view.room, compo = view.compo || {};
+    if (r.phase === 'lobby' || r.phase === 'end') return '';
+    const keys = Object.keys(ROLES).filter((k) => compo[k] > 0);
+    if (!keys.length) return '';
+    const label = keys.map((k) => `${compo[k]} ${roleName(k)}`).join(', ');
+    return `<button class="card-strip" data-act="deck" aria-label="Cartes en jeu${view.anarchy ? ' possibles' : ''} : ${esc(label)}" title="Cartes en jeu">
+      <span class="cs-label">${view.anarchy ? 'Cartes possibles' : 'Cartes en jeu'}</span><span class="cs-cards">${keys.map((k) => `<span class="cs-card">${cardImg(k, 'cs-art')}${compo[k] > 1 ? `<b>${compo[k]}</b>` : ''}</span>`).join('')}</span></button>`;
+  }
+
+  // Le nombre de chaque carte de la partie.
   function deckHTML() {
     const compo = view.compo || {};
     const keys = Object.keys(ROLES).filter((k) => compo[k] > 0);
@@ -1354,36 +1366,72 @@
       <span class="deck-name">${esc(ROLES[k].name)}</span><small class="t-${ROLES[k].team}">${TEAM[ROLES[k].team]}</small></div>`).join('');
     const intro = view.anarchy
       ? `<p class="muted small">Anarchie : ${view.expectedCards} cartes tirées en secret parmi ces ${total}. Seuls 2 Loups-Garous et 1 Villageois sont sûrs d'y être.</p>`
-      : `<p class="muted small">${total} cartes : une par joueur, 3 au centre. Certaines dorment peut-être au centre.</p>`;
+      : isON() ? `<p class="muted small">${total} cartes : une par joueur, 3 au centre. Certaines dorment peut-être au centre.</p>` : `<p class="muted small">${total} cartes dans la partie.</p>`;
     return `<section>${intro}<div class="deck-grid">${tiles}</div></section>`;
   }
 
-  // Une nuit, fin de partie : le récit complet (cartes distribuées, chaque étape de la nuit, cartes finales, vote).
+  // Une nuit, fin de partie : le récit complet (cartes au coucher → au réveil, chaque étape de la nuit, vote).
   function recapHTML() {
     const rc = view.recap;
     if (!rc) return '';
-    const card = (r, cls = '') => r ? `<span class="rc-card ${cls}">${cardImg(r, 'rc-art')}<span class="t-${teamOf(r)}">${esc(roleName(r))}</span></span>` : '';
-    const dealt = rc.players.map((x) => `<li>${face(x.id, 22)} <b>${nm(x.id)}</b> ${card(x.start)}</li>`).join('')
-      + rc.center.map((c, i) => `<li class="rc-center">${icon('cards', 16)} <b>Centre ${i + 1}</b> ${card(c.start)}</li>`).join('');
+    const big = (r, cls = '') => `<span class="rc-big ${cls}">${cardImg(r, 'rc-bigart')}<small class="t-${teamOf(r)}">${esc(roleName(r))}</small></span>`;
+    const SW = { n_voleur: 'Voleur', n_noiseuse: 'Noiseuse', n_soulard: 'Soûlard', n_double: 'Doppelgänger' };
+    const col = (head, start, final, center) => {
+      const moved = start !== final;
+      return `<li class="rc-col ${moved ? 'moved' : ''} ${center ? 'center' : ''}"><span class="rc-head">${head}</span>${big(start, moved ? 'was' : '')}
+        ${moved ? `<span class="rc-swap">${icon('swap', 16)}</span>${big(final)}` : '<span class="rc-same">inchangée</span>'}</li>`;
+    };
+    const cols = rc.players.map((x) => col(`${face(x.id, 20)} ${nm(x.id)}`, x.start, x.final)).join('')
+      + '<li class="rc-sep" aria-hidden="true"></li>'
+      + rc.center.map((c, i) => col(`${icon('cards', 14)} Centre ${i + 1}`, c.start, c.final, true)).join('');
     const groups = [];
     for (const e of view.nightLog || []) {
       const t = typeof e === 'string' ? '' : e.t, text = typeof e === 'string' ? e : e.text;
       if (!groups.length || groups[groups.length - 1].t !== t) groups.push({ t, lines: [] });
       groups[groups.length - 1].lines.push(text);
     }
-    const night = groups.map((g, i) => `<li><span class="rc-step">${i + 1}. ${esc(STEP_LABEL[g.t] || 'Nuit')}</span>${g.lines.map((l) => `<p>${esc(l)}</p>`).join('')}</li>`).join('');
-    const moved = (a, b) => a !== b;
-    const final = rc.players.map((x) => `<li class="${moved(x.start, x.final) ? 'rc-moved' : ''}">${face(x.id, 22)} <b>${nm(x.id)}</b> ${card(x.start, moved(x.start, x.final) ? 'was' : '')}${moved(x.start, x.final) ? `<span class="rc-arrow">→</span>${card(x.final)}` : '<small class="muted">inchangée</small>'}</li>`).join('')
-      + rc.center.map((c, i) => `<li class="rc-center ${moved(c.start, c.final) ? 'rc-moved' : ''}">${icon('cards', 16)} <b>Centre ${i + 1}</b> ${card(c.start, moved(c.start, c.final) ? 'was' : '')}${moved(c.start, c.final) ? `<span class="rc-arrow">→</span>${card(c.final)}` : '<small class="muted">inchangée</small>'}</li>`).join('');
+    const STEP_CARD = { n_double: 'n_double', n_loups: 'n_loup', n_sbire: 'n_sbire', n_macons: 'n_macon', n_voyante: 'n_voyante', n_voleur: 'n_voleur', n_noiseuse: 'n_noiseuse', n_soulard: 'n_soulard', n_insomniaque: 'n_insomniaque' };
+    const night = groups.map((g, i) => `<li class="rc-stepcard"><span class="rc-n">${i + 1}</span>${STEP_CARD[g.t] ? cardImg(STEP_CARD[g.t], 'rc-stepart') : ''}
+      <span><b>${esc(STEP_LABEL[g.t] || 'Nuit')}</b>${g.lines.map((l) => `<span>${esc(l)}</span>`).join('')}</span></li>`).join('');
     const lv = view.lastVote;
-    const votes = lv ? lv.choices.map((c) => `<li>${face(c.voter, 22)} <b>${nm(c.voter)}</b> → ${c.target ? `${face(c.target, 22)} ${nm(c.target)}` : '<i class="muted">personne</i>'}</li>`).join('') : '';
-    const dead = lv && lv.dead.length ? lv.dead.map((d) => `${nm(d)}${rc.hunter.includes(d) ? ' (emporté par le Chasseur)' : ''}`).join(', ') : 'personne';
-    return `<section class="recap"><h3>Ce qui s'est vraiment passé</h3>
-      <h4>1. La distribution</h4><ul class="rc-list">${dealt}</ul>
-      <h4>2. La nuit</h4><ol class="rc-night">${night || '<li><p class="muted">Aucune action.</p></li>'}</ol>
-      <h4>3. Les cartes au réveil</h4><ul class="rc-list">${final}</ul>
-      <h4>4. Le vote</h4><ul class="rc-list">${votes}</ul><p><b>Éliminé${lv && lv.dead.length > 1 ? 's' : ''} :</b> ${dead}</p>
-      ${view.room.winner ? `<p class="rc-win">${esc(view.room.winner.text)}</p>` : ''}</section>`;
+    const votes = lv ? lv.choices.map((c) => `<span class="rc-vote ${c.target && lv.dead.includes(c.target) ? 'hit' : ''}">${face(c.voter, 20)} ${nm(c.voter)} <span class="muted">→</span> ${c.target ? `${face(c.target, 20)} <b>${nm(c.target)}</b>` : '<i class="muted">personne</i>'}</span>`).join('') : '';
+    const dead = lv && lv.dead.length ? lv.dead.map((d) => `<b>${nm(d)}</b>${rc.hunter.includes(d) ? ' (emporté par le Chasseur)' : ''}`).join(', ') : '<b>personne</b>';
+    const H = (n, t, sub = '') => `<h3 class="rc-h"><span class="rc-num">${n}</span>${t}${sub ? `<small>${sub}</small>` : ''}</h3>`;
+    return `<div class="recap">${H(1, 'Les cartes : au coucher → au réveil', 'en orange, celles qui ont changé de main')}
+      <ul class="rc-flow">${cols}</ul>
+      <div class="rc-cols"><section>${H(2, 'La nuit, étape par étape')}<ol class="rc-steps">${night || '<li class="muted">Aucune action.</li>'}</ol></section>
+      <section>${H(3, 'Le vote')}<div class="rc-votes">${votes}</div>
+        <p class="rc-out">Éliminé${lv && lv.dead.length > 1 ? 's' : ''} : ${dead}.${view.room.winner ? ` <b>${esc(view.room.winner.text.replace(/^Éliminés? : [^.]*\.\s*|^Personne n'est éliminé\.\s*/, ''))}</b>` : ''}</p></section></div></div>`;
+  }
+
+  // Thiercelieux, fin de partie : le récit nuit par nuit et jour par jour, et qui était qui.
+  const LOG_CARD = { cupidon: 'cupidon', voleur: 'voleur', enfant: 'enfant', salvateur: 'salvateur', voyante: 'voyante', renard: 'renard', loups: 'loup', infect: 'infect',
+    grandloup: 'grandloup', loupblanc: 'loupblanc', sorciere: 'sorciere', flute: 'flute', hunter: 'chasseur', soeurs: 'soeur' };
+  const LOG_ICON = { captain_vote: 'crown', successor: 'crown', vote: 'ballot', debate: 'ballot', amoureux: 'heart' };
+  function recitHTML() {
+    const skip = /devient l'hôte|a été exclu|Le MJ est parti|reprend (la main|le rôle)|^La partie commence|le village s'endort\.$|arrêté la partie/;
+    const chapters = [];
+    for (const l of view.log) {
+      if (skip.test(l.text) || !l.when) continue;
+      if (!chapters.length || chapters[chapters.length - 1].when !== l.when) chapters.push({ when: l.when, items: [], out: [] });
+      const ch = chapters[chapters.length - 1];
+      // Les annonces publiques de l'aube et des votes sont le bilan du chapitre.
+      if (l.pub && ['dawn', 'vote', 'hunter', null].includes(l.step) && !/Capitaine/.test(l.text)) ch.out.push(l.text); else ch.items.push(l);
+    }
+    const lead = (l) => LOG_CARD[l.step] && ROLES[LOG_CARD[l.step]] ? cardImg(LOG_CARD[l.step], 'rt-card') : `<span class="rt-ic">${icon(LOG_ICON[l.step] || (l.pub ? 'sun' : 'moon'), 15)}</span>`;
+    const body = chapters.map((c) => {
+      const day = c.when.startsWith('Jour');
+      return `<li class="rt-ch ${day ? 'day' : 'night'}"><h4><span class="rt-dot">${icon(day ? 'sun' : 'moon', 15)}</span>${esc(c.when)}</h4>
+        ${c.items.length ? `<ul>${c.items.map((l) => `<li>${lead(l)}<span>${esc(l.text)}</span></li>`).join('')}</ul>` : ''}
+        ${c.out.map((t) => `<p class="rt-out">${esc(t)}</p>`).join('')}</li>`;
+    }).join('');
+    const ps = view.players.filter((p) => !p.isMJ && !p.waiting);
+    const order = [...ps.filter((p) => p.alive), ...ps.filter((p) => !p.alive)];
+    const who = order.map((p) => `<li class="${p.alive ? 'alive' : ''}">${face(p.id, 28)}<span class="rt-who"><b>${esc(p.name)}${p.id === view.me.id ? ' (toi)' : ''}</b>
+      <small>${p.alive ? 'En vie à la fin' : `Mort${p.death && p.death.when ? ' · ' + esc(p.death.when.toLowerCase()) : ''}`}${p.lover ? ' · amoureux' : ''}${p.captain ? ' · Capitaine' : ''}</small></span>
+      ${p.role ? `${cardImg(p.role, 'rt-card')}<b class="t-${teamOf(p.role)} rt-role">${esc(roleName(p.role))}</b>` : ''}</li>`).join('');
+    return `<div class="recit"><ol class="rt-list">${body || '<li class="muted">Rien à raconter.</li>'}</ol>
+      <aside class="rt-aside"><h3>Qui était qui</h3><ul>${who}</ul></aside></div>`;
   }
 
   // Historique des votes : qui a voté contre qui, jour après jour (rôle révélé des éliminés).
@@ -1391,19 +1439,22 @@
     const h = view.voteHistory || [];
     if (!h.length) return '<section><p class="muted">Aucun vote pour l\'instant.</p></section>';
     const ids = view.players.filter((p) => !p.isMJ).map((p) => p.id);
-    const head = h.map((x) => `<th><span>${esc(x.label)}</span><small>${esc(x.text)}</small></th>`).join('');
+    // En-têtes courts : « Léon · Loup-Garou » plutôt que la phrase entière (gardée en info-bulle).
+    const short = (t) => t.replace(/^(.+?) est éliminé\(e\) par le village\. Il\/elle était ([^.]+)\.(.*)$/, (m, n, r, rest) => `${n} éliminé(e) · ${r}${rest.trim() ? ' · ' + rest.trim() : ''}`)
+      .replace(/^Égalité : personne n'est éliminé\.?$/, 'Égalité : personne').replace(/^(.+?) est élu\(e\) Capitaine.*$/, '$1 élu(e)');
+    const head = h.map((x) => `<th title="${esc(x.text)}"><span>${esc(x.label)}</span><small>${esc(short(x.text))}</small></th>`).join('');
     const rows = ids.map((id) => {
       const p = P(id);
       const cells = h.map((x) => {
         const c = x.choices.find((y) => y.voter === id);
         if (!c) return '<td class="dim">—</td>';
         if (!c.target) return '<td class="dim"><i>abstention</i></td>';
-        return `<td class="${c.target === x.out ? 'hit' : ''}">${face(c.target, 18)} ${nm(c.target)}</td>`;
+        return `<td class="${c.target === x.out ? 'hit' : ''}"><span>${face(c.target, 20)} ${nm(c.target)}</span></td>`;
       }).join('');
-      const role = !p.alive && p.role ? `<span class="t-${teamOf(p.role)} hist-role">${esc(roleName(p.role))}</span>` : '';
+      const role = (!p.alive || view.room.phase === 'end') && p.role ? `${cardImg(p.role, 'hist-card')}<span class="t-${teamOf(p.role)} hist-role">${esc(roleName(p.role))}</span>` : '';
       return `<tr><th class="${p.alive ? '' : 'dead'}">${face(id, 22)} ${esc(p.name)} ${role}</th>${cells}</tr>`;
     }).join('');
-    return `<section><p class="muted small">Qui a voté contre qui. Les rôles des joueurs éliminés sont révélés : repère qui a protégé un loup.</p>
+    return `<section><p class="muted small">Chaque ligne : pour qui ce joueur a voté. En orange, le vote qui a fait tomber quelqu'un. ${view.room.phase === 'end' ? 'Tous les rôles sont révélés.' : 'Les rôles des joueurs éliminés sont révélés : repère qui a protégé un loup.'}</p>
       <div class="hist-wrap"><table class="hist"><thead><tr><th>Joueur</th>${head}</tr></thead><tbody>${rows}</tbody></table></div></section>`;
   }
 
@@ -1441,7 +1492,22 @@
         ${me.isHost && p.connected ? `<button class="ghost small-btn" data-act="giveHost" data-id="${p.id}">Nommer hôte</button>` : ''}
         <button class="ghost small-btn" data-act="kick" data-id="${p.id}">Exclure</button></span></div>`).join('') || '<p class="muted small">Personne d\'autre pour l\'instant.</p>'}</section>` : '';
     const log = kind === 'journal' && view.log.length ? `<section><h3>Journal</h3><ol class="log">${view.log.slice().reverse().map((l) => `<li class="${l.pub ? '' : 'priv'}"><span class="when">${esc(l.when || '')}</span><span>${esc(l.text)}</span></li>`).join('')}</ol></section>` : '';
-    let body = (kind === 'journal' && isON() && view.recap ? recapHTML() : '') + top + log;
+    let body = top + log;
+    let tabsHTML = '', wide = lobby && kind === 'roles';
+    if (kind === 'journal' || kind === 'history') {
+      // Un seul panneau, centré, en onglets : le récit (fin de partie), les votes, mon rôle.
+      const end = r.phase === 'end';
+      const tabs = [];
+      if (end && (isON() ? view.recap : view.log.length)) tabs.push(['recit', 'Le récit']);
+      if (!isON() && (view.voteHistory || []).length) tabs.push(['votes', 'Les votes']);
+      if ((me.role && !me.isMJ) || view.log.length) tabs.push(['role', me.role && !me.isMJ ? 'Mon rôle' : 'Journal']);
+      let tab = kind === 'history' ? 'votes' : journalTab;
+      if (!tabs.some(([k]) => k === tab)) tab = tabs.length ? tabs[0][0] : 'role';
+      if (tabs.length > 1) tabsHTML = `<div class="tabs" role="tablist">${tabs.map(([k, label]) => `<button role="tab" aria-selected="${k === tab}" class="${k === tab ? 'on' : ''}" data-act="jtab" data-v="${k}">${label}</button>`).join('')}</div>`;
+      if (tab === 'recit') body = isON() ? recapHTML() : recitHTML();
+      else if (tab === 'votes') body = historyHTML();
+      wide = true;
+    }
     if (kind === 'settings') {
       const dark = document.body.dataset.appearance === 'dark';
       body = `${lobby ? gameSettingsHTML() : ''}
@@ -1451,13 +1517,13 @@
           <label class="check"><input type="checkbox" data-act="sound" ${soundOn() ? 'checked' : ''}> Son et vibration quand c'est à toi</label></section>
         ${players}`;
     }
-    if (kind === 'history') body = historyHTML();
     if (kind === 'deck') body = deckHTML();
-    if (kind === 'journal' && (view.voteHistory || []).length) body += `<section><h3>Historique des votes</h3>${historyHTML().replace(/^<section>|<\/section>$/g, '')}</section>`;
-    const title = { roles: isON() ? 'Deck' : 'Rôles', settings: 'Paramètres', journal: 'Mon rôle et journal', history: 'Historique des votes', deck: 'Cartes en jeu' }[kind];
-    return `<aside class="drawer ${lobby && kind === 'roles' ? 'wide' : ''} ${drawerOpen ? 'open' : ''} ${drawerAnim ? 'slide' : ''}" aria-hidden="${!drawerOpen}" aria-label="${title}">
-      <div class="drawer-head"><h2>${title}</h2><button class="round" data-act="drawer-close" aria-label="Fermer">${icon('x', 18)}</button></div>
-      ${body}</aside>
+    const endTitle = r.phase === 'end' && r.winner && (kind === 'journal' || kind === 'history');
+    const title = endTitle ? (isON() ? r.winner.text.replace(/^Éliminés? : [^.]*\.\s*|^Personne n'est éliminé\.\s*/, '') : r.winner.text)
+      : { roles: isON() ? 'Deck' : 'Rôles', settings: 'Paramètres', journal: me.role && !me.isMJ ? 'Mon rôle et journal' : 'Journal', history: 'Historique des votes', deck: 'Cartes en jeu' }[kind];
+    return `<aside class="drawer ${wide ? 'wide' : ''} ${drawerOpen ? 'open' : ''} ${drawerAnim ? 'slide' : ''}" role="dialog" aria-modal="true" aria-hidden="${!drawerOpen}" aria-label="${esc(title)}">
+      <div class="drawer-head"><h2>${esc(title)}</h2>${tabsHTML}<button class="round" data-act="drawer-close" aria-label="Fermer">${icon('x', 18)}</button></div>
+      <div class="drawer-body">${body}</div></aside>
       ${drawerOpen ? '<div class="scrim" data-act="drawer-close"></div>' : ''}`;
   }
 
@@ -1614,6 +1680,7 @@
       case 'ready': send('act', {}); break;
       case 'unready': send('act', { ready: false }); break;
       case 'lean-clear': send('act', { lean: null }); break;
+      case 'jtab': journalTab = el.dataset.v; if (drawerKind === 'history') drawerKind = 'journal'; render(); { const b = $app.querySelector('.drawer:not(.sheet)'); if (b) b.scrollTop = 0; } break;
       case 'deck': drawerKind = 'deck'; drawerOpen = true; drawerAnim = true; render(); setTimeout(() => { drawerAnim = false; }, 400); break;
       case 'history': drawerKind = 'history'; drawerOpen = true; drawerAnim = true; render(); setTimeout(() => { drawerAnim = false; }, 400); break;
       case 'rc-ok': try { localStorage.setItem(changeStore(), changeKey()); } catch (e) { /* stockage indisponible */ } render(); break;
@@ -1653,6 +1720,7 @@
         render();
         break;
       case 'drawer':
+        if (el.dataset.tab) journalTab = el.dataset.tab;
         if (drawerOpen && el.dataset.kind && el.dataset.kind !== drawerKind) { drawerKind = el.dataset.kind; drawerAnim = false; render(); break; }
         if (el.dataset.kind) drawerKind = el.dataset.kind;
         drawerOpen = !drawerOpen;

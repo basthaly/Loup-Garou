@@ -1049,7 +1049,8 @@ class Room {
     return '';
   }
 
-  addLog(text, pub) { this.log.push({ t: Date.now(), text, pub, when: this.whenLabel() }); }
+  // step : l'étape en cours (voyante, loups, dawn…), pour illustrer le récit de fin de partie.
+  addLog(text, pub) { this.log.push({ t: Date.now(), text, pub, when: this.whenLabel(), step: this.step ? this.step.type : null }); }
 
   // ---------- Audio / vidéo : qui voit et entend qui ----------
   mediaAllowed(s, r) {
@@ -1167,7 +1168,7 @@ class Room {
       center: this.centerView(me, omniscient),
       customCompo: !!this.customCompo,
       compoVoteResult: this.compoVoteResult,
-      log: this.log.filter((l) => l.pub || omniscient).slice(-40),
+      log: this.log.filter((l) => l.pub || omniscient).slice(this.phase === 'end' ? 0 : -40),
       voteHistory: (this.voteHistory || []).map((h) => ({ label: h.label, text: h.text, out: h.out, choices: h.choices })),
       step: this.stepView(me, omniscient)
     };
