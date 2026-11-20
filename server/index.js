@@ -48,6 +48,10 @@ const PAGE = fs.readFileSync(path.join(__dirname, '..', 'public', 'index.html'),
   .replace(/(src|href)="\/(app\.js|media\.js|ambience\.js|style\.css)"/g, `$1="/$2?v=${BUILD}"`);
 const sendPage = (req, res) => { res.set('Cache-Control', 'no-cache'); res.type('html').send(PAGE); };
 app.get(['/', '/index.html'], sendPage);
+// Page cachée « MJ » : l'assistant du meneur pour une vraie partie autour d'une table.
+const MJ_PAGE = fs.readFileSync(path.join(__dirname, '..', 'public', 'mj.html'), 'utf8')
+  .replace(/(src|href)="\/(mj\.js|mj\.css|style\.css)"/g, `$1="/$2?v=${BUILD}"`);
+app.get(['/mj', '/mj.html'], (req, res) => { res.set('Cache-Control', 'no-cache'); res.type('html').send(MJ_PAGE); });
 app.use(express.static(path.join(__dirname, '..', 'public'), { index: false, setHeaders: (res) => res.set('Cache-Control', 'no-cache') }));
 // Page de test cachée (aucun lien) : choisir son rôle et jouer avec des faux joueurs. TEST_PAGE=0 la désactive.
 app.get('/audio', (req, res) => {

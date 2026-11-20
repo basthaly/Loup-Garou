@@ -405,6 +405,8 @@ Vérifier que ça tourne : `docker compose ps` et `curl -k https://127.0.0.1:300
 - Bouton note de musique en bas : couper, régler le volume ou retirer le tonnerre, pour soi seulement (mémorisé).
 - Les vignettes s'adaptent à la taille de l'écran et au nombre de joueurs.
 
+**Page MJ** (cachée, aucun lien) : ouvre `/mj` pour mener une vraie partie autour d'une table. Tu notes les joueurs dans l'ordre de la table, les cartes et qui a quoi (ou l'app distribue), puis l'app te dit quoi lire et qui appeler à chaque étape, calcule l'aube et qui gagne, et tient le suivi. Tout se corrige à la main (mort, rôle, amour, Capitaine), on peut annuler, passer ou revenir à une étape. La partie reste dans le navigateur.
+
 **Page de test** (cachée, aucun lien) : ouvre `/test` sur le site, par exemple `https://ton-adresse/test`.
 - Choisis le jeu, **ton rôle**, le nombre de **faux joueurs**, d'autres rôles à mettre en jeu, et si tu veux être **amoureux** (au hasard, avec un loup ou avec un villageois).
 - Les faux joueurs jouent tout seuls (ou pas), les minuteurs peuvent être accélérés, et « Voir tous les rôles » aide à vérifier un cas précis.
