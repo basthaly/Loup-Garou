@@ -1147,3 +1147,4 @@ table.hist td.hit span { display: inline-flex; align-items: center; gap: 4px; pa
 .ev-prog s { display: block; height: 100%; border-radius: 99px; background: currentColor; text-decoration: none; }
 .ev-sep { width: 1px; height: 30px; background: color-mix(in srgb, currentColor 25%, transparent); margin: 0 4px; flex: none; }
 @media (max-width: 700px) { .ev-prog i { width: 64px; } .ev-prog b { font-size: 12px; } }
+.sp-warn { margin: 0 0 8px; padding: 8px 10px; border-radius: 10px; background: color-mix(in srgb, var(--accent) 12%, transparent); font-size: 12.5px; line-height: 1.4; color: var(--text); max-width: 280px; }

@@ -1244,7 +1244,7 @@
       title = st.narration || STEP_LABEL[st.type] || '';
       if (st.isActor && st.submitted) sub = 'C\'est fait. En attente des autres…';
       else if (!me.alive && !me.isMJ) sub = 'Tu regardes la partie en spectateur.';
-      else if (night && !st.isActor) sub = 'Le village dort. Garde les yeux fermés.';
+      else if (night && !st.isActor) sub = view.anarchy && isON() ? 'Le village dort. Anarchie : ce rôle n\'est peut-être pas en jeu.' : 'Le village dort. Garde les yeux fermés.';
       else if (st.actorsCount != null) sub = `${st.done.length} / ${st.actorsCount} ${night ? 'ont agi' : st.type === 'roles_reveal' ? 'prêts' : 'ont voté'}`;
       if (st.deadline && !st.resolved) right = `<span class="ev-time" data-deadline="${st.deadline}">${fmt(st.deadline - Date.now() - offset)}</span>`;
     }
@@ -1389,7 +1389,7 @@
     if (isON() && r.nightOrder && r.nightOrder.length) {
       const names = r.nightOrder.map((t) => STEP_LABEL[t] || t);
       return `<button class="stepper night-cards" data-act="steps-toggle" aria-expanded="${stepsOpen}" aria-label="Rôles appelés cette nuit : ${esc(names.join(', '))}">
-        ${icon('moon', 14)}<span class="sp-lbl">Cette nuit</span><span class="nc-list">${r.nightOrder.map((t, i) => `${i ? '<i aria-hidden="true">›</i>' : ''}<span title="${esc(STEP_LABEL[t] || t)}">${ON_STEP_CARD[t] ? cardImg(ON_STEP_CARD[t], 'nc-art') : esc(STEP_LABEL[t] || t)}</span>`).join('')}</span></button>`;
+        ${icon('moon', 14)}<span class="sp-lbl">${view.anarchy ? 'Appelés cette nuit' : 'Cette nuit'}</span><span class="nc-list">${r.nightOrder.map((t, i) => `${i ? '<i aria-hidden="true">›</i>' : ''}<span title="${esc(STEP_LABEL[t] || t)}">${ON_STEP_CARD[t] ? cardImg(ON_STEP_CARD[t], 'nc-art') : esc(STEP_LABEL[t] || t)}</span>`).join('')}</span></button>`;
     }
     const list = r.phaseSteps || [];
     if (!list.length) return '';
@@ -1397,7 +1397,7 @@
     if (idx < 0) idx = Math.max(0, list.map((x) => x.state).lastIndexOf('done'));
     const cur = list[idx];
     const dots = list.length > 1 ? `<span class="sp-dots" aria-hidden="true">${list.map((x, i) => `<i class="${i === idx ? 'now' : i < idx ? 'done' : ''}"></i>`).join('')}</span>` : '';
-    return `<button class="stepper" data-act="steps-toggle" aria-expanded="${stepsOpen}" aria-label="Étape ${idx + 1} sur ${list.length} : ${esc(STEP_LABEL[cur.type] || cur.type)}. Voir l'ordre de passage">
+    return `<button class="stepper ${view.anarchy ? 'anar' : ''}" data-act="steps-toggle" aria-expanded="${stepsOpen}" aria-label="Étape ${idx + 1} sur ${list.length} : ${esc(STEP_LABEL[cur.type] || cur.type)}${view.anarchy ? ', rôle appelé même s\'il n\'est pas en jeu' : ''}. Voir l'ordre de passage">
       <span class="sp-now ${cur.state}">${esc(STEP_LABEL[cur.type] || cur.type)}${cur.state === 'done' ? ' ✓' : ''}</span>${list.length > 1 ? `<span class="sp-n">${idx + 1}/${list.length}</span>` : ''}${dots}${list.length > 1 ? icon('chev', 14) : ''}</button>`;
   }
   function stepsPopHTML() {
@@ -1406,7 +1406,9 @@
     const night = isON() && r.nightOrder && r.nightOrder.length;
     const items = night ? r.nightOrder.map((t) => ({ type: t, state: 'done' })) : r.phaseSteps || [];
     if (!items.length) return '';
-    return `<div class="steps-pop" role="dialog" aria-label="${night ? 'Rôles appelés cette nuit' : 'Ordre de passage'}"><b>${night ? 'Rôles appelés cette nuit, dans l\'ordre' : 'Ordre de passage'}</b>
+    // Anarchie : tous les rôles sont appelés, qu'ils soient en jeu ou non. On le dit pour qu'un appel ne passe pas pour une preuve.
+    const anar = view.anarchy ? '<p class="sp-warn">Anarchie : tous les rôles sont appelés, même ceux qui ne sont pas en jeu. Un rôle appelé n\'est pas forcément présent.</p>' : '';
+    return `<div class="steps-pop" role="dialog" aria-label="${night ? 'Rôles appelés cette nuit' : 'Ordre de passage'}"><b>${night ? 'Rôles appelés cette nuit, dans l\'ordre' : 'Ordre de passage'}</b>${anar}
       <ol>${items.map((x) => `<li class="${x.state}">${night && ON_STEP_CARD[x.type] ? cardImg(ON_STEP_CARD[x.type], 'nc-art') : ''}<span>${esc(STEP_LABEL[x.type] || x.type)}</span>${!night && x.state === 'done' ? icon('check', 13) : ''}${x.state === 'now' ? '<em>en cours</em>' : ''}</li>`).join('')}</ol></div>`;
   }
 
