@@ -1126,3 +1126,24 @@ table.hist td.hit span { display: inline-flex; align-items: center; gap: 4px; pa
   .band .ph-title { font-size: 24px; }
 }
 #toast.info { background: #2D4E9A; color: #fff; }
+
+/* Mémo « Tu as vu / Tu sais » dans la barre du bas, collé à ta carte */
+.dock-memo { display: flex; align-items: center; gap: 14px; padding: 6px 14px 6px 10px; border-radius: 14px; background: color-mix(in srgb, var(--accent) 10%, transparent); border: 1px solid color-mix(in srgb, var(--accent) 45%, transparent); min-width: 0; overflow-x: auto; scrollbar-width: none; flex: 0 1 auto; }
+.dock-memo::-webkit-scrollbar { display: none; }
+.dm-lbl { display: inline-flex; align-items: center; gap: 5px; color: var(--accent); font-size: 12px; font-weight: 700; white-space: nowrap; flex: none; }
+.dm-item { display: inline-flex; align-items: center; gap: 6px; flex: none; }
+.dm-art { width: 22px; height: 33px; object-fit: contain; filter: drop-shadow(0 2px 4px rgba(0,0,0,.4)); }
+.dm-ic { width: 24px; height: 24px; border-radius: 8px; display: inline-flex; align-items: center; justify-content: center; background: var(--surface2); color: var(--muted); }
+.dm-t { display: flex; flex-direction: column; line-height: 1.1; }
+.dm-t small { font-size: 11px; color: var(--muted); white-space: nowrap; }
+.dm-t b { font-size: 13px; white-space: nowrap; }
+@media (max-width: 1100px) { .dm-lbl span { display: none; } }
+@media (max-width: 700px) { .dock-memo { order: 5; flex-basis: 100%; padding: 5px 10px; gap: 10px; } .dm-art { width: 18px; height: 27px; } }
+
+/* Bandeau : « 9 / 10 ont voté » avant le minuteur */
+.ev-prog { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; flex: none; }
+.ev-prog b { font-size: 13px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.ev-prog i { display: block; width: 110px; height: 5px; border-radius: 99px; background: color-mix(in srgb, currentColor 20%, transparent); overflow: hidden; }
+.ev-prog s { display: block; height: 100%; border-radius: 99px; background: currentColor; text-decoration: none; }
+.ev-sep { width: 1px; height: 30px; background: color-mix(in srgb, currentColor 25%, transparent); margin: 0 4px; flex: none; }
+@media (max-width: 700px) { .ev-prog i { width: 64px; } .ev-prog b { font-size: 12px; } }

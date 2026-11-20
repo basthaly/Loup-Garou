@@ -752,7 +752,8 @@
         <p class="muted small">${goal[d.team] || ''}</p><ul class="how">${(d.how || [d.desc]).map((x) => `<li>${esc(x)}</li>`).join('')}</ul>
         ${me.infected || me.wild ? '<div class="note">Tu es devenu loup : tu te réveilles aussi avec la meute.</div>' : ''}</div></section>` : '';
     const compo = view.compo || {};
-    const inGame = Object.keys(compo).filter((k) => ROLES[k] && compo[k] > 0 && (isON() || k !== me.role));
+    const secret = view.anarchy && view.room.phase !== 'lobby' && view.room.phase !== 'end';
+    const inGame = secret ? [] : Object.keys(compo).filter((k) => ROLES[k] && compo[k] > 0 && (isON() || k !== me.role));
     const total = Object.values(compo).reduce((a, b) => a + b, 0);
     const cards = inGame.length ? `<section><h3>${view.anarchy ? 'Cartes possibles (tirage secret)' : view.room.phase === 'lobby' ? 'Cartes prévues' : 'Cartes de la partie'}${isON() ? ` · ${view.anarchy ? view.expectedCards + ' sur ' + total : total}` : ''}</h3>${inGame.map((k) => `
         <details class="card-help"><summary><span class="ch-name">${cardImg(k, 'thumb')}${esc(ROLES[k].name)}${isON() ? `<b class="ch-count">×${compo[k]}</b>` : ''}</span><small class="t-${ROLES[k].team}">${TEAM[ROLES[k].team]}</small></summary>
@@ -833,7 +834,7 @@
       let t = night ? 'Le village dort…' : 'Patiente';
       if (me.isMJ) t = `En attente : ${st.actors.filter((a) => !st.done.includes(a)).map(nm).join(', ') || '—'}`;
       else if (!me.alive) t = 'Tu ne joues plus';
-      return `<div class="prompt muted-prompt"><h1>${t}</h1>${progressHTML(st, night ? 'ont agi' : 'ont voté')}${isON() ? onNotesHTML() : ''}</div>`;
+      return me.isMJ ? `<div class="prompt muted-prompt"><h1>${t}</h1>${progressHTML(st, night ? 'ont agi' : 'ont voté')}</div>` : '';
     }
     const mode = pickMode(st);
     let hint = mode ? (mode.max === 2 ? 'Touche deux joueurs' : 'Touche un joueur') : '';
@@ -901,10 +902,9 @@
       // Loups : les votes de la meute sont sur les vignettes, l'accord dans le bandeau du bas.
       case 'loups':
         break;
+      // Vote : la consigne, le Capitaine et « 9 / 10 ont voté » sont dans le bandeau du bas.
       case 'vote': case 'captain_vote':
-        extra = progressHTML(st, 'ont voté') + (isON() ? onNotesHTML() : '');
-        if (st.type === 'vote') hint = isON() ? 'Débattez, puis touche un joueur · éliminé dès 2 voix' : `10 secondes · vote secret${st.lean && !st.submitted ? ` · ton intention (${nm(st.lean)}) est pré-sélectionnée : confirme ou touche un autre joueur` : ''}`;
-        if (st.type === 'vote' && r.captainId) hint += ` · ${nm(r.captainId)} compte double`;
+        hint = '';
         break;
     }
     return `<div class="prompt ${st.type === 'sorciere' ? 'witch-prompt' : ''}"><div class="prompt-row"><div><h1>${title ? esc(title) : QUESTION[st.type] || 'À toi'}</h1>${hint ? `<p class="hint">${hint}</p>` : ''}</div></div>${extra}</div>`;
@@ -954,9 +954,36 @@
   }
   function onResultHTML(st) { return onNoteHTML(st.result); }
   // Rappel de ce que le joueur a appris cette nuit (reste affiché jusqu'au vote).
-  function onNotesHTML() {
-    const n = (view.me.notes || []).map(onNoteHTML).filter(Boolean);
-    return n.length ? `<div class="notes"><p class="hint">Ce que tu as vu cette nuit</p>${n.join('')}</div>` : '';
+  function onNotesHTML() { return ''; } // remplacé par le mémo de la barre du bas (memoHTML)
+
+  // Ce que tu as vu ou sais : dans la barre du bas, collé à ta carte, toute la partie.
+  function memoItems() {
+    const me = view.me, out = [];
+    if (isON()) {
+      for (const r of me.notes || []) {
+        if (!r) continue;
+        if (r.copied) out.push({ card: r.copied, where: 'Tu deviens' });
+        else if (r.players) for (const x of r.players) out.push({ card: x.role, where: rawName(x.id) });
+        if (r.center) for (const x of r.center) out.push(x.role ? { card: x.role, where: `Centre ${x.i + 1}` } : { icon: 'swap', where: `Centre ${x.i + 1}`, text: 'échangée sans la voir' });
+        if (r.took) out.push({ card: r.took, where: 'Ta nouvelle carte' });
+        if (r.swapped) out.push({ icon: 'swap', where: 'Échange', text: `${rawName(r.swapped[0])} ⇄ ${rawName(r.swapped[1])}` });
+        if (r.self) out.push({ card: r.self, where: 'Ta carte' });
+      }
+    } else if (!me.isMJ && view.room.phase !== 'end') {
+      if (me.lover) out.push({ icon: 'heart', where: 'Amoureux de', text: rawName(me.lover) });
+      if (me.role === 'enfant' && me.model && !me.wild) out.push({ icon: 'person', where: 'Ton modèle', text: rawName(me.model) });
+      if (me.charmed) out.push({ icon: 'music', where: 'Flûte', text: 'Tu es charmé(e)' });
+    }
+    return out;
+  }
+  function memoHTML() {
+    if (view.room.phase === 'lobby' || view.room.phase === 'end') return '';
+    const items = memoItems();
+    if (!items.length) return '';
+    const label = isON() ? 'Tu as vu' : 'Tu sais';
+    return `<div class="dock-memo" role="note" aria-label="${label} : ${esc(items.map((x) => `${x.where} ${x.card ? roleName(x.card) : x.text}`).join(', '))}">
+      <span class="dm-lbl">${icon('eye', 14)}<span>${label}</span></span>${items.map((x) => `<span class="dm-item">${x.card ? cardImg(x.card, 'dm-art') : `<span class="dm-ic">${icon(x.icon, 14)}</span>`}
+      <span class="dm-t"><small>${esc(x.where)}</small><b class="${x.card ? 't-' + teamOf(x.card) : ''}">${esc(x.card ? roleName(x.card) : x.text)}</b></span></span>`).join('')}</div>`;
   }
   function onNoteHTML(r) {
     if (!r) return '';
@@ -1017,7 +1044,7 @@
         <div class="${gridCls}">${rest.map(build).join('')}</div>`;
     }
     if (nightStep && !st.isActor && me.alive && !me.isMJ && !me.seesAll) {
-      return `${sleeperKnowHTML()}<div class="${gridCls}">${list.map(build).join('')}</div>`;
+      return `<div class="${gridCls}">${list.map(build).join('')}</div>`;
     }
     return `<div class="${gridCls}">${list.map(build).join('')}${table}</div>`;
   }
@@ -1151,7 +1178,7 @@
     const self = `<div class="dock-self has-video-host" data-speak="${me.id}"><span class="avatar" style="background:${colorOf(me.id)}" aria-hidden="true">${esc(me.name[0])}</span><div class="vslot" data-vslot="me"></div></div>`;
     const myTurn = st && !st.resolved && st.isActor && !st.submitted;
     return `<nav class="dock ${myTurn ? 'my-turn' : ''}" aria-label="Commandes">${eventBarHTML()}<div class="in">
-      <div class="dock-me">${self}${roleBtn}</div>
+      <div class="dock-me">${self}${roleBtn}</div>${memoHTML()}
       <div class="dock-media">${mic}${cam}${ambButton()}</div>
       <div class="dock-actions">${actionButtons()}</div>
       <button class="round" data-act="drawer" data-kind="${r.phase === 'lobby' ? 'roles' : 'journal'}" aria-label="${r.phase === 'lobby' ? (isON() ? 'Deck' : 'Rôles') : 'Mon rôle et journal'}">${icon(r.phase === 'lobby' ? 'cards' : 'scroll', 20)}</button>
@@ -1200,6 +1227,8 @@
       kind = 'mine';
       title = st.type === 'vote' && !isON() ? 'À toi · Vote — 10 secondes' : `À toi · ${STEP_LABEL[st.type] || 'ton tour'}`;
       sub = st.type === 'vote' && st.lean ? `Ton intention (${rawName(st.lean)}) est pré-sélectionnée : confirme ou change` : QUESTION[st.type] || 'À toi de jouer';
+      if (st.type === 'vote' && isON()) sub += ' · éliminé dès 2 voix';
+      if (st.type === 'vote' && r.captainId) sub += ` · ${rawName(r.captainId)} compte double`;
       if (st.type === 'loups' && st.live) {
         const n = st.live.length, agree = st.agreed ? n : Math.max(0, ...Object.values(st.live.reduce((m, c) => { if (c.target) m[c.target] = (m[c.target] || 0) + 1; return m; }, {})));
         sub = st.agreed ? `La meute est d'accord : ${rawName(st.agreed)}` : n > 1 ? `${agree} / ${n} loups d'accord · touchez la même victime` : 'Touche ta victime';
@@ -1220,6 +1249,12 @@
       if (st.deadline && !st.resolved) right = `<span class="ev-time" data-deadline="${st.deadline}">${fmt(st.deadline - Date.now() - offset)}</span>`;
     }
     if (!title) return '';
+    // Votes du jour : « 9 / 10 ont voté » et sa petite barre, juste avant le minuteur.
+    if (st && !st.resolved && ['vote', 'captain_vote'].includes(st.type) && st.actorsCount && r.phase !== 'end') {
+      const pct = Math.round((st.done.length / st.actorsCount) * 100);
+      right = `<span class="ev-prog"><b>${st.done.length} / ${st.actorsCount} ont voté</b><i><s style="width:${pct}%"></s></i></span>${right ? '<span class="ev-sep" aria-hidden="true"></span>' + right : ''}`;
+      if (sub && /^\d+ \/ \d+ ont voté$/.test(sub)) sub = '';
+    }
     const key = `${kind}:${title}`;
     const fresh = key !== evLast;
     evLast = key;
@@ -1378,7 +1413,7 @@
   // Les cartes de la partie : un petit éventail « 13 cartes », le détail en grand d'un geste.
   function cardStripHTML() {
     const r = view.room, compo = view.compo || {};
-    if (r.phase === 'lobby' || r.phase === 'end') return '';
+    if (r.phase === 'lobby' || r.phase === 'end' || view.anarchy) return ''; // Anarchie : personne ne sait ce qui est en jeu
     const keys = Object.keys(ROLES).filter((k) => compo[k] > 0);
     if (!keys.length) return '';
     const total = keys.reduce((a, k) => a + compo[k], 0);
@@ -1390,6 +1425,7 @@
 
   // Le nombre de chaque carte de la partie.
   function deckHTML() {
+    if (view.anarchy && view.room.phase !== 'lobby' && view.room.phase !== 'end') return '<section><p class="muted">Anarchie : les cartes ont été tirées en secret. Personne ne sait lesquelles sont en jeu — elles seront révélées à la fin.</p></section>';
     const compo = view.compo || {};
     const keys = Object.keys(ROLES).filter((k) => compo[k] > 0);
     const total = keys.reduce((a, k) => a + compo[k], 0);
