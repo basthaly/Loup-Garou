@@ -654,7 +654,14 @@
           <span class="pill t-loups">${counts.loups} Loups</span><span class="pill t-village">${counts.village} Village</span>
           ${counts.solitaire ? `<span class="pill t-solitaire">${counts.solitaire} Solitaire</span>` : ''}
           ${host && view.customCompo ? '<button data-act="compoReset">Composition automatique</button>' : ''}</div>`;
-    return summary + groups;
+    // Compositions toutes faites : un geste, puis on peut ajuster rôle par rôle.
+    const same = (c) => Object.keys(c).length === Object.keys(compo).length && Object.entries(c).every(([k, v]) => compo[k] === v);
+    const list = (c) => Object.entries(c).map(([k, v]) => `${v > 1 ? v + ' ' : ''}${esc(roleName(k))}`).join(' · ');
+    const presets = s.distribution === 'vote' ? '' : (view.presets || []).map((p) => `<button class="preset ${same(p.compo) ? 'on' : ''}" data-act="preset" data-i="${p.id}" ${host ? '' : 'disabled'} title="${esc(p.about || '')}">
+        <span class="preset-head"><b>${esc(p.name)}</b><em class="lvl lvl-${esc(p.level.toLowerCase())}">${esc(p.level)}</em></span>
+        <small>${list(p.compo)}</small></button>`).join('');
+    const presetBlock = presets ? `<div class="label">Compositions toutes faites pour ${(view.presets[0] || {}).players || n} joueurs${host ? ' · touche-en une, puis ajuste si tu veux' : ''}</div><div class="presets">${presets}</div><div class="label">Composition détaillée</div>` : '';
+    return summary + presetBlock + groups;
   }
 
   // Une nuit : decks prêts selon le nombre de joueurs, ou composition libre.

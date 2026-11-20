@@ -119,4 +119,37 @@ function compoSize(compo) {
   return Object.values(compo).reduce((a, b) => a + b, 0);
 }
 
-module.exports = { ROLES, RULES, EXTENSIONS, WOLF_ROLES, MIN_PLAYERS, MAX_PLAYERS, autoComposition, votedComposition, compoSize, extAllowed, cardStep, cardsNeeded };
+// Compositions toutes faites, adaptées au nombre de joueurs ; l'hôte peut ensuite les modifier.
+// Chaque liste est ordonnée par importance : s'il y a trop de rôles pour le nombre de joueurs, on retire les derniers.
+const PRESETS = [
+  { name: 'Découverte', level: 'Initiation', min: 4, about: 'Les loups, la Voyante et le village : pour apprendre.',
+    roles: (n, w) => [['loup', w], ['voyante', 1]] },
+  { name: 'Classique', level: 'Facile', min: 6, about: 'Le jeu de base : Sorcière, Chasseur, Cupidon, Petite Fille.',
+    roles: (n, w) => [['loup', w], ['voyante', 1], ['sorciere', 1], ['chasseur', 1], ['cupidon', 1], ['petitefille', n >= 9 ? 1 : 0]] },
+  { name: 'Nouvelle Lune', level: 'Moyen', min: 8, about: 'Salvateur, Ancien, Idiot du village, Bouc émissaire.',
+    roles: (n, w) => [['loup', w], ['voyante', 1], ['sorciere', 1], ['salvateur', 1], ['ancien', 1], ['idiot', 1], ['bouc', n >= 10 ? 1 : 0], ['chasseur', n >= 12 ? 1 : 0]] },
+  { name: 'Personnages', level: 'Moyen', min: 8, about: 'Infect Père des Loups, Renard, Enfant sauvage, Sœurs, Chevalier.',
+    roles: (n, w) => [['loup', Math.max(1, w - 1)], ['infect', w >= 2 ? 1 : 0], ['voyante', 1], ['sorciere', 1], ['renard', 1], ['enfant', 1], ['soeur', n >= 10 ? 2 : 0], ['chevalier', n >= 12 ? 1 : 0]] },
+  { name: 'Les Solitaires', level: 'Difficile', min: 9, about: 'Loup Blanc, Joueur de flûte et Ange : chacun pour soi.',
+    roles: (n, w) => [['loup', w], ['loupblanc', 1], ['flute', 1], ['voyante', 1], ['sorciere', 1], ['salvateur', 1], ['ange', n >= 11 ? 1 : 0], ['chasseur', n >= 13 ? 1 : 0]] },
+  { name: 'La Meute', level: 'Difficile', min: 10, about: 'Grand Méchant Loup et Infect : une meute redoutable.',
+    roles: (n, w) => [['loup', Math.max(1, w - 2)], ['grandloup', 1], ['infect', 1], ['voyante', 1], ['sorciere', 1], ['salvateur', 1], ['renard', 1], ['ancien', 1], ['chevalier', n >= 13 ? 1 : 0]] }
+];
+function presetCompo(preset, n) {
+  const compo = {};
+  let used = 0;
+  for (const [role, k] of preset.roles(n, wolfCount(n))) {
+    if (!k || used + k > n) continue;
+    compo[role] = (compo[role] || 0) + k;
+    used += k;
+  }
+  if (n - used > 0) compo.villageois = (compo.villageois || 0) + n - used;
+  return compo;
+}
+function presetsFor(n) {
+  return PRESETS.map((p, id) => ({ id, name: p.name, level: p.level, about: p.about, min: p.min }))
+    .filter((p) => n >= p.min)
+    .map((p) => Object.assign(p, { compo: presetCompo(PRESETS[p.id], n) }));
+}
+
+module.exports = { PRESETS, presetsFor, ROLES, RULES, EXTENSIONS, WOLF_ROLES, MIN_PLAYERS, MAX_PLAYERS, autoComposition, votedComposition, compoSize, extAllowed, cardStep, cardsNeeded };

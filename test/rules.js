@@ -334,3 +334,21 @@ const wait = (ms) => new Promise((r) => setTimeout(r, ms));
   }
   process.exit(0);
 })().catch((e) => { console.error('ÉCHEC :', e.message); process.exit(1); });
+
+// Compositions toutes faites : la bonne taille pour chaque nombre de joueurs, et elles suivent les arrivées.
+{
+  const Roles = require('../server/roles');
+  for (let n = 4; n <= 18; n++) for (const p of Roles.presetsFor(n)) assert.strictEqual(Object.values(p.compo).reduce((a, b) => a + b, 0), n, `${p.name} à ${n}`);
+  const room = new Room('PRES', () => {});
+  const ps = Array.from({ length: 8 }, (_, i) => room.addPlayer('P' + i));
+  const meute = room.presetsFor(8).find((p) => p.name === 'Personnages');
+  room.applyPreset(ps[0].id, meute.id);
+  assert.ok(room.settings.extensions.personnages, 'extension activée');
+  assert.strictEqual(room.effectiveCompo().infect, 1);
+  room.addPlayer('P8'); room.addPlayer('P9');
+  assert.strictEqual(Object.values(room.effectiveCompo()).reduce((a, b) => a + b, 0), 10, 'elle suit le nombre de joueurs');
+  assert.strictEqual(room.effectiveCompo().soeur, 2);
+  room.changeCompo(ps[0].id, 'chasseur', 1);
+  assert.strictEqual(room.presetId, null, 'modifiée à la main : elle ne bouge plus');
+  console.log('OK  compositions toutes faites (Thiercelieux)');
+}

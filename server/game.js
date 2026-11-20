@@ -1,6 +1,7 @@
 // Moteur de jeu : un salon (Room) = une partie.
 const crypto = require('crypto');
 const { ROLES, WOLF_ROLES, MAX_PLAYERS, autoComposition, votedComposition, compoSize, extAllowed, cardStep, cardsNeeded } = require('./roles');
+const Roles = require('./roles');
 
 const MIN_PLAYERS = Math.max(2, parseInt(process.env.MIN_PLAYERS || '3', 10));
 const RECOMMENDED_PLAYERS = 6;
@@ -314,6 +315,11 @@ class Room {
 
   effectiveCompo() {
     if (this.compo) return this.compo;
+    // Composition toute faite : elle suit le nombre de joueurs tant que l'hôte n'y touche pas.
+    if (this.presetId != null && this.game === 'thiercelieux') {
+      const p = this.presetsFor(this.gamePlayers().length).find((x) => x.id === this.presetId);
+      if (p) return p.compo;
+    }
     if (this.customCompo) return this.customCompo;
     return autoComposition(this.gamePlayers().length, this.settings.extensions);
   }
@@ -328,6 +334,7 @@ class Room {
     const max = role === 'loup' || role === 'villageois' ? MAX_PLAYERS : step;
     c[role] = Math.min(max, Math.max(0, (c[role] || 0) + (delta > 0 ? step : -step)));
     if (!c[role]) delete c[role];
+    this.presetId = null; // modifiée à la main : elle ne suit plus le nombre de joueurs
     // On garde le bon nombre de cartes en ajustant les simples villageois.
     if (role !== 'villageois') {
       const v = (c.villageois || 0) + this.cardsNeeded(c) - compoSize(c);
@@ -337,9 +344,24 @@ class Room {
     this.changed();
   }
 
+  // Compositions toutes faites (une nuit a les siennes : scénarios du livret).
+  presetsFor(n) { const k = Math.max(4, n); return Roles.presetsFor(k).map((p) => Object.assign(p, { players: k })); }
+  applyPreset(id, index) {
+    if (id !== this.hostId || this.phase !== 'lobby') throw new Error("Seul l'hôte peut choisir la composition.");
+    const p = this.presetsFor(this.gamePlayers().length).find((x) => x.id === +index);
+    if (!p) throw new Error('Composition inconnue.');
+    // Les extensions nécessaires sont activées, et on repasse en composition choisie par l'hôte.
+    for (const role of Object.keys(p.compo)) { const ext = ROLES[role].ext; if (ext !== 'base') this.settings.extensions[ext] = true; }
+    this.settings.distribution = 'auto';
+    this.customCompo = Object.assign({}, p.compo);
+    this.presetId = p.id;
+    this.changed();
+  }
+
   resetCompo(id) {
     if (id !== this.hostId) return;
     this.customCompo = null;
+    this.presetId = null;
     this.changed();
   }
 
@@ -1179,6 +1201,7 @@ class Room {
       media: this.mediaFor(me),
       players,
       compo: this.effectiveCompo(),
+      presets: this.phase === 'lobby' ? this.presetsFor(this.gamePlayers().length) : [],
       expectedCards: this.cardsNeeded(),
       center: this.centerView(me, omniscient),
       customCompo: !!this.customCompo,
