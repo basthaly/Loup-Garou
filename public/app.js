@@ -44,6 +44,7 @@
     mic: '<rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/>',
     micoff: '<rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3M3 3l18 18"/>',
     grave: '<path d="M7 21V10a5 5 0 0 1 10 0v11M5 21h14M12 10v5M10 12h4"/>',
+    skull: '<path d="M12 3a8 8 0 0 0-5 14.2V20h10v-2.8A8 8 0 0 0 12 3z"/><circle cx="9" cy="12" r="1.5"/><circle cx="15" cy="12" r="1.5"/>',
     ear: '<path d="M4 15v-3a8 8 0 0 1 16 0v3"/><rect x="3" y="14" width="4" height="6" rx="1"/><rect x="17" y="14" width="4" height="6" rx="1"/>',
     person: '<circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/>',
     village: '<path d="M3 21V11l5-4 5 4v10M13 21v-7l4-3 4 3v7M3 21h18M7 21v-4h2v4"/>',
@@ -51,6 +52,7 @@
     sliders: '<path d="M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12M20 18h0"/><circle cx="16" cy="6" r="2"/><circle cx="10" cy="12" r="2"/><circle cx="18" cy="18" r="2"/>',
     cards: '<rect x="3" y="5" width="12" height="16" rx="2"/><path d="M9 3h10a2 2 0 0 1 2 2v14"/>',
     swap: '<path d="M7 7h11l-3-3M17 17H6l3 3"/>',
+    chev: '<path d="M6 9l6 6 6-6"/>',
     scroll: '<path d="M8 6h12M8 12h12M8 18h12M4 6h0M4 12h0M4 18h0"/>',
     x: '<path d="M6 6l12 12M18 6L6 18"/>',
     music: '<path d="M9 18V5l11-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="17" cy="16" r="3"/>',
@@ -476,13 +478,16 @@
     if (opts.danger) tl.push(`<span class="chip danger">${icon('alert', 12)} En danger</span>`);
     if (p.isMJ) tl.push('<span class="chip">MJ</span>');
     if (p.role && view.room.phase !== 'lobby') tl.push(`<span class="chip rolechip t-${teamOf(p.role)}" title="${p.seenRole ? 'Tu l\'as vu : ' : ''}${esc(roleName(p.role))}">${cardImg(p.role, 'thumb')}<span class="rc-name">${esc(roleName(p.role))}</span></span>`);
-    if (p.startRole && p.startRole !== p.role) tl.push(`<span class="chip" title="Carte au départ">était ${esc(roleName(p.startRole))}</span>`);
-    if (isON() && view.room.phase === 'end') tl.push(p.won ? '<span class="chip ok">Gagné</span>' : '<span class="chip">Perdu</span>');
-    if (isON() && view.room.phase === 'end' && !p.alive) tl.push('<span class="chip danger">Éliminé</span>');
+    const ended = view.room.phase === 'end' && !p.isMJ && !p.waiting;
     if (p.bot) tl.push('<span class="chip bot" title="Faux joueur">Bot</span>');
     // Haut droite : les états, en petites icônes rondes (le détail au survol).
     const tr = [];
     const ib = (ic, cls, title) => `<span class="ib ${cls}" title="${esc(title)}" aria-label="${esc(title)}">${icon(ic, 13)}</span>`;
+    // Fin de partie : la seule carte affichée est la finale ; gagné / perdu se lit à la couleur de la vignette.
+    if (ended) {
+      if (!p.alive) tr.push(ib('skull', 'dead', isON() ? 'Éliminé' : `Mort${p.death && p.death.when ? ' · ' + p.death.when.toLowerCase() : ''}`));
+      if (p.won !== undefined) tr.push(ib(p.won ? 'check' : 'x', p.won ? 'won' : 'lost', p.won ? 'A gagné' : 'A perdu'));
+    }
     if (p.captain) tr.push(ib('crown', 'cap', 'Capitaine : sa voix compte double'));
     if (p.lover || me.lover === p.id) tr.push(ib('heart', 'love', 'Amoureux'));
     if (opts.wolfMate) tr.push(ib('wolf', 'wolf', 'Ta meute'));
@@ -496,6 +501,7 @@
     else if (opts.votes != null && opts.votes > 0) tr.push(`<span class="chip votes-chip">${opts.votes} voix</span>`);
     else if (voted) tr.push(ib('check', 'ok', st.type === 'debate' ? 'Prêt à voter' : st.type === 'roles_reveal' ? 'Prêt' : 'A voté'));
     const canKick = !opts.noKick && (me.isHost || me.isMJ) && !isMe && !p.kicked && view.room.phase !== 'end';
+    const endCls = ended && p.won !== undefined ? (p.won ? 'won' : 'lost') : '';
     const kick = canKick ? `<button class="kick" data-act="kick" data-id="${p.id}" aria-label="Exclure ${esc(p.name)}" title="Exclure">${icon('x', 14)}</button>` : '';
     const inner = `${asleep ? `<div class="sleep">${icon('moon', 22)}<span>Endormi</span></div>` : `<span class="avatar" style="background:${colorOf(p.id)}" aria-hidden="true">${esc(p.name[0])}</span>`}
       <div class="vslot" data-vslot="${slot}"></div>
@@ -506,7 +512,7 @@
       ${view.room.phase === 'day' && !opts.voteFrom ? `<span class="talk" data-talk="${p.id}" aria-hidden="true"><i></i></span>` : ''}
       ${opts.voteFrom && opts.voteFrom.length ? `<span class="vote-from ${opts.topVoted ? 'top' : ''}" title="Contre ${esc(p.name)} : ${opts.voteFrom.map((x) => (nm(x))).join(', ')}"><span class="faces">${opts.voteFrom.map((x) => face(x, 24)).join('')}</span><b>${opts.votes || opts.voteFrom.length}</b></span>` : ''}
       <span class="nm">${p.mic ? '<span class="vu" aria-hidden="true"><i></i><i></i><i></i></span>' : icon('micoff', 13)}${esc(p.name)}${isMe ? ' (toi)' : ''}${opts.leanTo ? `<span class="lean-to" title="Penche pour ${nm(opts.leanTo)} (intention)">→${face(opts.leanTo, 15)}</span>` : ''}</span>`;
-    const cls = `tile has-video-host ${isMe ? 'me' : ''} ${asleep ? 'asleep' : ''} ${opts.wolfMate ? 'wolfmate' : ''} ${opts.pick ? 'pickable' : ''} ${opts.picked ? 'picked' : ''} ${opts.danger ? 'danger' : ''} ${opts.big ? 'big' : ''} ${opts.out ? 'out' : ''} ${opts.poisoned ? 'poisoned' : ''} ${opts.saved ? 'saved' : ''} ${opts.tools ? 'has-tools' : ''}`;
+    const cls = `tile has-video-host ${isMe ? 'me' : ''} ${asleep ? 'asleep' : ''} ${opts.wolfMate ? 'wolfmate' : ''} ${opts.pick ? 'pickable' : ''} ${opts.picked ? 'picked' : ''} ${opts.danger ? 'danger' : ''} ${opts.big ? 'big' : ''} ${opts.out ? 'out' : ''} ${opts.poisoned ? 'poisoned' : ''} ${opts.saved ? 'saved' : ''} ${opts.tools ? 'has-tools' : ''} ${endCls} ${ended && !p.alive ? 'dead-end' : ''}`;
     if (opts.pick) return `<button class="${cls}" data-speak="${p.id}" data-act="pick" data-id="${p.id}" aria-pressed="${!!opts.picked}" aria-label="${esc((st && VERB[st.type]) || 'Choisir')} ${esc(p.name)}">${inner}</button>`;
     return `<div class="${cls}" data-speak="${p.id}">${inner}${kick}</div>`;
   }
@@ -713,15 +719,11 @@
     const r = view.room, st = view.step, me = view.me;
     const day = isDayCtx();
     const title = r.phase === 'end' ? 'Fin de partie' : r.phase === 'setup' ? 'Préparation' : isON() ? (day ? 'Le jour' : 'La nuit') : day ? `Jour ${Math.max(1, r.day)}` : `Nuit ${r.night}`;
-    // Une nuit : les rôles appelés pendant la nuit restent affichés au jour, pour le débat.
-    const recap = isON() && r.nightOrder && r.nightOrder.length ? `<ol class="steps night-recap" aria-label="Rôles appelés cette nuit, dans l'ordre">
-      <li class="recap-label">${icon('moon', 13)} Cette nuit</li>${r.nightOrder.map((t) => `<li class="done">${esc(STEP_LABEL[t] || t)}</li>`).join('')}</ol>` : '';
-    const steps = recap || (r.phase === 'end' ? '' : `<ol class="steps" aria-label="Déroulé de la phase">${r.phaseSteps.map((s) =>
-      `<li class="${s.state}">${esc(STEP_LABEL[s.type] || s.type)}${s.state === 'done' ? ' ✓' : ''}</li>`).join('')}</ol>`);
+    const steps = r.phase === 'end' ? '' : stepperHTML();
     const timer = st && !st.resolved && st.deadline ? `<span class="timer" data-deadline="${st.deadline}">${fmt(st.deadline - Date.now() - offset)}</span>` : '';
     const spect = me.waiting ? `<span class="pill spect-pill">${icon('clock', 14)} En attente</span>` : document.body.dataset.dead === '1' ? `<span class="pill spect-pill">${icon('ear', 14)} Spectateur</span>` : '';
     const head = `<header class="band"><div class="in">
-        <span class="ph-title">${title}</span>${steps}${spect}<span class="grow"></span>${cardStripHTML()}${timer}
+        <span class="ph-title">${title}</span>${steps}${spect}<span class="grow"></span>${cardStripHTML()}${timer}${stepsPopHTML()}
         ${!isON() && (view.voteHistory || []).length ? `<button class="appear" data-act="history" aria-label="Historique des votes" title="Historique des votes">${icon('ballot', 18)}</button>` : ''}${helpButton()}${settingsButton()}
         ${me.isHost && r.phase !== 'end' ? `<button class="stop leave" data-act="abort" aria-label="Arrêter la partie">${icon('stop', 14)}<span class="lbl">Arrêter</span></button>` : ''}</div>
 </header>`;
@@ -813,14 +815,7 @@
 
   function promptCore() {
     const st = view.step, me = view.me, r = view.room;
-    if (r.phase === 'end') {
-      if (!isON()) return `<div class="prompt"><h1>${esc(r.winner ? r.winner.text : 'Fin de partie')}</h1><button class="ghost small-btn recap-btn" data-act="drawer" data-kind="journal" data-tab="recit">${icon('scroll', 14)} Tout ce qui s'est passé</button></div>`;
-      const lv = view.lastVote;
-      const votes = lv ? `<div class="votes">${lv.choices.map((c) => `<span class="vote-card">${nm(c.voter)} → <b>${c.target ? nm(c.target) : 'personne'}</b></span>`).join('')}</div>` : '';
-      const log = view.recap ? `<button class="ghost small-btn recap-btn" data-act="drawer" data-kind="journal" data-tab="recit">${icon('scroll', 14)} Tout ce qui s'est passé</button>` : '';
-      return `<div class="prompt"><p class="hint">${me.won ? 'Tu as gagné !' : 'Tu as perdu'} · ta carte finale : <span class="t-${teamOf(me.finalRole)}">${esc(roleName(me.finalRole))}</span></p>
-        <h1>${esc(r.winner ? r.winner.text : 'Fin de partie')}</h1>${votes}${log}</div>`;
-    }
+    if (r.phase === 'end') return ''; // le résultat est dans le bandeau du bas
     if (!st) return '';
     if (st.resolved && !st.result && !st.isActor && !DAY_STEPS.includes(st.type) && !['roles_reveal', 'compoVote'].includes(st.type) && r.phase !== 'day') {
       return `<div class="prompt muted-prompt"><h1>${me.alive || me.isMJ ? 'Le village dort…' : 'Tu ne joues plus'}</h1></div>`;
@@ -998,7 +993,7 @@
     if (st && st.type === 'debate' && !st.resolved && st.leans) for (const c of st.leans) { leanTo[c.voter] = c.target; (leanFrom[c.target] = leanFrom[c.target] || []).push(c.voter); }
     if (wolfLive) for (const c of wolfLive) { if (c.target) { voteTo[c.voter] = c.target; (voteFrom[c.target] = voteFrom[c.target] || []).push(c.voter); } }
     const mj = view.players.find((p) => p.isMJ && p.id !== me.id);
-    const alive = view.players.filter((p) => !p.isMJ && !p.waiting && (p.alive || (isON() && r.phase === 'end') || (tally && voteFrom[p.id] && st.type === 'vote')));
+    const alive = view.players.filter((p) => !p.isMJ && !p.waiting && (p.alive || r.phase === 'end' || (tally && voteFrom[p.id] && st.type === 'vote')));
     const night = r.phase === 'night' && !isDayCtx();
     const witch = st && st.type === 'sorciere' && st.isActor && !st.resolved && !st.submitted;
     const build = (p) => {
@@ -1134,7 +1129,7 @@
   }
 
   function cemeteryHTML() {
-    if (isON()) return '';
+    if (isON() || view.room.phase === 'end') return '';
     const dead = view.players.filter((p) => !p.isMJ && !p.alive && !p.waiting);
     if (!dead.length) return '';
     const causes = { loups: 'mort(e)', sorciere: 'mort(e)', loupblanc: 'mort(e)', rouille: 'mort(e)', vote: 'éliminé(e)', bouc: 'sacrifié(e)', chasseur: 'abattu(e)', chagrin: 'chagrin', exclu: 'exclu(e)' };
@@ -1151,11 +1146,14 @@
   // Barre du bas : moi, micro, caméra, l'action principale, le journal.
   function dockHTML() {
     const st = view.step, me = view.me, r = view.room;
-    const d = me.role ? ROLES[me.role] : null;
+    // Une nuit, fin de partie : la carte qui compte est la finale.
+    const finalON = isON() && r.phase === 'end' && me.finalRole;
+    const myRole = finalON ? me.finalRole : me.role;
+    const d = myRole ? ROLES[myRole] : null;
     const L = Media.local;
     const roleBtn = me.isMJ ? '<span class="dock-role"><small>Rôle</small><b>Maître du jeu</b></span>'
-      : d && roleChange() ? (() => { const c = roleChange(), t = ROLES[c.to]; return `<button class="dock-role changed" data-act="help" aria-label="Ton rôle : ${esc(t.name)}, ${esc(roleName(c.from))} au départ">${cardImg(c.from, 'dock-art was')}<span class="dock-arrow" aria-hidden="true">→</span>${cardImg(c.to, 'dock-art')}<span class="dr-t"><small>${esc(roleName(c.from))} →</small><b class="t-${t.team}">${esc(t.name)}<span class="qmark" aria-hidden="true">?</span></b></span></button>`; })()
-      : d ? `<button class="dock-role" data-act="help" aria-label="Comment jouer ${esc(d.name)} ?">${cardImg(me.role, 'dock-art')}<span class="dr-t"><small>${isON() ? (r.phase === 'end' ? 'Au départ' : 'Ta carte au départ') : me.alive || r.phase === 'end' ? 'Ton rôle' : 'Tu étais'}</small><b class="t-${d.team}">${esc(d.name)}<span class="qmark" aria-hidden="true">?</span></b></span></button>` : '';
+      : d && !finalON && roleChange() ? (() => { const c = roleChange(), t = ROLES[c.to]; return `<button class="dock-role changed" data-act="help" aria-label="Ton rôle : ${esc(t.name)}, ${esc(roleName(c.from))} au départ">${cardImg(c.from, 'dock-art was')}<span class="dock-arrow" aria-hidden="true">→</span>${cardImg(c.to, 'dock-art')}<span class="dr-t"><small>${esc(roleName(c.from))} →</small><b class="t-${t.team}">${esc(t.name)}<span class="qmark" aria-hidden="true">?</span></b></span></button>`; })()
+      : d ? `<button class="dock-role" data-act="help" aria-label="Comment jouer ${esc(d.name)} ?">${cardImg(myRole, 'dock-art')}<span class="dr-t"><small>${isON() ? (r.phase === 'end' ? 'Ta carte finale' : 'Ta carte au départ') : me.alive || r.phase === 'end' ? 'Ton rôle' : 'Tu étais'}</small><b class="t-${d.team}">${esc(d.name)}<span class="qmark" aria-hidden="true">?</span></b></span></button>` : '';
     const mic = `<button class="round ${L.audioTrack ? (L.mic ? 'on' : 'off') : ''}" data-act="media-mic" aria-pressed="${!!(L.audioTrack && L.mic)}" aria-label="${L.audioTrack && L.mic ? 'Couper le micro' : 'Activer le micro'}" ${L.busy.audio ? 'disabled' : ''}>${icon(L.audioTrack && L.mic ? 'mic' : 'micoff', 20)}</button>`;
     const cam = `<button class="round ${L.cam ? 'on' : ''}" data-act="media-cam" aria-pressed="${L.cam}" aria-label="${L.cam ? 'Couper la caméra' : 'Activer la caméra'}" ${L.busy.video ? 'disabled' : ''}>${icon(L.cam ? 'cam' : 'camoff', 20)}</button>`;
     const self = `<div class="dock-self has-video-host" data-speak="${me.id}"><span class="avatar" style="background:${colorOf(me.id)}" aria-hidden="true">${esc(me.name[0])}</span><div class="vslot" data-vslot="me"></div></div>`;
@@ -1187,9 +1185,19 @@
       ic = 'clock';
       if (st && st.deadline && !st.resolved) right = `<span class="ev-time" data-deadline="${st.deadline}">${fmt(st.deadline - Date.now() - offset)}</span>`;
     } else if (r.phase === 'end') {
-      kind = 'result'; ic = 'crown';
-      title = r.winner ? r.winner.text : 'Fin de partie';
-      sub = isON() ? (me.won ? 'Tu as gagné !' : 'Tu as perdu') : 'La partie est terminée';
+      // Un seul endroit pour le résultat : qui gagne, si tu as gagné, qui est tombé, et le récit.
+      const mine = view.players.find((p) => p.id === me.id);
+      const won = isON() ? me.won : mine && mine.won;
+      kind = `result end ${won === true ? 'won' : won === false ? 'lost' : ''}`;
+      ic = won === true ? 'check' : won === false ? 'x' : 'crown';
+      title = r.winner ? (isON() ? r.winner.text.replace(/^Éliminés? : [^.]*\.\s*|^Personne n'est éliminé\.\s*/, '') : r.winner.text) : 'Fin de partie';
+      const lv = view.lastVote;
+      const fell = isON() && lv ? (lv.dead.length ? lv.dead.map((d) => {
+        const n = lv.choices.filter((c) => c.target === d).length;
+        return `${rawName(d)} éliminé(e)${n ? ` avec ${n} voix` : ' par le Chasseur'}`;
+      }).join(', ') : 'Personne n\'est éliminé') : '';
+      sub = [won === true ? 'Tu as gagné' : won === false ? 'Tu as perdu' : 'La partie est terminée', fell].filter(Boolean).join(' · ');
+      if (view.recap || (!isON() && view.log.length)) right = `<button class="ev-btn" data-act="drawer" data-kind="journal" data-tab="recit">${icon('scroll', 15)}<span class="lbl">Tout ce qui s'est passé</span><span class="lbl-s">Le récit</span></button>`;
     } else if (!st) {
       return '';
     } else if (st.type === 'debate' && !st.resolved) {
@@ -1346,15 +1354,46 @@
     return '<h1>Étape terminée</h1>';
   }
 
-  // Les cartes de la partie en petit dans l'en-tête, avec leur nombre : un coup d'œil, et en grand d'un geste.
+  // En-tête sur une ligne : l'étape en cours (1/9 et des points), ou au jour d'Une nuit les rôles de la nuit en mini-cartes.
+  let stepsOpen = false;
+  const ON_STEP_CARD = { n_double: 'n_double', n_loups: 'n_loup', n_sbire: 'n_sbire', n_macons: 'n_macon', n_voyante: 'n_voyante', n_voleur: 'n_voleur', n_noiseuse: 'n_noiseuse', n_soulard: 'n_soulard', n_insomniaque: 'n_insomniaque' };
+  function stepperHTML() {
+    const r = view.room;
+    if (isON() && r.nightOrder && r.nightOrder.length) {
+      const names = r.nightOrder.map((t) => STEP_LABEL[t] || t);
+      return `<button class="stepper night-cards" data-act="steps-toggle" aria-expanded="${stepsOpen}" aria-label="Rôles appelés cette nuit : ${esc(names.join(', '))}">
+        ${icon('moon', 14)}<span class="sp-lbl">Cette nuit</span><span class="nc-list">${r.nightOrder.map((t, i) => `${i ? '<i aria-hidden="true">›</i>' : ''}<span title="${esc(STEP_LABEL[t] || t)}">${ON_STEP_CARD[t] ? cardImg(ON_STEP_CARD[t], 'nc-art') : esc(STEP_LABEL[t] || t)}</span>`).join('')}</span></button>`;
+    }
+    const list = r.phaseSteps || [];
+    if (!list.length) return '';
+    let idx = list.findIndex((x) => x.state === 'now');
+    if (idx < 0) idx = Math.max(0, list.map((x) => x.state).lastIndexOf('done'));
+    const cur = list[idx];
+    const dots = list.length > 1 ? `<span class="sp-dots" aria-hidden="true">${list.map((x, i) => `<i class="${i === idx ? 'now' : i < idx ? 'done' : ''}"></i>`).join('')}</span>` : '';
+    return `<button class="stepper" data-act="steps-toggle" aria-expanded="${stepsOpen}" aria-label="Étape ${idx + 1} sur ${list.length} : ${esc(STEP_LABEL[cur.type] || cur.type)}. Voir l'ordre de passage">
+      <span class="sp-now ${cur.state}">${esc(STEP_LABEL[cur.type] || cur.type)}${cur.state === 'done' ? ' ✓' : ''}</span>${list.length > 1 ? `<span class="sp-n">${idx + 1}/${list.length}</span>` : ''}${dots}${list.length > 1 ? icon('chev', 14) : ''}</button>`;
+  }
+  function stepsPopHTML() {
+    const r = view.room;
+    if (!stepsOpen || r.phase === 'end') return '';
+    const night = isON() && r.nightOrder && r.nightOrder.length;
+    const items = night ? r.nightOrder.map((t) => ({ type: t, state: 'done' })) : r.phaseSteps || [];
+    if (!items.length) return '';
+    return `<div class="steps-pop" role="dialog" aria-label="${night ? 'Rôles appelés cette nuit' : 'Ordre de passage'}"><b>${night ? 'Rôles appelés cette nuit, dans l\'ordre' : 'Ordre de passage'}</b>
+      <ol>${items.map((x) => `<li class="${x.state}">${night && ON_STEP_CARD[x.type] ? cardImg(ON_STEP_CARD[x.type], 'nc-art') : ''}<span>${esc(STEP_LABEL[x.type] || x.type)}</span>${!night && x.state === 'done' ? icon('check', 13) : ''}${x.state === 'now' ? '<em>en cours</em>' : ''}</li>`).join('')}</ol></div>`;
+  }
+
+  // Les cartes de la partie : un petit éventail « 13 cartes », le détail en grand d'un geste.
   function cardStripHTML() {
     const r = view.room, compo = view.compo || {};
     if (r.phase === 'lobby' || r.phase === 'end') return '';
     const keys = Object.keys(ROLES).filter((k) => compo[k] > 0);
     if (!keys.length) return '';
+    const total = keys.reduce((a, k) => a + compo[k], 0);
+    const fan = keys.slice().sort((a, b) => compo[b] - compo[a]).slice(0, 3);
     const label = keys.map((k) => `${compo[k]} ${roleName(k)}`).join(', ');
-    return `<button class="card-strip" data-act="deck" aria-label="Cartes en jeu${view.anarchy ? ' possibles' : ''} : ${esc(label)}" title="Cartes en jeu">
-      <span class="cs-label">${view.anarchy ? 'Cartes possibles' : 'Cartes en jeu'}</span><span class="cs-cards">${keys.map((k) => `<span class="cs-card">${cardImg(k, 'cs-art')}${compo[k] > 1 ? `<b>${compo[k]}</b>` : ''}</span>`).join('')}</span></button>`;
+    return `<button class="card-fan" data-act="deck" aria-label="${total} cartes ${view.anarchy ? 'possibles' : 'en jeu'} : ${esc(label)}" title="Cartes en jeu">
+      <span class="cf-cards">${fan.map((k) => cardImg(k, 'cf-art')).join('')}</span><b>${total}<span class="cf-l"> cartes</span></b></button>`;
   }
 
   // Le nombre de chaque carte de la partie.
@@ -1680,6 +1719,7 @@
       case 'ready': send('act', {}); break;
       case 'unready': send('act', { ready: false }); break;
       case 'lean-clear': send('act', { lean: null }); break;
+      case 'steps-toggle': stepsOpen = !stepsOpen; render(); break;
       case 'jtab': journalTab = el.dataset.v; if (drawerKind === 'history') drawerKind = 'journal'; render(); { const b = $app.querySelector('.drawer:not(.sheet)'); if (b) b.scrollTop = 0; } break;
       case 'deck': drawerKind = 'deck'; drawerOpen = true; drawerAnim = true; render(); setTimeout(() => { drawerAnim = false; }, 400); break;
       case 'history': drawerKind = 'history'; drawerOpen = true; drawerAnim = true; render(); setTimeout(() => { drawerAnim = false; }, 400); break;

@@ -1018,8 +1018,22 @@ class Room {
     }
   }
 
+  // Qui a gagné : sert à colorer les vignettes en fin de partie (vert gagné, rouge perdu).
+  winnersOf(team) {
+    const gp = this.gamePlayers();
+    const solo = ['flute', 'ange', 'loupblanc'];
+    const pick = {
+      village: (p) => !this.wolfTeam(p) && !solo.includes(p.role),
+      loups: (p) => this.wolfTeam(p),
+      amoureux: (p) => this.lovers && this.lovers.includes(p.id),
+      loupblanc: (p) => p.role === 'loupblanc', flute: (p) => p.role === 'flute', ange: (p) => p.role === 'ange'
+    }[team];
+    return pick ? gp.filter(pick).map((p) => p.id) : [];
+  }
+
   endGame(w) {
     clearTimeout(this.timer);
+    if (!w.winners) w = Object.assign({}, w, { winners: this.winnersOf(w.team) });
     this.addLog(w.text, true);
     this.phase = 'end';
     this.winner = w;
@@ -1130,6 +1144,7 @@ class Room {
         id: p.id, name: p.name, connected: p.connected, alive: p.alive, isMJ: this.isMJ(p.id),
         captain: this.captainId === p.id, idiotRevealed: p.idiotRevealed, cam: p.cam, mic: p.mic, conn: p.conn, kicked: !!p.kicked,
         death: p.death,
+        won: this.phase === 'end' && this.winner && this.winner.winners ? this.winner.winners.includes(p.id) : undefined,
         role, bot: !!p.bot, waiting: !!p.waiting,
         charmed: seeCharm && p.charmed,
         infected: (omniscient || pid === id) && (p.infected || (p.role === 'enfant' && p.wildTurned)),
