@@ -95,8 +95,9 @@
     loups: 'Loups-Garous', infect: 'Infect Père des Loups', grandloup: 'Grand Méchant Loup', loupblanc: 'Loup-Garou Blanc', sorciere: 'Sorcière', flute: 'Joueur de flûte' };
 
   // Les étapes d'une nuit : seulement les rôles en jeu (morts compris si « appeler les morts »).
-  function planNight() {
-    if (S.quick) return ['quick'];
+  function planNight() { return S.quick ? ['quick'] : nightRoles().concat('dawn'); }
+  // Les rôles appelés cette nuit, dans l'ordre (morts compris si « appeler les morts »).
+  function nightRoles() {
     const n = S.night;
     const has = (role) => inGame(role) && (S.callDead || holders(role).some((p) => p.alive));
     const st = [];
@@ -117,7 +118,6 @@
       if (t === 'flute' && !has('flute')) continue;
       st.push(t);
     }
-    st.push('dawn');
     return st;
   }
   function planDay() { return (S.day === 1 && !S.players.some((p) => p.captain) ? ['captain'] : []).concat(['vote']); }
@@ -129,7 +129,7 @@
     log(`Nuit ${S.night} : le village s'endort.`);
   }
   function startDay() { S.phase = 'day'; S.day += 1; S.steps = planDay(); S.cursor = 0; resetUi(); }
-  function resetUi() { ui.sel = []; ui.counts = {}; ui.sorc = { save: false, kill: null }; ui.choice = null; ui.menu = null; }
+  function resetUi() { ui.called = []; ui.sel = []; ui.counts = {}; ui.sorc = { save: false, kill: null }; ui.choice = null; ui.menu = null; }
   const cur = () => S.steps[S.cursor];
   function next() {
     resetUi();
@@ -202,10 +202,18 @@
       const need = S.nameless ? total : S.players.length + (inGame('voleur') ? 2 : 0);
       const nPlayers = total - (inGame('voleur') ? 2 : 0);
       const groups = { base: 'Jeu de base', nouvelleLune: 'Nouvelle Lune', personnages: 'Personnages' };
+      // Compositions toutes faites pour le nombre de joueurs : un geste, puis on ajuste.
+      const count = S.nameless ? (S.count || Math.max(4, nPlayers)) : S.players.length;
+      const presets = presetCache[count];
+      if (!presets && count >= 4) loadPresets(count);
+      const same = (c) => Object.keys(c).length === Object.keys(S.compo).filter((k) => S.compo[k] > 0).length && Object.entries(c).every(([k, v]) => S.compo[k] === v);
+      const presetHTML = count < 4 ? '' : `<div class="mj-row wrap"><b class="mj-lbl grow">Compositions toutes faites pour ${count} joueurs</b>${S.nameless ? `<span class="mj-count">Nous sommes <button class="mj-ib" data-a="count" data-v="-1" aria-label="Moins">${icon('minus', 14)}</button><b>${count}</b><button class="mj-ib" data-a="count" data-v="1" aria-label="Plus">${icon('plus', 14)}</button></span>` : ''}</div>
+        <div class="mj-presets">${presets ? presets.map((p) => `<button class="mj-preset ${same(p.compo) ? 'on' : ''}" data-a="preset" data-v="${p.id}"><span class="mj-row"><b class="grow">${esc(p.name)}</b><em class="lvl lvl-${esc(p.level.toLowerCase())}">${esc(p.level)}</em></span>
+          <small>${Object.entries(p.compo).map(([k, v]) => `${v > 1 ? v + ' ' : ''}${esc(rn(k))}`).join(' · ')}</small></button>`).join('') : '<span class="mj-muted">Chargement…</span>'}</div><h3>Ou compose toi-même</h3>`;
       const list = Object.entries(groups).map(([g, gt]) => `<h3>${gt}</h3><ul class="mj-compo">${Object.entries(R).filter(([, d]) => d.ext === g).map(([k, d]) => `
         <li class="${S.compo[k] ? 'on' : ''}">${card(k, 'mj-mini')}<b>${esc(d.name)}</b><span class="t-${d.team}">${d.team === 'loups' ? 'Loups' : d.team === 'solitaire' ? 'Solitaire' : 'Village'}</span>
         <span class="mj-count"><button class="mj-ib" data-a="cminus" data-r="${k}" aria-label="Moins">${icon('minus', 14)}</button><b>${S.compo[k] || 0}</b><button class="mj-ib" data-a="cplus" data-r="${k}" aria-label="Plus">${icon('plus', 14)}</button></span></li>`).join('')}</ul>`).join('');
-      body = `<section class="mj-panel grow"><h2>Les cartes</h2><p class="mj-muted">${inGame('voleur') ? 'Avec le Voleur, 2 cartes de plus restent au centre.' : 'Une carte par joueur.'}</p>${list}
+      body = `<section class="mj-panel grow"><h2>Les cartes</h2><p class="mj-muted">${inGame('voleur') ? 'Avec le Voleur, 2 cartes de plus restent au centre.' : 'Une carte par joueur.'}</p>${presetHTML}${list}
         <label class="check"><input type="checkbox" data-a="calldead" ${S.callDead ? 'checked' : ''}> Appeler aussi les rôles morts la nuit (pour ne rien révéler)</label>
         <label class="check"><input type="checkbox" data-a="quickmode" ${S.quick ? 'checked' : ''}> Mode rapide : je mène la nuit moi-même, je note seulement les morts</label>
         ${S.nameless && inGame('voleur') ? `<div class="mj-row wrap"><b class="mj-lbl">Les 2 cartes au centre (pour le Voleur)</b>${[0, 1].map((i) => `<select data-a="extra" data-i="${i}"><option value="">— carte —</option>${Object.keys(S.compo).filter((k) => S.compo[k] > 0 && k !== 'voleur').map((k) => `<option value="${k}" ${S.extra[i] === k ? 'selected' : ''}>${esc(rn(k))}</option>`).join('')}</select>`).join('')}</div>` : ''}
@@ -367,8 +375,14 @@
         const dead = ui.sel.map(P).filter(Boolean);
         const chain = [];
         for (const p of dead) if (p.lover) { const l = S.players.find((q) => q.lover && q.id !== p.id && q.alive && !ui.sel.includes(q.id)); if (l) chain.push(l); }
-        return scriptCard('quick', S.quick ? 'Mode rapide : tu mènes la nuit, tu notes les morts' : 'Raccourci : seulement les morts', SCRIPT.quick,
-          `<b class="mj-lbl">Qui est mort cette nuit ? (touche-les tous)</b>${pickGrid(alive(), alive().length)}
+        const roles = S.quick ? nightRoles() : [];
+        ui.called = ui.called || [];
+        const memo = roles.length ? `<div class="mj-memo"><b class="mj-lbl">À appeler cette nuit, dans l'ordre · touche-les au fur et à mesure</b><ol class="mj-callist">${roles.map((r, i) => {
+          const role = STEP_ROLE[r], dead = role && r !== 'loups' && !holders(role).some((p) => p.alive), done = ui.called.includes(r);
+          return `<li><button class="mj-call ${done ? 'done' : ''}" data-a="called" data-v="${r}" aria-pressed="${done}"><span class="n">${i + 1}</span>${role ? card(role, 'mj-mini') : `<span class="mj-st">${icon('heart', 12)}</span>`}<span>${esc(LABEL[r])}${dead ? '<small>mort : appelle quand même</small>' : ''}</span>${done ? icon('check', 15) : ''}</button></li>`;
+        }).join('')}</ol>${holders('petitefille').some((p) => p.alive) ? '<p class="mj-muted small">Petite Fille en jeu : surveille-la pendant le tour des loups.</p>' : ''}</div>` : '';
+        return scriptCard('quick', S.quick ? 'Mode rapide : tu mènes la nuit, tu notes les morts' : 'Raccourci : seulement les morts', S.quick ? '« Le village s\'endort… »' : SCRIPT.quick,
+          `${memo}<b class="mj-lbl">Au réveil : qui est mort cette nuit ? (touche-les tous)</b>${pickGrid(alive(), alive().length)}
           ${chain.length ? `<p class="mj-note">${chain.map((p) => esc(p.name)).join(', ')} mourra aussi de chagrin (amoureux).</p>` : ''}
           ${dead.length ? `<ul class="mj-dawn">${dead.concat(chain).map((p) => `<li class="bad">${esc(p.name)}${S.nameless && p.role === p.baseRole ? '' : ` · il était <b class="t-${team(p.role)}">${esc(rn(p.role))}</b>`}</li>`).join('')}</ul>` : ''}
           <p class="mj-muted small">Un Chasseur ou le Capitaine parmi eux ? Leur étape s'ajoute juste après.</p>`,
@@ -619,6 +633,13 @@
       case 'cminus': S.compo[el.dataset.r] = Math.max(0, (S.compo[el.dataset.r] || 0) - 1); clearRoles(); break;
       case 'distrib': S.distrib = el.dataset.v; clearRoles(); if (S.distrib === 'random') deal(); break;
       case 'deal': deal(); break;
+      case 'count': S.count = Math.min(18, Math.max(4, (S.count || 8) + +el.dataset.v)); break;
+      case 'preset': {
+        const count = S.nameless ? (S.count || 8) : S.players.length;
+        const p = (presetCache[count] || []).find((x) => x.id === +el.dataset.v);
+        if (p) { S.compo = Object.assign({}, p.compo); clearRoles(); }
+        break;
+      }
       case 'nameless': S.nameless = el.dataset.v === '1'; S.extra = []; break;
       case 'begin-nameless': {
         // Un joueur par carte (moins les 2 du centre pour le Voleur), nommé d'après sa carte.
@@ -658,6 +679,7 @@
       case 'apply': return applyStep();
       case 'none': return noneStep();
       case 'skipstep': S.dawnDone = false; S.voteDone = false; return next();
+      case 'called': { ui.called = ui.called || []; const v = el.dataset.v; ui.called = ui.called.includes(v) ? ui.called.filter((x) => x !== v) : ui.called.concat(v); break; }
       case 'to-quick': snap(); S.steps = S.steps.slice(0, S.cursor).concat('quick'); resetUi(); break;
       case 'quick-none': snap(); S.dawnText = 'Personne n\'est mort cette nuit.'; log(S.dawnText); S.dawnDone = true; break;
       case 'quick-ok': {
@@ -703,6 +725,12 @@
       default: return;
     }
     save(); render();
+  }
+  const presetCache = {};
+  function loadPresets(n) {
+    if (presetCache[n] !== undefined) return;
+    presetCache[n] = null;
+    fetch(`/api/presets/${n}`).then((r) => r.json()).then((d) => { presetCache[n] = d.presets || []; render(); }).catch(() => { presetCache[n] = []; render(); });
   }
   function clearRoles() { for (const p of S.players) p.role = null; S.extra = []; }
   function confirmReset() { return S.phase === 'setup' && !S.players.length ? true : window.confirm('Recommencer une nouvelle partie ? La partie en cours sera effacée.'); }

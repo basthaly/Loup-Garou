@@ -7,7 +7,7 @@ const crypto = require('crypto');
 const express = require('express');
 const { Server } = require('socket.io');
 const { Room } = require('./game');
-const { ROLES, RULES, EXTENSIONS } = require('./roles');
+const { ROLES, RULES, EXTENSIONS, presetsFor } = require('./roles');
 const ON = require('./onenight');
 const Bots = require('./bots');
 const { ROLES: TH_ROLES } = require('./roles');
@@ -64,6 +64,8 @@ app.get('/test', (req, res) => {
 });
 app.use('/vendor', express.static(path.join(__dirname, '..', 'node_modules', 'livekit-client', 'dist')));
 app.get('/api/roles', (req, res) => res.json({ roles: Object.assign({}, ROLES, ON.ROLES), rules: RULES, rulesByGame: { thiercelieux: RULES, onenight: ON.RULES }, extensions: Object.assign({}, EXTENSIONS, { onenight: 'Loup-Garou pour une nuit' }), iceServers: ICE_SERVERS, video: LK.enabled ? 'livekit' : 'mesh' }));
+// Compositions toutes faites pour n joueurs (aussi utilisées par la page MJ).
+app.get('/api/presets/:n', (req, res) => res.json({ presets: presetsFor(Math.min(18, Math.max(4, parseInt(req.params.n, 10) || 8))) }));
 const connectedCount = () => [...rooms.values()].reduce((n, r) => n + [...r.players.values()].filter((p) => p.connected).length, 0);
 app.get('/health', (req, res) => res.json({ ok: true, build: BUILD, rooms: rooms.size, players: connectedCount() }));
 
