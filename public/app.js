@@ -876,19 +876,12 @@
           <div class="dawn"><small>À l'aube</small><ul>${dawn.join('')}</ul></div></div>`;
         break;
       }
-      case 'voleur': {
-        hint = st.mustTake ? 'Deux loups : prends-en un' : 'Prends une carte ou garde la tienne';
-        hint += ' · touche une carte du centre';
+      // Voleur, Amoureux, Sœurs : l'encadré du rôle au-dessus du village dit déjà tout.
+      case 'voleur':
+        if (st.mustTake) hint = 'Deux loups : tu dois en prendre un';
         break;
-      }
-      case 'amoureux':
-        hint = st.partner ? `${icon('heart', 14, '#F08A6C')} Ton amour : ${nm(st.partner)} · parlez-vous, vous seuls vous entendez` : '';
+      case 'amoureux': case 'soeurs':
         break;
-      case 'soeurs': {
-        const sis = view.players.filter((p) => p.role === 'soeur' && p.id !== me.id);
-        hint = sis.length ? `Ta sœur : ${sis.map((p) => esc(p.name)).join(', ')}` : '';
-        break;
-      }
       case 'infect':
         hint = st.victim ? `Victime : ${nm(st.victim)} · une seule fois par partie` : '';
         break;
@@ -905,14 +898,9 @@
         hint = 'Débattez. Touche un joueur pour montrer vers qui tu penches : ce n\'est pas un vote. Appuie sur « Prêt à voter » quand tu as fini.';
         extra = (view.voteHistory || []).length ? '<button class="ghost small-btn hist-btn" data-act="history">' + icon('scroll', 14) + ' Historique des votes</button>' : '';
         break;
-      case 'loups': {
-        const live = st.live || [];
-        const n = live.length;
-        hint = n > 1 ? 'Touchez la même victime : dès que toute la meute est d\'accord, c\'est décidé.' : 'Touche ta victime.';
-        if (st.agreed) hint = `La meute est d'accord : ${(nm(st.agreed))}.`;
-        extra = rankHTML(live);
+      // Loups : les votes de la meute sont sur les vignettes, l'accord dans le bandeau du bas.
+      case 'loups':
         break;
-      }
       case 'vote': case 'captain_vote':
         extra = progressHTML(st, 'ont voté') + (isON() ? onNotesHTML() : '');
         if (st.type === 'vote') hint = isON() ? 'Débattez, puis touche un joueur · éliminé dès 2 voix' : `10 secondes · vote secret${st.lean && !st.submitted ? ` · ton intention (${nm(st.lean)}) est pré-sélectionnée : confirme ou touche un autre joueur` : ''}`;
@@ -1025,7 +1013,7 @@
       const teamTiles = team.map((id) => build(P(id))).join('');
       const rest = list.filter((p) => !team.includes(p.id));
       return `${activePanelHTML(st, team, teamTiles)}
-        <div class="village-label"><b>Le village</b><span>${st.type === 'loups' && team.length > 1 ? 'Touchez la même victime : dès que toute la meute est d\'accord, c\'est décidé.' : pickMode(st) ? 'Touche un joueur' : 'Il dort'}</span></div>
+        <div class="village-label"><b>Le village</b>${pickMode(st) ? '' : '<span>Il dort</span>'}</div>
         <div class="${gridCls}">${rest.map(build).join('')}</div>`;
     }
     if (nightStep && !st.isActor && me.alive && !me.isMJ && !me.seesAll) {
