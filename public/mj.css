@@ -132,3 +132,5 @@ body.mj { min-height: 100vh; background: var(--bg); color: var(--text); }
   .mj-band .small-btn { padding: 4px 9px; font-size: 12px; }
 }
 .mj-panel > button { width: auto; align-self: flex-start; display: inline-flex; align-items: center; gap: 6px; }
+.mj-av.card { background: var(--surface2); overflow: hidden; }
+.mj-av.card img { width: 100%; height: 100%; object-fit: cover; object-position: center 30%; }

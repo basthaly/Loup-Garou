@@ -41,7 +41,7 @@
   const COLORS = ['#E8A75D', '#8DB4F0', '#C7A6E8', '#7FC8A9', '#F08A6C', '#E8C25D', '#F7A2AE', '#9CC0F0', '#B7D98A', '#F2B4E0', '#7FD1C8', '#D9A3F0'];
   const P = (id) => S.players.find((p) => p.id === id);
   const name = (id) => (P(id) || {}).name || '?';
-  const avatar = (p, s = 28) => `<span class="mj-av" style="width:${s}px;height:${s}px;font-size:${Math.round(s * 0.42)}px;background:${COLORS[S.players.indexOf(p) % COLORS.length]}">${esc(p.name[0] || '?')}</span>`;
+  const avatar = (p, s = 28) => S.nameless && p.baseRole ? `<span class="mj-av card" style="width:${s}px;height:${s}px"><img src="/cards/${p.baseRole}.webp" alt=""></span>` : `<span class="mj-av" style="width:${s}px;height:${s}px;font-size:${Math.round(s * 0.42)}px;background:${COLORS[S.players.indexOf(p) % COLORS.length]}">${esc(p.name[0] || '?')}</span>`;
   function toast(m) { $toast.textContent = m; $toast.classList.add('show', 'info'); clearTimeout(toast.t); toast.t = setTimeout(() => $toast.classList.remove('show'), 3500); }
 
   const WOLF_ROLES = ['loup', 'grandloup', 'infect', 'loupblanc'];
@@ -66,7 +66,7 @@
   const NIGHT = ['voleur', 'cupidon', 'amoureux', 'soeurs', 'enfant', 'salvateur', 'voyante', 'renard', 'loups', 'infect', 'grandloup', 'loupblanc', 'sorciere', 'flute'];
   const LABEL = { voleur: 'Voleur', cupidon: 'Cupidon', amoureux: 'Amoureux', soeurs: 'Sœurs', enfant: 'Enfant sauvage', salvateur: 'Salvateur', voyante: 'Voyante', renard: 'Renard',
     loups: 'Loups-Garous', infect: 'Infect Père des Loups', grandloup: 'Grand Méchant Loup', loupblanc: 'Loup Blanc', sorciere: 'Sorcière', flute: 'Joueur de flûte',
-    dawn: 'Aube', captain: 'Capitaine', vote: 'Vote', hunter: 'Chasseur', successor: 'Successeur' };
+    dawn: 'Aube', quick: 'Morts de la nuit', captain: 'Capitaine', vote: 'Vote', hunter: 'Chasseur', successor: 'Successeur' };
   const STEP_ROLE = { voleur: 'voleur', cupidon: 'cupidon', soeurs: 'soeur', enfant: 'enfant', salvateur: 'salvateur', voyante: 'voyante', renard: 'renard', loups: 'loup',
     infect: 'infect', grandloup: 'grandloup', loupblanc: 'loupblanc', sorciere: 'sorciere', flute: 'flute' };
   const SCRIPT = {
@@ -85,6 +85,7 @@
     sorciere: '« Sorcière, réveille-toi. Voici la victime de cette nuit. Veux-tu la sauver ? Veux-tu empoisonner quelqu\'un ? »',
     flute: '« Joueur de flûte, réveille-toi. Désigne deux joueurs à charmer. »',
     dawn: '« Le village se réveille… »',
+    quick: '« Le village se réveille… »',
     captain: '« Le village élit son Capitaine. Sa voix comptera double lors des votes. »',
     vote: '« Le débat est terminé. À trois, chacun pointe du doigt le joueur qu\'il veut éliminer. Un, deux, trois ! »',
     hunter: '« Chasseur, avant de mourir, désigne un joueur qui t\'accompagne. »',
@@ -95,6 +96,7 @@
 
   // Les étapes d'une nuit : seulement les rôles en jeu (morts compris si « appeler les morts »).
   function planNight() {
+    if (S.quick) return ['quick'];
     const n = S.night;
     const has = (role) => inGame(role) && (S.callDead || holders(role).some((p) => p.alive));
     const st = [];
@@ -149,7 +151,10 @@
     if (isWolf(p)) S.wolfDied = true;
     if (p.role === 'chasseur' && !S.powersLost) insertNext('hunter');
     if (p.captain) insertNext('successor');
-    if (p.role === 'chevalier' && cause === 'loups') S.rusty = p.id;
+    if (p.role === 'chevalier' && cause === 'loups') {
+      if (S.nameless) log('Épée rouillée : le premier loup à gauche du Chevalier mourra la nuit prochaine. Marque-le mort dans le suivi.');
+      else S.rusty = p.id;
+    }
     // Enfant sauvage : son modèle meurt, il devient loup.
     for (const k of S.players) if (k.alive && k.role === 'enfant' && k.model === id && !k.wild) { k.wild = true; log(`${k.name}, l'Enfant sauvage, devient loup (son modèle est mort).`); }
     if (p.lover) for (const l of S.players) if (l.lover && l.id !== id && l.alive) { out.push(...kill(l.id, 'chagrin')); }
@@ -169,33 +174,44 @@
     if (!a.some((p) => p.role === 'loupblanc') && pack >= a.length - pack) return 'Les Loups-Garous dévorent le village !';
     return null;
   }
-  const deadLine = (list) => list.map((p) => `${p.name} (${rn(p.role)})`).join(', ');
+  const deadLine = (list) => list.map((p) => (S.nameless && p.role === p.baseRole ? p.name : `${p.name} (${rn(p.role)})`)).join(', ') || 'personne';
 
   // ---------- Préparation ----------
   function setupHTML() {
     const step = S.setupStep;
-    const nav = [[1, 'Les joueurs, dans l\'ordre de la table'], [2, 'Les cartes'], [3, 'Qui a quelle carte']].map(([n, t]) =>
+    const nav = (S.nameless ? [[1, 'Les joueurs'], [2, 'Les cartes']] : [[1, 'Les joueurs, dans l\'ordre de la table'], [2, 'Les cartes'], [3, 'Qui a quelle carte']]).map(([n, t]) =>
       `<button class="mj-stepn ${n === step ? 'on' : ''} ${n < step ? 'done' : ''}" data-a="setup-go" data-v="${n}"><span>${n}</span>${t}</button>`).join('<i>—</i>');
     let body = '';
-    if (step === 1) {
+    const modeSeg = `<div class="seg"><button class="${S.nameless ? '' : 'on'}" data-a="nameless" data-v="0">Avec les prénoms</button><button class="${S.nameless ? 'on' : ''}" data-a="nameless" data-v="1">Juste les rôles</button></div>`;
+    if (step === 1 && S.nameless) {
+      body = `<section class="mj-panel grow"><div class="mj-row"><h2 class="grow">Les joueurs</h2>${modeSeg}</div>
+        <p class="mj-muted">Sans prénoms : chaque joueur est désigné par sa carte (« Voyante », « Loup-Garou 2 »…). Choisis les cartes à l'étape suivante et distribue-les comme tu veux : l'app suit les rôles, pas les personnes.</p>
+        <p class="mj-muted small">Sans l'ordre de la table, le Renard et l'épée rouillée du Chevalier se gèrent à l'œil : l'app te le rappellera.</p>
+        <div class="mj-foot"><span class="grow"></span><button class="primary" data-a="setup-go" data-v="2">Suivant : les cartes</button></div></section>`;
+    } else if (step === 1) {
       const rows = S.players.map((p, i) => `<li class="mj-prow">${avatar(p, 30)}<b>${i + 1}.</b><input value="${esc(p.name)}" data-a="pname" data-id="${p.id}" aria-label="Nom du joueur ${i + 1}" maxlength="20">
         <button class="mj-ib" data-a="pup" data-id="${p.id}" aria-label="Monter">${icon('up', 16)}</button><button class="mj-ib" data-a="pdown" data-id="${p.id}" aria-label="Descendre">${icon('down', 16)}</button>
         <button class="mj-ib" data-a="pdel" data-id="${p.id}" aria-label="Retirer">${icon('x', 16)}</button></li>`).join('');
-      body = `<section class="mj-panel grow"><h2>Les joueurs, dans l'ordre autour de la table</h2>
+      body = `<section class="mj-panel grow"><div class="mj-row"><h2 class="grow">Les joueurs, dans l'ordre autour de la table</h2>${modeSeg}</div>
         <p class="mj-muted">Commence par le joueur à ta gauche et fais le tour. L'ordre sert au Renard, au Chevalier et au suivi.</p>
         <ol class="mj-plist">${rows}</ol>
         <form class="mj-add" data-a="padd"><input id="mj-new" placeholder="Prénom du joueur" maxlength="20" autocomplete="off"><button class="primary" type="submit">${icon('plus', 16)} Ajouter</button></form>
         <div class="mj-foot"><span class="mj-muted">${S.players.length} joueur${S.players.length > 1 ? 's' : ''}</span><button class="primary" data-a="setup-go" data-v="2" ${S.players.length < 4 ? 'disabled' : ''}>Suivant : les cartes</button></div></section>`;
     } else if (step === 2) {
-      const need = S.players.length + (inGame('voleur') ? 2 : 0);
       const total = Object.values(S.compo).reduce((a, b) => a + b, 0);
+      const need = S.nameless ? total : S.players.length + (inGame('voleur') ? 2 : 0);
+      const nPlayers = total - (inGame('voleur') ? 2 : 0);
       const groups = { base: 'Jeu de base', nouvelleLune: 'Nouvelle Lune', personnages: 'Personnages' };
       const list = Object.entries(groups).map(([g, gt]) => `<h3>${gt}</h3><ul class="mj-compo">${Object.entries(R).filter(([, d]) => d.ext === g).map(([k, d]) => `
         <li class="${S.compo[k] ? 'on' : ''}">${card(k, 'mj-mini')}<b>${esc(d.name)}</b><span class="t-${d.team}">${d.team === 'loups' ? 'Loups' : d.team === 'solitaire' ? 'Solitaire' : 'Village'}</span>
         <span class="mj-count"><button class="mj-ib" data-a="cminus" data-r="${k}" aria-label="Moins">${icon('minus', 14)}</button><b>${S.compo[k] || 0}</b><button class="mj-ib" data-a="cplus" data-r="${k}" aria-label="Plus">${icon('plus', 14)}</button></span></li>`).join('')}</ul>`).join('');
       body = `<section class="mj-panel grow"><h2>Les cartes</h2><p class="mj-muted">${inGame('voleur') ? 'Avec le Voleur, 2 cartes de plus restent au centre.' : 'Une carte par joueur.'}</p>${list}
         <label class="check"><input type="checkbox" data-a="calldead" ${S.callDead ? 'checked' : ''}> Appeler aussi les rôles morts la nuit (pour ne rien révéler)</label>
-        <div class="mj-foot"><span class="${total === need ? 'mj-ok' : 'mj-bad'}">${total} carte${total > 1 ? 's' : ''} sur ${need}</span><button class="primary" data-a="setup-go" data-v="3" ${total !== need ? 'disabled' : ''}>Suivant : qui a quelle carte</button></div></section>`;
+        <label class="check"><input type="checkbox" data-a="quickmode" ${S.quick ? 'checked' : ''}> Mode rapide : je mène la nuit moi-même, je note seulement les morts</label>
+        ${S.nameless && inGame('voleur') ? `<div class="mj-row wrap"><b class="mj-lbl">Les 2 cartes au centre (pour le Voleur)</b>${[0, 1].map((i) => `<select data-a="extra" data-i="${i}"><option value="">— carte —</option>${Object.keys(S.compo).filter((k) => S.compo[k] > 0 && k !== 'voleur').map((k) => `<option value="${k}" ${S.extra[i] === k ? 'selected' : ''}>${esc(rn(k))}</option>`).join('')}</select>`).join('')}</div>` : ''}
+        ${S.nameless
+          ? `<div class="mj-foot"><span class="${nPlayers >= 4 ? 'mj-ok' : 'mj-bad'}">${nPlayers} joueur${nPlayers > 1 ? 's' : ''}${inGame('voleur') ? ' + 2 cartes au centre' : ''}</span><button class="primary" data-a="begin-nameless" ${nPlayers < 4 || (inGame('voleur') && !(S.extra[0] && S.extra[1])) ? 'disabled' : ''}>Commencer la nuit 1</button></div></section>`
+          : `<div class="mj-foot"><span class="${total === need ? 'mj-ok' : 'mj-bad'}">${total} carte${total > 1 ? 's' : ''} sur ${need}</span><button class="primary" data-a="setup-go" data-v="3" ${total !== need ? 'disabled' : ''}>Suivant : qui a quelle carte</button></div></section>`}`;
     } else {
       const deck = [];
       for (const [k, n] of Object.entries(S.compo)) for (let i = 0; i < n; i++) deck.push(k);
@@ -224,6 +240,7 @@
     const day = S.phase === 'day';
     return `<header class="band mj-band ${day ? 'day' : ''}"><div class="in">
       <span class="mj-tag">MJ</span><span class="ph-title">${esc(title)}</span>${extra}<span class="grow"></span>
+      ${S.phase === 'night' && cur() !== 'quick' ? `<button class="ghost small-btn" data-a="to-quick">${icon('skull', 15)} Noter les morts</button>` : ''}
       ${S.phase !== 'setup' ? `<button class="ghost small-btn" data-a="undo" ${undo.length ? '' : 'disabled'}>${icon('undo', 15)} Annuler la dernière action</button>
       <button class="ghost small-btn mj-suivi-btn" data-a="suivi">${icon('users', 15)} Suivi</button>` : ''}
       <button class="ghost small-btn" data-a="reset">Nouvelle partie</button></div></header>`;
@@ -241,7 +258,7 @@
   function scriptCard(t, who, read, body, foot) {
     const role = STEP_ROLE[t] || (t === 'hunter' ? 'chasseur' : null);
     return `<section class="mj-panel mj-script">
-      <div class="mj-row">${role ? card(role, 'mj-big') : `<span class="mj-bigic">${icon(t === 'dawn' ? 'sun' : t === 'vote' ? 'check' : 'crown', 30)}</span>`}
+      <div class="mj-row">${role ? card(role, 'mj-big') : `<span class="mj-bigic">${icon(t === 'dawn' || t === 'quick' ? 'sun' : t === 'vote' ? 'check' : 'crown', 30)}</span>`}
         <span class="mj-ttl"><b>${esc(LABEL[t] || t)}</b><span>${who}</span></span></div>
       ${read ? `<blockquote class="mj-read">${icon('quote', 22)}<span><small>À LIRE À VOIX HAUTE</small>${read}</span></blockquote>` : ''}
       ${body}<span class="grow"></span><div class="mj-foot">${foot}</div></section>`;
@@ -252,7 +269,7 @@
     return h.map((p) => `<b>${esc(p.name)}</b>${p.alive ? '' : ' (mort)'}`).join(' et ');
   };
   const sleepLine = (t) => SLEEP[t] ? `<span class="mj-muted">Puis : « ${SLEEP[t]}, rendors-toi. »</span>` : '<span></span>';
-  const rescue = (extraBtns = '') => `<div class="mj-rescue"><b>Si ça ne se passe pas comme prévu</b><div class="mj-row wrap">${btn(`${icon('x', 15)} Ils n'ont rien fait`, 'none')}${btn(`${icon('skip', 15)} Je ne sais plus : passer`, 'skipstep')}${S.cursor > 0 ? btn(`${icon('undo', 15)} Revenir à l'étape d'avant`, 'prev') : ''}${extraBtns}</div>
+  const rescue = (extraBtns = '') => `<div class="mj-rescue"><b>Si ça ne se passe pas comme prévu</b><div class="mj-row wrap">${btn(`${icon('x', 15)} Ils n'ont rien fait`, 'none')}${btn(`${icon('skip', 15)} Je ne sais plus : passer`, 'skipstep')}${S.cursor > 0 ? btn(`${icon('undo', 15)} Revenir à l'étape d'avant`, 'prev') : ''}${S.phase === 'night' ? btn(`${icon('skull', 15)} Noter directement les morts`, 'to-quick') : ''}${extraBtns}</div>
     <p class="mj-muted small">Touche un joueur dans le suivi pour le corriger à la main (mort, rôle, amour, Capitaine…).</p></div>`;
 
   function stepHTML() {
@@ -298,6 +315,10 @@
         return scriptCard(t, `Jouée par ${whoTxt('voyante')}`, SCRIPT[t], `<b class="mj-lbl">Elle désigne</b>${pickGrid(others(me && me.id), 1)}${show}${rescue()}`, foot('Suivant', sel.length === 1));
       }
       case 'renard': {
+        if (S.nameless && !S.foxLost) {
+          return scriptCard(t, `Joué par ${whoTxt('renard')}`, SCRIPT[t], `<p class="mj-note">Sans les prénoms, l'app ne connaît pas l'ordre de la table : regarde le joueur désigné et ses deux voisins, puis réponds-lui d'un signe.</p>${rescue()}`,
+            `${sleepLine(t)}<span class="grow"></span>${btn('Aucun loup : il perd son flair', 'fox-no')}${btn('Il y a un loup', 'fox-yes', true)}`);
+        }
         if (S.foxLost) return scriptCard(t, whoTxt('renard'), SCRIPT[t], '<p class="mj-note">Le Renard a perdu son flair : appelle-le quand même, il ne peut plus rien faire.</p>', `${sleepLine(t)}<span class="grow"></span>${btn('Suivant', 'skipstep', true)}`);
         const tgt = sel[0];
         let show = '';
@@ -341,6 +362,18 @@
         return scriptCard(t, `Joué par ${whoTxt('flute')}`, SCRIPT[t], `<b class="mj-lbl">Il charme deux joueurs</b>${pickGrid(alive().filter((p) => !p.charmed && p.id !== (me && me.id)), 2)}<p class="mj-muted small">Ensuite : « Charmés, réveillez-vous et reconnaissez-vous. »</p>${rescue()}`, foot('Valider', sel.length >= 1));
       }
       case 'dawn': return dawnHTML();
+      case 'quick': {
+        if (S.dawnDone) return dawnHTML();
+        const dead = ui.sel.map(P).filter(Boolean);
+        const chain = [];
+        for (const p of dead) if (p.lover) { const l = S.players.find((q) => q.lover && q.id !== p.id && q.alive && !ui.sel.includes(q.id)); if (l) chain.push(l); }
+        return scriptCard('quick', S.quick ? 'Mode rapide : tu mènes la nuit, tu notes les morts' : 'Raccourci : seulement les morts', SCRIPT.quick,
+          `<b class="mj-lbl">Qui est mort cette nuit ? (touche-les tous)</b>${pickGrid(alive(), alive().length)}
+          ${chain.length ? `<p class="mj-note">${chain.map((p) => esc(p.name)).join(', ')} mourra aussi de chagrin (amoureux).</p>` : ''}
+          ${dead.length ? `<ul class="mj-dawn">${dead.concat(chain).map((p) => `<li class="bad">${esc(p.name)}${S.nameless && p.role === p.baseRole ? '' : ` · il était <b class="t-${team(p.role)}">${esc(rn(p.role))}</b>`}</li>`).join('')}</ul>` : ''}
+          <p class="mj-muted small">Un Chasseur ou le Capitaine parmi eux ? Leur étape s'ajoute juste après.</p>`,
+          `<span class="grow"></span>${btn('Personne n\'est mort', 'quick-none')}${btn(dead.length ? `Valider : ${dead.length + chain.length} mort${dead.length + chain.length > 1 ? 's' : ''}` : 'Valider', 'quick-ok', true, dead.length ? '' : 'disabled')}`);
+      }
       case 'captain':
         return scriptCard(t, 'Vote du village', SCRIPT[t], `<b class="mj-lbl">Le village élit</b>${pickGrid(alive(), 1)}${rescue()}`, `<span class="grow"></span>${btn('Pas de Capitaine', 'skipstep')}${btn('Valider le Capitaine', 'apply', true, sel.length === 1 ? '' : 'disabled')}`);
       case 'vote': return voteHTML();
@@ -449,11 +482,11 @@
       if (p.note) ic.push(`<span class="mj-st" title="${esc(p.note)}">${icon('note', 12)}</span>`);
       return `<li><button class="mj-srow ${p.alive ? '' : 'dead'} ${ui.menu === p.id ? 'open' : ''}" data-a="menu" data-id="${p.id}"><span class="mj-seatn">${i + 1}</span>${avatar(p, 24)}
         <span class="mj-sname"><b>${esc(p.name)}</b>${p.alive ? '' : `<small>Mort · ${esc(p.death ? p.death.when : '')}</small>`}${p.note ? `<small>${esc(p.note)}</small>` : ''}</span>
-        <span class="mj-sic">${ic.join('')}</span>${p.role ? card(p.role, 'mj-mini') : ''}<b class="mj-srole t-${team(p.role)}">${esc(rn(p.role))}</b></button>${ui.menu === p.id ? menuHTML(p) : ''}</li>`;
+        <span class="mj-sic">${ic.join('')}</span>${S.nameless && p.role === p.baseRole ? '' : `${p.role ? card(p.role, 'mj-mini') : ''}<b class="mj-srole t-${team(p.role)}">${S.nameless ? '→ ' : ''}${esc(rn(p.role))}</b>`}</button>${ui.menu === p.id ? menuHTML(p) : ''}</li>`;
     }).join('');
     const pot = inGame('sorciere') ? `<div class="mj-pots"><span class="${S.potions.life ? '' : 'used'}">Potion de vie</span><span class="${S.potions.death ? '' : 'used'}">Potion de mort</span></div>` : '';
     const journal = S.log.slice(-12).reverse().map((l) => `<li><span>${esc(l.when)}</span>${esc(l.t)}</li>`).join('');
-    return `<aside class="mj-panel mj-suivi ${ui.showSuivi ? 'show' : ''}"><div class="mj-row"><b class="grow">Suivi de la partie</b><small class="mj-muted">ordre de la table</small></div>
+    return `<aside class="mj-panel mj-suivi ${ui.showSuivi ? 'show' : ''}"><div class="mj-row"><b class="grow">Suivi de la partie</b>${S.nameless ? '' : '<small class="mj-muted">ordre de la table</small>'}</div>
       <ul class="mj-slist">${rows}</ul>${pot}${journal ? `<div class="mj-journal"><b>Journal</b><ol>${journal}</ol></div>` : ''}</aside>`;
   }
   function menuHTML(p) {
@@ -586,8 +619,24 @@
       case 'cminus': S.compo[el.dataset.r] = Math.max(0, (S.compo[el.dataset.r] || 0) - 1); clearRoles(); break;
       case 'distrib': S.distrib = el.dataset.v; clearRoles(); if (S.distrib === 'random') deal(); break;
       case 'deal': deal(); break;
+      case 'nameless': S.nameless = el.dataset.v === '1'; S.extra = []; break;
+      case 'begin-nameless': {
+        // Un joueur par carte (moins les 2 du centre pour le Voleur), nommé d'après sa carte.
+        const left = Object.assign({}, S.compo);
+        for (const r of S.extra || []) if (r) left[r] -= 1;
+        const total = {}, seen = {};
+        for (const [k, n] of Object.entries(left)) if (n > 0) total[k] = n;
+        S.players = [];
+        for (const [k, n] of Object.entries(total)) for (let i = 0; i < n; i++) {
+          seen[k] = (seen[k] || 0) + 1;
+          S.players.push({ id: `${k}-${seen[k]}`, name: rn(k) + (n > 1 ? ` ${seen[k]}` : ''), role: k, baseRole: k, alive: true });
+        }
+        S.distrib = 'manual';
+      }
+      // fallthrough : même lancement que la version avec prénoms
       case 'begin': {
-        if (S.distrib === 'manual') {
+        if (S.nameless && a === 'begin') break;
+        if (S.distrib === 'manual' && !S.nameless) {
           const left = [];
           for (const [k, n] of Object.entries(S.compo)) for (let i = 0; i < n - S.players.filter((p) => p.role === k).length; i++) left.push(k);
           S.extra = left;
@@ -609,6 +658,19 @@
       case 'apply': return applyStep();
       case 'none': return noneStep();
       case 'skipstep': S.dawnDone = false; S.voteDone = false; return next();
+      case 'to-quick': snap(); S.steps = S.steps.slice(0, S.cursor).concat('quick'); resetUi(); break;
+      case 'quick-none': snap(); S.dawnText = 'Personne n\'est mort cette nuit.'; log(S.dawnText); S.dawnDone = true; break;
+      case 'quick-ok': {
+        snap();
+        const dead = [];
+        for (const id of ui.sel) dead.push(...kill(id, 'nuit'));
+        S.dawnText = `Morts cette nuit : ${deadLine(dead)}.`;
+        log(S.dawnText);
+        S.dawnDone = true; // même écran de résultat que l'aube (avec la victoire éventuelle)
+        break;
+      }
+      case 'fox-yes': snap(); log('Le Renard flaire un loup.'); return next();
+      case 'fox-no': snap(); S.foxLost = true; log('Le Renard ne flaire aucun loup : il perd son flair.'); return next();
       case 'infect-yes': snap(); S.infectNow = true; log(`L'Infect Père des Loups infecte ${name(S.victim)}.`); return next();
       case 'sorc-kill': ui.sorc.kill = ui.sorc.kill === id ? null : id; break;
       case 'dawn-ok': return dawnOk();
@@ -622,9 +684,9 @@
       case 'ignorewin': S.ignoreWin = true; break;
       case 'replay': {
         const players = S.players.map((p) => ({ id: p.id, name: p.name, role: null }));
-        const keep = { compo: S.compo, distrib: S.distrib, callDead: S.callDead };
-        S = Object.assign(newState(), keep, { players, setupStep: 3 });
-        if (S.distrib === 'random') deal();
+        const keep = { compo: S.compo, distrib: S.distrib, callDead: S.callDead, quick: S.quick, nameless: S.nameless, extra: S.nameless ? S.extra : [] };
+        S = Object.assign(newState(), keep, { players: S.nameless ? [] : players, setupStep: S.nameless ? 2 : 3 });
+        if (S.distrib === 'random' && !S.nameless) deal();
         undo = []; break;
       }
       case 'undo': if (undo.length) { S = JSON.parse(undo.pop()); resetUi(); toast('Dernière action annulée'); } break;
@@ -656,6 +718,8 @@
     if (a === 'pname') { const p = P(el.dataset.id); if (p) p.name = el.value.trim().slice(0, 20) || p.name; save(); }
     else if (a === 'prole') { P(el.dataset.id).role = el.value || null; save(); render(); }
     else if (a === 'calldead') { S.callDead = el.checked; save(); }
+    else if (a === 'quickmode') { S.quick = el.checked; save(); }
+    else if (a === 'extra') { S.extra = S.extra || []; S.extra[+el.dataset.i] = el.value || null; save(); render(); }
     else if (a === 'sorc-save') { ui.sorc.save = el.checked; }
     else if (a === 'm-role') { snap(); const p = P(el.dataset.id); p.role = el.value; log(`Correction : ${p.name} est ${rn(el.value)}.`); save(); render(); }
   });
