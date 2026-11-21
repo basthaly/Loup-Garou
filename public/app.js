@@ -135,6 +135,70 @@
   const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
   document.body.dataset.appearance = localStorage.getItem('lg-appearance') || (prefersDark ? 'dark' : 'light');
 
+  // ---------- Le ciel vivant : soleil et lune sur un même cercle, village en bas dont les fenêtres s'allument la nuit ----------
+  const Sky = (() => {
+    let el = null, orbit = null, theme = null, turn = 0, duskT = null;
+    const rnd = (() => { let x = 7; return () => ((x = (x * 16807) % 2147483647) / 2147483647); })();
+    function village() {
+      const W = 1600, H = 170, out = [], wins = [];
+      out.push(`<path class="sk-hill2" d="M0 ${H - 70} Q ${W * 0.15} ${H - 120} ${W * 0.32} ${H - 78} T ${W * 0.62} ${H - 86} T ${W} ${H - 74} L ${W} ${H} L 0 ${H} Z"/>`);
+      out.push(`<path class="sk-hill1" d="M0 ${H - 40} Q ${W * 0.2} ${H - 70} ${W * 0.45} ${H - 46} T ${W} ${H - 50} L ${W} ${H} L 0 ${H} Z"/>`);
+      let x = 6, k = 0;
+      const R = (a, b) => a + Math.floor(rnd() * (b - a + 1));
+      while (x < W - 30) {
+        const r = rnd();
+        if (r < 0.22) {
+          const h = R(46, 78), w = h * 0.45;
+          out.push(`<path class="sk-h" d="M${x} ${H - 14} L${x + w / 2} ${H - 14 - h} L${x + w} ${H - 14} Z"/>`);
+          x += w + R(2, 10);
+        } else if (r < 0.27 && k > 3) {
+          const w = 60, h = 70, b = H - 12;
+          out.push(`<path class="sk-h" d="M${x} ${b} V${b - h} L${x + w / 2} ${b - h - 26} L${x + w} ${b - h} V${b} Z"/>`);
+          out.push(`<path class="sk-h" d="M${x + w * 0.38} ${b - h - 20} V${b - h - 64} L${x + w / 2} ${b - h - 84} L${x + w * 0.62} ${b - h - 64} V${b - h - 20} Z"/>`);
+          wins.push([x + w * 0.44, b - h - 52, 7, 12], [x + w * 0.42, b - h + 8, 10, 18]);
+          x += w + 14;
+        } else {
+          const w = R(40, 70), h = R(30, 52), roof = R(14, 26), b = H - 12;
+          out.push(`<path class="sk-h" d="M${x} ${b} V${b - h} L${x + w / 2} ${b - h - roof} L${x + w} ${b - h} V${b} Z"/>`);
+          out.push(`<rect class="sk-h" x="${x + w * 0.7}" y="${b - h - roof + 4}" width="7" height="${roof}"/>`);
+          const n = R(1, 2);
+          for (let j = 0; j < n; j++) wins.push([n === 1 ? x + w / 2 - 5 : x + 8 + j * (w - 25), b - h + 10, 9, 11]);
+          x += w + R(4, 16);
+        }
+        k++;
+      }
+      for (const [wx, wy, ww, wh] of wins) out.push(`<rect class="sk-win" style="--wd:${(rnd() * 1.6).toFixed(2)}s" x="${Math.round(wx)}" y="${Math.round(wy)}" width="${ww}" height="${wh}" rx="1.5"/>`);
+      out.push(`<rect class="sk-h" x="0" y="${H - 14}" width="${W}" height="14"/>`);
+      return `<svg class="sk-village" viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMax slice" aria-hidden="true">${out.join('')}</svg>`;
+    }
+    function build() {
+      el = document.createElement('div');
+      el.id = 'sky'; el.className = 'still'; el.setAttribute('aria-hidden', 'true');
+      let stars = '';
+      for (let i = 0; i < 90; i++) stars += `<i style="left:${(rnd() * 100).toFixed(1)}%;top:${(rnd() * 60).toFixed(1)}%;--s:${[1, 1, 1.5, 2][Math.floor(rnd() * 4)]}px;animation-delay:${(rnd() * 3).toFixed(1)}s"></i>`;
+      const clouds = [[6, 9, 130], [34, 16, 95], [74, 7, 150]].map(([l, t, w]) => `<span class="sk-cloud" style="left:${l}%;top:${t}%;width:${w}px"></span>`).join('');
+      el.innerHTML = `<div class="sk-l sk-day"></div><div class="sk-l sk-dusk"></div><div class="sk-l sk-night"></div><div class="sk-l sk-stars">${stars}</div><div class="sk-l sk-clouds">${clouds}</div><div class="sk-veil"></div><div class="sk-orbit"><span class="sk-sun"></span><span class="sk-moon"></span></div>${village()}`;
+      document.body.insertBefore(el, document.body.firstChild);
+      orbit = el.querySelector('.sk-orbit');
+    }
+    function set(t) {
+      if (!el) build();
+      if (t === theme) return;
+      const first = theme === null;
+      theme = t;
+      // Toujours dans le même sens : le soleil se couche à droite, la lune se lève à gauche, et inversement au matin.
+      turn = first ? (t === 'night' ? 180 : 0) : turn + 180;
+      orbit.style.transform = `rotate(${turn}deg)`;
+      el.dataset.sky = t;
+      if (first) { requestAnimationFrame(() => requestAnimationFrame(() => el.classList.remove('still'))); return; }
+      el.classList.add('dusk');
+      clearTimeout(duskT);
+      duskT = setTimeout(() => el.classList.remove('dusk'), 1700);
+    }
+    function dock(h) { document.body.style.setProperty('--dock-h', `${Math.round(h)}px`); }
+    return { set, dock };
+  })();
+
   fetch('/api/roles').then((r) => r.json()).then((d) => {
     ROLES = d.roles;
     EXTS = d.extensions;
@@ -234,7 +298,8 @@
     const dock = document.querySelector('.dock');
     document.body.style.setProperty('--dock-h', `${dock ? dock.offsetHeight : 0}px`);
     const cem = $app.querySelector('.cemetery-row');
-    const H = Math.max(180, window.innerHeight - top - (dock ? dock.offsetHeight : 0) - (cem ? cem.offsetHeight + 18 : 0) - 20);
+    // On laisse dépasser les toits du village au-dessus de la barre du bas (écrans larges).
+    const H = Math.max(180, window.innerHeight - top - (dock ? dock.offsetHeight : 0) - (cem ? cem.offsetHeight + 18 : 0) - 20 - (window.innerWidth > 700 ? 44 : 0));
     const gap = parseFloat(getComputedStyle(g).columnGap) || 12;
     let best = { w: 0, cols: 1 };
     for (let cols = big ? 2 : 1; cols <= n; cols++) {
@@ -281,7 +346,7 @@
     });
   }, 1000);
   let resizeT = null;
-  window.addEventListener('resize', () => { clearTimeout(resizeT); resizeT = setTimeout(layoutGrid, 120); });
+  window.addEventListener('resize', () => { clearTimeout(resizeT); resizeT = setTimeout(() => { layoutGrid(); const dk = $app.querySelector('.dock'); Sky.dock(dk ? dk.offsetHeight : 0); }, 120); });
   function render() {
     warmCards();
     if (!ROLES) return;
@@ -300,11 +365,14 @@
       document.body.dataset.theme = 'night';
       document.body.dataset.dead = '';
       document.body.dataset.screen = 'home';
+      Sky.set('night');
       updateThemeColor();
       $app.innerHTML = homeHTML();
+      Sky.dock(0);
       return;
     }
     document.body.dataset.theme = isDayCtx() ? 'day' : 'night';
+    Sky.set(document.body.dataset.theme);
     if (Amb) Amb.update(view.room.phase, !isDayCtx());
     document.body.dataset.dead = !view.me.alive && !view.me.isMJ && view.room.phase !== 'end' ? '1' : '';
     document.body.dataset.screen = view.room.phase === 'lobby' ? 'lobby' : 'game';
@@ -320,6 +388,8 @@
     $app.querySelectorAll('details').forEach((d) => { if (opened.includes(d.querySelector('summary').textContent)) d.open = true; });
     Media.mount($app);
     layoutGrid();
+    const dk = $app.querySelector('.dock');
+    Sky.dock(dk ? dk.offsetHeight : 0);
   }
 
   function updateThemeColor() {
@@ -401,7 +471,7 @@
         <button class="big primary" data-act="home-create">${icon('moon', 20)} Créer un salon</button>
         <button class="big" data-act="home-join">${icon('village', 20)} Rejoindre avec un code</button>`;
     }
-    return `<div class="home-scene" aria-hidden="true"></div><div class="home-top">${appearanceButton()}</div><main class="home">
+    return `<div class="home-top">${appearanceButton()}</div><main class="home">
       <div class="brand big">${icon('moon', 44)}<span>Loup-Garou</span></div>
       <div class="zone"><div class="zb">${body}</div></div></main>`;
   }

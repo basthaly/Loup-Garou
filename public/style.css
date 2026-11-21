@@ -639,14 +639,11 @@ button.chip-btn.on { background: var(--accent); color: var(--accent-text); borde
 .card-img { display: block; aspect-ratio: 2 / 3; height: auto; object-fit: contain; filter: drop-shadow(0 6px 14px rgba(0,0,0,.35)); user-select: none; -webkit-user-select: none; }
 .potion-img { display: inline-block; width: 22px; height: auto; flex: none; }
 
-/* Bandeau du haut : le village, de nuit ou de jour, sous une teinte qui garde le texte lisible */
-.band { background-image: linear-gradient(color-mix(in srgb, var(--band) 62%, transparent), color-mix(in srgb, var(--band) 86%, transparent)), url(/img/village-nuit.svg); background-size: cover; background-position: center 78%; }
-body[data-theme="day"] .band { background-image: linear-gradient(color-mix(in srgb, var(--band) 55%, transparent), color-mix(in srgb, var(--band) 84%, transparent)), url(/img/village-jour.svg); background-position: center 82%; }
+/* Bandeau du haut : verre dépoli sur le ciel (le village est maintenant en bas de l'écran) */
+.band { background: color-mix(in srgb, var(--band) 58%, transparent); }
 .narr { background: color-mix(in srgb, var(--band) 70%, transparent); }
 
 /* Accueil */
-.home-scene { position: fixed; left: 0; right: 0; bottom: 0; height: 46vh; z-index: 0; pointer-events: none; background: url(/img/village-nuit.svg) center bottom / cover no-repeat; -webkit-mask-image: linear-gradient(transparent, #000 45%); mask-image: linear-gradient(transparent, #000 45%); }
-body[data-appearance="light"] .home-scene { background-image: url(/img/village-jour.svg); }
 .home { position: relative; z-index: 1; }
 .home { max-width: 520px; }
 .home-hero { text-align: center; display: flex; flex-direction: column; gap: 6px; margin-bottom: 4px; }
@@ -1152,3 +1149,54 @@ table.hist td.hit span { display: inline-flex; align-items: center; gap: 4px; pa
 .ev-sep { width: 1px; height: 30px; background: color-mix(in srgb, currentColor 25%, transparent); margin: 0 4px; flex: none; }
 @media (max-width: 700px) { .ev-prog i { width: 64px; } .ev-prog b { font-size: 12px; } }
 .sp-warn { margin: 0 0 8px; padding: 8px 10px; border-radius: 10px; background: color-mix(in srgb, var(--accent) 12%, transparent); font-size: 12.5px; line-height: 1.4; color: var(--text); max-width: 280px; }
+
+/* ---------- Le ciel vivant ----------
+   Derrière tout le site : ciel de jour / coucher / nuit en fondu, soleil et lune aux deux bouts d'un même cercle
+   (un demi-tour = le soleil se couche à droite, la lune se lève à gauche), village posé juste au-dessus de la barre du bas,
+   fenêtres allumées la nuit. Un voile de la couleur du fond garde le texte lisible, en clair comme en sombre. */
+#app { position: relative; z-index: 1; }
+#sky { position: fixed; inset: 0; z-index: 0; overflow: hidden; pointer-events: none; --r: min(calc(50vw + 12px), 760px);
+  --hill2: #6F8C97; --hill1: #4E6870; --house: #2C383B; --win-off: #3A474B; --sv: 72%; }
+[data-appearance="dark"] #sky[data-sky="night"] { --hill2: #1B2249; --hill1: #11173B; --house: #080C21; --win-off: #141A33; }
+[data-appearance="light"] #sky { --hill2: #A9C0CB; --hill1: #86A1AC; --house: #5D7480; --win-off: #6F8590; --sv: 45%; }
+[data-appearance="light"] #sky[data-sky="night"] { --hill2: #8C93C2; --hill1: #6E76AA; --house: #3E4672; --win-off: #4E5682; }
+.sk-l, .sk-veil { position: absolute; inset: 0; }
+.sk-l { transition: opacity 2.6s ease; }
+.sk-day { background: linear-gradient(180deg, #8DBCE3 0%, #C9DFEC 48%, #F4DDB8 100%); }
+.sk-dusk { background: linear-gradient(180deg, #353A74 0%, #C2648A 50%, #F2A15F 100%); opacity: 0; transition: opacity 1.4s ease; }
+.sk-night { background: linear-gradient(180deg, #060A1B 0%, #121A42 55%, #273066 100%); opacity: 0; }
+.sk-stars { opacity: 0; }
+.sk-stars i { position: absolute; width: var(--s); height: var(--s); border-radius: 50%; background: #fff; box-shadow: 0 0 4px rgba(255,255,255,.8); animation: sk-tw 3s ease-in-out infinite; }
+@keyframes sk-tw { 50% { opacity: .3; } }
+.sk-cloud { position: absolute; height: 34px; border-radius: 40px; background: rgba(255,255,255,.8); animation: sk-drift 90s linear infinite alternate; }
+.sk-cloud::before, .sk-cloud::after { content: ''; position: absolute; background: inherit; border-radius: 50%; }
+.sk-cloud::before { width: 60px; height: 60px; left: 24px; top: -30px; } .sk-cloud::after { width: 44px; height: 44px; left: 70px; top: -20px; }
+@keyframes sk-drift { to { transform: translateX(14vw); } }
+#sky[data-sky="night"] .sk-day, #sky[data-sky="night"] .sk-clouds { opacity: 0; }
+#sky[data-sky="night"] .sk-night, #sky[data-sky="night"] .sk-stars { opacity: 1; }
+#sky.dusk .sk-dusk { opacity: 1; }
+.sk-veil { background: linear-gradient(180deg, color-mix(in srgb, var(--bg) var(--sv), transparent) 0%, color-mix(in srgb, var(--bg) calc(var(--sv) - 18%), transparent) 55%, color-mix(in srgb, var(--bg) 12%, transparent) 100%); }
+.sk-orbit { position: absolute; left: 50%; top: calc(36px + var(--r)); width: 0; height: 0; transition: transform 3.4s cubic-bezier(.55, 0, .45, 1); }
+.sk-sun, .sk-moon { position: absolute; left: 0; width: 84px; height: 84px; margin: -42px; border-radius: 50%; }
+.sk-sun { top: calc(var(--r) * -1); background: radial-gradient(circle at 40% 40%, #FFF6C8, #FFC94D 55%, #F79A2E); box-shadow: 0 0 60px 20px rgba(255,196,77,.5), 0 0 160px 60px rgba(255,170,60,.22); transition: opacity .6s ease; }
+.sk-moon { top: var(--r); transform: rotate(180deg); background: radial-gradient(circle at 38% 38%, #FFFDF2, #E9DDB4 70%); box-shadow: 0 0 50px 14px rgba(246,235,200,.32), 0 0 140px 50px rgba(160,180,255,.14); opacity: 0; transition: opacity .8s ease 2.6s; }
+.sk-moon::after { content: ''; position: absolute; width: 22%; height: 22%; left: 56%; top: 30%; border-radius: 50%; background: rgba(180,170,130,.35); box-shadow: -30px 18px 0 -2px rgba(180,170,130,.25); }
+/* L'astre qui part s'efface une fois sous l'horizon, celui qui arrive apparaît dès le début du mouvement. */
+#sky[data-sky="night"] .sk-sun { opacity: 0; transition: opacity .8s ease 2.6s; }
+#sky[data-sky="night"] .sk-moon { opacity: 1; transition: opacity .6s ease; }
+.sk-village { position: absolute; left: 0; width: 100%; height: 150px; bottom: var(--dock-h, 0px); transition: bottom .4s ease; }
+.sk-hill2 { fill: var(--hill2); } .sk-hill1 { fill: var(--hill1); } .sk-h { fill: var(--house); }
+.sk-hill2, .sk-hill1, .sk-h { transition: fill 2.6s ease; }
+.sk-win { fill: var(--win-off); transition: fill .5s ease calc(var(--wd) * .3), filter .5s ease calc(var(--wd) * .3); }
+#sky[data-sky="night"] .sk-win { fill: #FFCB6B; filter: drop-shadow(0 0 5px #FFB347); transition: fill .9s ease calc(1.6s + var(--wd)), filter .9s ease calc(1.6s + var(--wd)); }
+#sky.still, #sky.still * { transition: none !important; }
+body[data-screen="home"] .sk-village { height: 170px; }
+@media (max-width: 700px) { .sk-village { height: 96px; } .sk-sun, .sk-moon { width: 58px; height: 58px; margin: -29px; } #sky { --sv: 78%; } [data-appearance="light"] #sky { --sv: 55%; } }
+/* Mouvement réduit : simple fondu, sans déplacement ni nuages qui dérivent. */
+@media (prefers-reduced-motion: reduce) {
+  .sk-orbit { transition: none !important; }
+  .sk-l, .sk-sun, .sk-moon { transition-duration: 1.2s !important; transition-delay: 0s !important; }
+  .sk-win, #sky[data-sky="night"] .sk-win { transition-duration: .8s !important; transition-delay: 0s !important; }
+  .sk-cloud, .sk-stars i { animation: none !important; }
+}
+@media (prefers-reduced-transparency: reduce) { .sk-veil { background: color-mix(in srgb, var(--bg) 85%, transparent); } }
