@@ -1276,3 +1276,76 @@ body.calm .sk-amb * { animation: none !important; }
 body.calm .sk-eyes { opacity: 1; }
 body.calm .ab-heart, body.calm .ab-mote { opacity: .8; }
 body.calm .ab-streak, body.calm .ab-thief, body.calm .ab-note, body.calm .ab-puff { display: none; }
+
+/* ---------- Petites animations sur les vignettes (fx.js) : seulement pour ceux qui ont le droit de voir ---------- */
+#fx { position: fixed; inset: 0; z-index: 2; pointer-events: none; }
+.fx { position: fixed; overflow: hidden; pointer-events: none; }
+.fx-arrow-box { inset: 0; overflow: visible; }
+/* Loups : trois griffures rouges sur la victime */
+.fx-claw { position: absolute; inset: 0; width: 100%; height: 100%; }
+.fx-claw path { fill: none; stroke: #E5484D; stroke-width: 6; stroke-linecap: round; stroke-dasharray: 120; stroke-dashoffset: 120; filter: drop-shadow(0 0 5px rgba(229,72,77,.85)); animation: fx-claw 2.6s ease-out forwards; }
+.fx-claw path:nth-child(2) { animation-delay: .08s; } .fx-claw path:nth-child(3) { animation-delay: .16s; }
+@keyframes fx-claw { 0% { stroke-dashoffset: 120; opacity: 1; } 18% { stroke-dashoffset: 0; } 75% { opacity: 1; } 100% { stroke-dashoffset: 0; opacity: 0; } }
+/* Voyante : la vignette se retourne comme une carte et montre le rôle, dans un reflet violet */
+.fx-card { position: absolute; inset: 0; perspective: 800px; animation: fx-fade 3s ease forwards; }
+.fx-in { position: absolute; inset: 0; transform-style: preserve-3d; animation: fx-flip 3s ease-in-out forwards; }
+.fx-f, .fx-b { position: absolute; inset: 0; backface-visibility: hidden; border-radius: inherit; display: flex; align-items: center; justify-content: center; overflow: hidden; }
+.fx-f { background: var(--tile, #232A3D); }
+.fx-b { transform: rotateY(180deg); background: #141022; }
+.fx-b img { height: 100%; width: auto; }
+@keyframes fx-flip { 0% { transform: rotateY(0); } 25%, 100% { transform: rotateY(180deg); } }
+@keyframes fx-fade { 0%, 80% { opacity: 1; } 100% { opacity: 0; } }
+.fx-shine { position: absolute; inset: 0; background: linear-gradient(115deg, transparent 30%, rgba(196,160,255,.6) 50%, transparent 70%); background-size: 250% 100%; mix-blend-mode: screen; animation: fx-shine 3s ease-in-out forwards; }
+@keyframes fx-shine { 0%, 15% { background-position: 120% 0; opacity: 0; } 22% { opacity: 1; } 45% { background-position: -40% 0; opacity: 1; } 55%, 100% { opacity: 0; } }
+.fx-spark { position: absolute; width: 7px; height: 7px; border-radius: 50%; background: #D8C4FF; box-shadow: 0 0 10px 3px rgba(190,150,255,.85); opacity: 0; animation: fx-spark 3s ease-out forwards; }
+.fx-spark.s0 { left: 8%; top: 12%; } .fx-spark.s1 { right: 10%; top: 22%; animation-delay: .12s; } .fx-spark.s2 { left: 22%; bottom: 10%; animation-delay: .24s; } .fx-spark.s3 { right: 26%; bottom: 16%; animation-delay: .36s; }
+@keyframes fx-spark { 0%, 18% { opacity: 0; transform: scale(.2); } 26% { opacity: 1; transform: scale(1.3); } 50%, 100% { opacity: 0; transform: scale(.4) translateY(-24px); } }
+/* Sorcière : potion de vie (bulles vertes, lueur), poison (fumée violette, la vignette ternit) */
+.fx-glow { position: absolute; inset: 0; border-radius: inherit; box-shadow: inset 0 0 0 3px #6FE3A0, inset 0 0 40px rgba(111,227,160,.45); animation: fx-fade2 3.2s ease forwards; }
+@keyframes fx-fade2 { 0% { opacity: 0; } 15%, 75% { opacity: 1; } 100% { opacity: 0; } }
+.fx-bub { position: absolute; bottom: 8px; width: 12px; height: 12px; border-radius: 50%; border: 2px solid #6FE3A0; background: rgba(111,227,160,.2); opacity: 0; animation: fx-bub 2.4s ease-in forwards; }
+.fx-bub.b0 { left: 15%; } .fx-bub.b1 { left: 32%; animation-delay: .3s; } .fx-bub.b2 { left: 50%; animation-delay: .6s; } .fx-bub.b3 { left: 66%; animation-delay: .2s; } .fx-bub.b4 { left: 80%; animation-delay: .5s; } .fx-bub.b5 { left: 42%; animation-delay: .9s; }
+@keyframes fx-bub { 0% { opacity: 0; transform: translateY(0) scale(.6); } 15% { opacity: 1; } 85% { opacity: .8; } 100% { opacity: 0; transform: translateY(-120px) scale(1.15); } }
+.fx-dim { position: absolute; inset: 0; -webkit-backdrop-filter: saturate(.3) brightness(.8); backdrop-filter: saturate(.3) brightness(.8); animation: fx-fade2 3.2s ease forwards; }
+.fx-smoke { position: absolute; bottom: -10px; width: 70px; height: 70px; border-radius: 50%; background: radial-gradient(circle, rgba(160,90,220,.75), rgba(160,90,220,0) 70%); opacity: 0; animation: fx-smoke 2.6s ease-out forwards; }
+.fx-smoke.k0 { left: 10%; } .fx-smoke.k1 { left: 45%; animation-delay: .35s; } .fx-smoke.k2 { left: 25%; animation-delay: .7s; } .fx-smoke.k3 { left: 62%; animation-delay: 1s; }
+@keyframes fx-smoke { 0% { opacity: 0; transform: translateY(20px) scale(.5); } 25% { opacity: .9; } 100% { opacity: 0; transform: translateY(-90px) scale(1.7); } }
+/* Salvateur : un bouclier bleu se dessine sur le protégé */
+.fx-shield-box { overflow: visible; }
+.fx-shield { position: absolute; left: 50%; top: 50%; width: min(90%, 160px); aspect-ratio: 1; transform: translate(-50%, -50%); overflow: visible; }
+.fx-shield path { fill: rgba(110,170,255,.1); stroke: #8EC5FF; stroke-width: 3.5; stroke-dasharray: 430; stroke-dashoffset: 430; filter: drop-shadow(0 0 8px rgba(142,197,255,.8)); animation: fx-shield 2.8s ease-in-out forwards; transform-origin: center; transform-box: fill-box; }
+@keyframes fx-shield { 0% { stroke-dashoffset: 430; opacity: 1; } 45% { stroke-dashoffset: 0; transform: scale(1); } 58% { transform: scale(1.06); } 68% { transform: scale(1); } 85% { opacity: 1; } 100% { stroke-dashoffset: 0; opacity: 0; } }
+/* Chasseur : le viseur se resserre, éclair au tir */
+.fx-scope { position: absolute; left: 50%; top: 50%; width: 120px; height: 120px; margin: -60px; animation: fx-scope 2.6s cubic-bezier(.5,0,.3,1) forwards; overflow: visible; }
+.fx-scope circle, .fx-scope line { fill: none; stroke: #FF6B4A; stroke-width: 2.5; } .fx-scope circle:nth-child(2) { fill: #FF6B4A; }
+@keyframes fx-scope { 0% { transform: scale(2.2) rotate(-40deg); opacity: 0; } 15% { opacity: 1; } 50% { transform: scale(.62) rotate(0); } 60% { transform: scale(.62); opacity: 1; } 66% { transform: scale(.72); } 100% { transform: scale(.72); opacity: 0; } }
+.fx-flash { position: absolute; inset: 0; background: #FFF6E0; opacity: 0; animation: fx-flash 2.6s ease-out forwards; }
+@keyframes fx-flash { 0%, 58% { opacity: 0; } 61% { opacity: .85; } 76%, 100% { opacity: 0; } }
+/* Mort au matin : la vignette pâlit, la carte glisse dans le coin, une bougie veille */
+.fx-grey { position: absolute; inset: 0; -webkit-backdrop-filter: grayscale(1) brightness(.75); backdrop-filter: grayscale(1) brightness(.75); animation: fx-grey 3.6s ease forwards; }
+@keyframes fx-grey { 0% { opacity: 0; } 30%, 80% { opacity: 1; } 100% { opacity: 0; } }
+.fx-reveal { position: absolute; right: 10px; bottom: 10px; width: 54px; height: 81px; border-radius: 7px; overflow: hidden; box-shadow: 0 6px 16px rgba(0,0,0,.5); opacity: 0; animation: fx-rev 3.6s ease-out forwards; }
+.fx-reveal img { width: 100%; height: 100%; object-fit: cover; display: block; }
+@keyframes fx-rev { 0%, 25% { opacity: 0; transform: translateY(24px) rotate(-8deg); } 40%, 85% { opacity: 1; transform: translateY(0) rotate(4deg); } 100% { opacity: 0; } }
+.fx-candle { position: absolute; left: 12px; bottom: 44px; width: 9px; height: 20px; border-radius: 2px; background: #EDE3CC; opacity: 0; animation: fx-candle 3.6s ease forwards; }
+.fx-candle::before { content: ''; position: absolute; left: 50%; top: -13px; width: 9px; height: 13px; margin-left: -4.5px; border-radius: 50% 50% 50% 50% / 60% 60% 40% 40%; background: radial-gradient(circle at 50% 70%, #FFF1B0, #FFB43A 60%, rgba(255,140,40,0)); animation: fx-flame .5s ease-in-out infinite alternate; }
+@keyframes fx-candle { 0%, 30% { opacity: 0; } 42%, 85% { opacity: 1; } 100% { opacity: 0; } }
+@keyframes fx-flame { from { transform: scaleY(1) rotate(-3deg); } to { transform: scaleY(1.15) rotate(3deg); } }
+/* Cupidon : flèche dorée, pointillé rose, puis cœurs et liseré rose sur les deux amoureux */
+.fx-trail { position: absolute; inset: 0; overflow: visible; }
+.fx-trail path { fill: none; stroke: #FF8FB1; stroke-width: 2.5; stroke-dasharray: 6 7; opacity: 0; animation: fx-trail 3.4s ease forwards; }
+@keyframes fx-trail { 0% { opacity: 0; } 12%, 60% { opacity: .9; } 100% { opacity: 0; } }
+.fx-arrow { position: absolute; left: 0; top: 0; width: 40px; height: 14px; offset-rotate: auto; animation: fx-fly 1.2s cubic-bezier(.45,0,.25,1) forwards; }
+@keyframes fx-fly { 0% { offset-distance: 0%; opacity: 0; } 10% { opacity: 1; } 92% { offset-distance: 100%; opacity: 1; } 100% { offset-distance: 100%; opacity: 0; } }
+.fx-ring-box { overflow: visible; }
+.fx-ring { position: absolute; inset: 0; border-radius: inherit; box-shadow: 0 0 0 3px #FF8FB1, 0 0 30px rgba(255,143,177,.5); animation: fx-fade2 2.3s ease forwards; }
+.fx-heart { position: absolute; top: 10%; width: 22px; height: 22px; opacity: 0; animation: fx-pop 2.2s ease-out forwards; }
+.fx-heart svg { width: 100%; height: 100%; display: block; }
+.fx-heart.h0 { left: 20%; } .fx-heart.h1 { left: 46%; animation-delay: .12s; } .fx-heart.h2 { left: 70%; animation-delay: .24s; }
+@keyframes fx-pop { 0% { opacity: 0; transform: translateY(10px) scale(.4); } 20% { opacity: 1; transform: translateY(-6px) scale(1.15); } 70% { opacity: .9; transform: translateY(-40px) scale(1); } 100% { opacity: 0; transform: translateY(-60px) scale(.9); } }
+/* Liseré rose permanent entre amoureux (seulement pour eux et Cupidon) */
+.tile.lover-ring { box-shadow: 0 0 0 2px rgba(255,143,177,.85), 0 0 18px rgba(255,143,177,.25); }
+.fx-ghostbox { animation: fx-ghostout var(--fxd, 3s) ease forwards; }
+.fx-ghost, .fx-ghost > .tile { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; }
+.fx-ghost > .tile { pointer-events: none; }
+@keyframes fx-ghostout { 0%, 82% { opacity: 1; } 100% { opacity: 0; transform: scale(.96); } }

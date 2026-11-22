@@ -27,3 +27,8 @@ body.anim { overflow: hidden; }
 @media (max-width: 700px) { .an-now { font-size: 28px; left: 14px; top: 14px; } .an-sep { display: none; } .an-bar { padding: 8px 10px; max-height: 42vh; } .an-btn, .an-sel { min-height: 34px; font-size: 12px; padding: 0 9px; } .an-lab { width: 100%; } .an-note { min-height: 34px; } }
 [data-appearance="light"][data-theme="day"] .an-now { color: #18202E; text-shadow: 0 1px 10px rgba(255,255,255,.6); }
 [data-appearance="light"][data-theme="day"] .an-now small { color: #2B3446; }
+.an-stage { position: fixed; left: 0; right: 0; top: 90px; z-index: 1; display: flex; justify-content: center; padding: 0 24px !important; pointer-events: none; }
+.an-tiles { display: grid; grid-template-columns: repeat(4, minmax(0, 220px)); gap: 14px; width: 100%; justify-content: center; }
+.an-tiles .tile .avatar { width: 56px; height: 56px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font: 700 24px Inter, sans-serif; color: #1A1408; }
+.an-tiles .tile .nm { position: absolute; left: 8px; bottom: 8px; background: rgba(12,14,20,.85); color: #fff; border-radius: 7px; padding: 2px 8px; font: 600 13px Inter, sans-serif; }
+@media (max-width: 700px) { .an-stage { top: 70px; padding: 0 10px !important; } .an-tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; } }

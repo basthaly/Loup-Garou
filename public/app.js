@@ -191,6 +191,8 @@
   }
   function stepKey(st) { return st ? `${st.type}:${st.round}:${st.deadline}` : null; }
   function send(ev, data, ok) {
+    // On retient sa propre action de la nuit : l'étape peut se terminer avant qu'on reçoive sa confirmation (animations fx).
+    if (ev === 'act' && view && view.step && data) fxMine[`${view.room.night}|${view.room.day}|${view.step.type}|${view.step.round || 0}`] = data;
     socket.emit(ev, data || {}, (r) => { if (!r || !r.ok) toast((r && r.error) || 'Erreur'); else if (ok) ok(r); });
   }
   let toastT;
@@ -324,6 +326,7 @@
     // Le panneau garde sa position de défilement d'un rendu à l'autre (sinon il remonte à chaque changement).
     const keep = [...$app.querySelectorAll('.drawer')].map((d) => [d.classList.contains('sheet'), d.scrollTop]);
     const opened = [...$app.querySelectorAll('details[open]')].map((d) => d.querySelector('summary').textContent);
+    fxSnap = fxSnapshot();
     $app.innerHTML = view.room.phase === 'lobby' ? lobbyHTML() : gameHTML();
     for (const [sheet, top] of keep) {
       const d = $app.querySelector(sheet ? '.drawer.sheet' : '.drawer:not(.sheet)');
@@ -334,6 +337,67 @@
     layoutGrid();
     const dk = $app.querySelector('.dock');
     Sky.dock(dk ? dk.offsetHeight : 0);
+    fxCheck();
+  }
+
+  // Petites animations sur les vignettes, déclenchées par ce que CE joueur vient d'apprendre (fx.js).
+  // Au premier rendu (arrivée ou reconnexion), on note seulement l'état, sans rejouer ce qui est déjà passé.
+  const fxDone = new Set();
+  let fxPrimed = false, fxAlive = null, fxLovers = '', fxPrev = null, fxSnap = {};
+  const fxMine = {};
+  // Avant chaque rendu : la place et l'apparence de chaque vignette (un joueur qui meurt part au cimetière,
+  // on rejoue alors l'animation sur un « fantôme » de sa vignette, à l'endroit où elle était).
+  function fxSnapshot() {
+    const out = {};
+    $app.querySelectorAll('.stage .tile[data-speak]').forEach((t) => {
+      const r = t.getBoundingClientRect();
+      if (r.width) out[t.dataset.speak] = { rect: { left: r.left, top: r.top, width: r.width, height: r.height }, html: t.outerHTML, radius: getComputedStyle(t).borderRadius };
+    });
+    return out;
+  }
+  function fxCheck() {
+    if (!window.FX || !view || view.room.phase === 'lobby') { fxAlive = null; fxLovers = ''; fxPrev = null; return; }
+    const st = view.step, me = view.me, n = `${view.room.night}|${view.room.day}`;
+    const alive = {};
+    for (const p of view.players) alive[p.id] = p.alive;
+    const newlyDead = fxAlive ? view.players.filter((p) => fxAlive[p.id] && !p.alive).map((p) => p.id) : [];
+    const lovers = view.players.filter((p) => p.lover).map((p) => p.id).sort();
+    const play = (k, fn) => { if (fxDone.has(k)) return; fxDone.add(k); if (fxPrimed) fn(); };
+    const src = (role) => (role ? cardSrc(role, true) : '');
+    const cur = st ? { key: `${n}|${st.type}|${st.round || 0}`, type: st.type, isActor: st.isActor, myInput: st.myInput, victim: st.victim, agreed: st.agreed, result: st.result || {} } : null;
+    // Ce que l'on apprend pendant ou à la fin de l'étape (Voyante).
+    if (cur) {
+      const res = cur.result;
+      if (cur.type === 'voyante' && res.seen) play(`${cur.key}|seen`, () => FX.play('flip', { ids: [res.seen.id], src: src(res.seen.role) }));
+      if (cur.type === 'n_voyante' && res.players) play(`${cur.key}|seen`, () => res.players.forEach((x) => FX.play('flip', { ids: [x.id], src: src(x.role) })));
+    }
+    // Fin d'une étape : ce que J'ai fait (la vignette visée est encore là, les morts ne tombent qu'au matin).
+    if (fxPrev && (!cur || cur.key !== fxPrev.key)) {
+      const pv = fxPrev, k = `${pv.key}|end`, sent = fxMine[pv.key] || {};
+      const mine = pv.myInput !== undefined && pv.myInput !== null ? pv.myInput : (pv.type === 'sorciere' ? (sent.save || sent.kill ? sent : null) : sent.target || null);
+      if (pv.type === 'loups' && pv.isActor && (pv.agreed || mine)) play(k, () => FX.play('claw', { ids: [pv.agreed || mine], ghosts: fxSnap }));
+      if (pv.type === 'sorciere' && pv.isActor && mine) play(k, () => {
+        if (mine.save && pv.victim) FX.play('save', { ids: [pv.victim], ghosts: fxSnap });
+        if (mine.kill) FX.play('poison', { ids: [mine.kill], ghosts: fxSnap }); // déjà parti au cimetière si le jour se lève : on joue sur son fantôme
+      });
+      if (pv.type === 'salvateur' && pv.isActor && mine) play(k, () => FX.play('shield', { ids: [mine], ghosts: fxSnap }));
+    }
+    // Morts (vu par tous) : au lever du jour, la vignette pâlit, la carte apparaît, une bougie s'allume ; tir du Chasseur : viseur et éclair.
+    if (newlyDead.length) {
+      const ghosts = {};
+      for (const id of newlyDead) if (fxSnap[id]) ghosts[id] = fxSnap[id];
+      if (cur && cur.type === 'dawn') play(`${n}|dawn|${newlyDead.join(',')}`, () => newlyDead.forEach((id) => { const p = P(id); FX.play('death', { ids: [id], src: src(p && p.role), ghosts }); }));
+      else if ((cur && cur.type === 'hunter') || (fxPrev && fxPrev.type === 'hunter')) play(`${n}|hunter|${newlyDead.join(',')}`, () => FX.play('scope', { ids: newlyDead, ghosts }));
+    }
+    // Cupidon et les amoureux : la flèche, la première fois que le couple est connu.
+    if (lovers.length >= 2 && lovers.join(',') !== fxLovers) {
+      if (fxPrimed && !fxLovers) FX.play('arrow', { ids: me.lover && lovers.includes(me.id) ? [me.id, me.lover] : lovers.slice(0, 2) });
+      fxLovers = lovers.join(',');
+    }
+    fxAlive = alive;
+    fxPrev = cur;
+    fxPrimed = true;
+    FX.sync();
   }
 
   function updateThemeColor() {
@@ -557,7 +621,7 @@
       ${view.room.phase === 'day' && !opts.voteFrom ? `<span class="talk" data-talk="${p.id}" aria-hidden="true"><i></i></span>` : ''}
       ${opts.voteFrom && opts.voteFrom.length ? `<span class="vote-from ${opts.topVoted ? 'top' : ''}" title="Contre ${esc(p.name)} : ${opts.voteFrom.map((x) => (nm(x))).join(', ')}"><span class="faces">${opts.voteFrom.map((x) => face(x, 24)).join('')}</span><b>${opts.votes || opts.voteFrom.length}</b></span>` : ''}
       <span class="nm">${p.mic ? '<span class="vu" aria-hidden="true"><i></i><i></i><i></i></span>' : icon('micoff', 13)}${esc(p.name)}${isMe ? ' (toi)' : ''}${opts.leanTo ? `<span class="lean-to" title="Penche pour ${nm(opts.leanTo)} (intention)">→${face(opts.leanTo, 15)}</span>` : ''}</span>`;
-    const cls = `tile has-video-host ${isMe ? 'me' : ''} ${asleep ? 'asleep' : ''} ${opts.wolfMate ? 'wolfmate' : ''} ${opts.pick ? 'pickable' : ''} ${opts.picked ? 'picked' : ''} ${opts.danger ? 'danger' : ''} ${opts.big ? 'big' : ''} ${opts.out ? 'out' : ''} ${opts.poisoned ? 'poisoned' : ''} ${opts.saved ? 'saved' : ''} ${opts.tools ? 'has-tools' : ''} ${endCls} ${ended && !p.alive ? 'dead-end' : ''}`;
+    const cls = `tile has-video-host ${isMe ? 'me' : ''} ${asleep ? 'asleep' : ''} ${opts.wolfMate ? 'wolfmate' : ''} ${opts.pick ? 'pickable' : ''} ${opts.picked ? 'picked' : ''} ${opts.danger ? 'danger' : ''} ${opts.big ? 'big' : ''} ${opts.out ? 'out' : ''} ${opts.poisoned ? 'poisoned' : ''} ${opts.saved ? 'saved' : ''} ${opts.tools ? 'has-tools' : ''} ${endCls} ${ended && !p.alive ? 'dead-end' : ''} ${p.lover && !ended ? 'lover-ring' : ''}`;
     if (opts.pick) return `<button class="${cls}" data-speak="${p.id}" data-act="pick" data-id="${p.id}" aria-pressed="${!!opts.picked}" aria-label="${esc((st && VERB[st.type]) || 'Choisir')} ${esc(p.name)}">${inner}</button>`;
     return `<div class="${cls}" data-speak="${p.id}">${inner}${kick}</div>`;
   }

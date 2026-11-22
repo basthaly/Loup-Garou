@@ -46,7 +46,7 @@ function loadCert() {
 // au lieu de garder l'ancienne version en cache après un ./update.sh.
 const BUILD = Date.now().toString(36);
 const PAGE = fs.readFileSync(path.join(__dirname, '..', 'public', 'index.html'), 'utf8')
-  .replace(/(src|href)="\/(app\.js|sky\.js|media\.js|ambience\.js|style\.css)"/g, `$1="/$2?v=${BUILD}"`)
+  .replace(/(src|href)="\/(app\.js|sky\.js|fx\.js|media\.js|ambience\.js|style\.css)"/g, `$1="/$2?v=${BUILD}"`)
   .replace('<meta name="asset-v" content="dev">', `<meta name="asset-v" content="${BUILD}">`);
 const sendPage = (req, res) => { res.set('Cache-Control', 'no-cache'); res.type('html').send(PAGE); };
 app.get(['/', '/index.html'], sendPage);
@@ -57,7 +57,7 @@ const MJ_PAGE = fs.readFileSync(path.join(__dirname, '..', 'public', 'mj.html'),
 app.get(['/mj', '/mj.html'], (req, res) => { res.set('Cache-Control', 'no-cache'); res.type('html').send(MJ_PAGE); });
 // Page cachée « animations » : le ciel en grand, sans joueurs, pour régler et noter les animations.
 const ANIM_PAGE = fs.readFileSync(path.join(__dirname, '..', 'public', 'animations.html'), 'utf8')
-  .replace(/(src|href)="\/(anim\.js|anim\.css|sky\.js|style\.css)"/g, `$1="/$2?v=${BUILD}"`)
+  .replace(/(src|href)="\/(anim\.js|anim\.css|sky\.js|fx\.js|style\.css)"/g, `$1="/$2?v=${BUILD}"`)
   .replace('<meta name="asset-v" content="dev">', `<meta name="asset-v" content="${BUILD}">`);
 app.get(['/animations', '/animations.html'], (req, res) => { res.set('Cache-Control', 'no-cache'); res.type('html').send(ANIM_PAGE); });
 // Cache : un fichier demandé avec ?v=<version> ne change jamais (la version change à chaque mise à jour) :

@@ -5,16 +5,31 @@
     ['', 'Aucune'], ['loups', 'Loups-Garous'], ['loupblanc', 'Loup-Garou Blanc'], ['cupidon', 'Cupidon'], ['voyante', 'Voyante'],
     ['sorciere', 'Sorcière'], ['voleur', 'Voleur'], ['flute', 'Joueur de flûte'],
   ];
-  const ITEMS = [['cycle', 'Passage jour ↔ nuit'], ...AMBS.filter(([k]) => k)];
+  // Petites animations sur les vignettes (vues seulement par ceux qui ont le droit) : on les joue sur des vignettes d'exemple.
+  const FXS = [['fx-claw', 'Loups : griffures'], ['fx-arrow', 'Cupidon : flèche'], ['fx-flip', 'Voyante : carte'], ['fx-save', 'Sorcière : vie'],
+    ['fx-poison', 'Sorcière : poison'], ['fx-shield', 'Salvateur'], ['fx-scope', 'Chasseur : tir'], ['fx-death', 'Mort au matin']];
+  const ITEMS = [['cycle', 'Passage jour ↔ nuit'], ...AMBS.filter(([k]) => k), ...FXS];
+  const DEMO = [['d1', 'Inès', '#7FD1AE'], ['d2', 'Marc', '#C9A7F5'], ['d3', 'Hugo', '#F2B05E'], ['d4', 'Léa', '#8AB4F8']];
   const LS = 'lg-anim';
   // (la barre du bas de cette page prend la place de celle du jeu : le village se pose dessus)
   let saved = {};
   try { saved = JSON.parse(localStorage.getItem(LS) || '{}'); } catch { saved = {}; }
+  let fxT = null;
+  function playFx(k) {
+    const kind = k.slice(3);
+    const ids = kind === 'arrow' ? ['d1', 'd4'] : ['d2'];
+    const src = kind === 'flip' ? '/cards/loup.webp' : kind === 'death' ? '/cards/villageois.webp' : '';
+    FX.play(kind, { ids, src });
+  }
+  function setFxLoop() {
+    clearInterval(fxT);
+    if (st.fx && st.fxLoop) fxT = setInterval(() => playFx(st.fx), 4500 / st.speed);
+  }
   const st = {
     theme: 'night', amb: '', loop: false, loopS: saved.loopS || 20, tour: false, tourS: saved.tourS || 15,
-    speed: saved.speed || 1, dock: saved.dock ?? true, panel: true, focus: 'cycle', notes: saved.notes || {},
+    speed: saved.speed || 1, panel: true, focus: 'cycle', notes: saved.notes || {}, fx: '', fxLoop: true,
   };
-  const save = () => { try { localStorage.setItem(LS, JSON.stringify({ loopS: st.loopS, tourS: st.tourS, speed: st.speed, dock: st.dock, notes: st.notes })); } catch { /* stockage indisponible */ } };
+  const save = () => { try { localStorage.setItem(LS, JSON.stringify({ loopS: st.loopS, tourS: st.tourS, speed: st.speed, notes: st.notes })); } catch { /* stockage indisponible */ } };
   const prefersDark = matchMedia('(prefers-color-scheme: dark)').matches;
   document.body.dataset.appearance = localStorage.getItem('lg-appearance') || (prefersDark ? 'dark' : 'light');
   const $ = document.getElementById('anim');
@@ -54,6 +69,7 @@
     const sel = (a, list, v) => `<select class="an-sel" data-a="${a}" aria-label="Durée">${list.map((x) => `<option value="${x}" ${x === v ? 'selected' : ''}>${x} s</option>`).join('')}</select>`;
     $.innerHTML = `
       <div class="an-now">${st.theme === 'night' ? 'Nuit' : 'Jour'}<small>${st.theme === 'night' && st.amb ? 'Ambiance : ' + esc(nameOf(st.amb)) : 'Sans ambiance'}${st.speed !== 1 ? ' · vitesse ' + sp.find(([v]) => v === st.speed)[1] : ''}</small></div>
+      ${st.fx ? `<main class="stage an-stage"><div class="an-tiles">${DEMO.map(([id, nm, c]) => `<div class="tile" data-speak="${id}"><span class="avatar" style="background:${c}">${nm[0]}</span><span class="nm">${nm}</span></div>`).join('')}</div></main>` : ''}
       ${st.panel ? '' : '<button class="an-btn an-show" data-a="panel">Réglages (H)</button>'}
       <section class="an-bar ${st.panel ? '' : 'hidden'}" aria-label="Réglages des animations"><div class="an-in">
         ${calm ? `<div class="an-warn"><span>Ton appareil demande des <b>animations réduites</b> : le soleil, la lune et les ambiances ne bougent presque pas.</span><button class="an-btn on" data-a="motion" data-v="full">Voir les animations complètes</button></div>` : ''}
@@ -65,6 +81,10 @@
           <span class="an-sep"></span>
           <span class="an-lab">Ambiance</span><span class="an-seg">${AMBS.map(([k, l]) => `<button class="an-btn ${st.amb === k ? 'on' : ''}" data-a="amb" data-v="${k}">${k ? stDot(k) : ''}${esc(l)}</button>`).join('')}</span>
           <span class="an-seg"><button class="an-btn" data-a="prev" aria-label="Ambiance précédente">‹</button><button class="an-btn" data-a="next" aria-label="Ambiance suivante">›</button><button class="an-btn ${st.tour ? 'on' : ''}" data-a="tour" aria-pressed="${st.tour}">Défilé auto</button></span>${sel('tourS', [8, 15, 30, 60], st.tourS)}
+        </div>
+        <div class="an-row">
+          <span class="an-lab">Sur les vignettes</span><span class="an-seg">${FXS.map(([k, l]) => `<button class="an-btn ${st.fx === k ? 'on' : ''}" data-a="fx" data-v="${k}">${stDot(k)}${esc(l)}</button>`).join('')}</span>
+          <button class="an-btn ${st.fxLoop ? 'on' : ''}" data-a="fxloop" aria-pressed="${st.fxLoop}">Rejouer en boucle</button>
         </div>
         <div class="an-row">
           <span class="an-lab">Vitesse</span><span class="an-seg">${sp.map(([v, l]) => `<button class="an-btn ${st.speed === v ? 'on' : ''}" data-a="speed" data-v="${v}">${l}</button>`).join('')}</span>
@@ -107,9 +127,11 @@
     else if (a === 'prev') step(-1);
     else if (a === 'next') step(1);
     else if (a === 'tour') { st.tour = !st.tour; if (st.tour && !st.amb) step(1); setTour(); }
-    else if (a === 'speed') { st.speed = +v; setLoop(); setTour(); save(); }
+    else if (a === 'speed') { st.speed = +v; setLoop(); setTour(); setFxLoop(); save(); }
     else if (a === 'app') { document.body.dataset.appearance = v; try { localStorage.setItem('lg-appearance', v); } catch { /* */ } }
     else if (a === 'motion') Sky.setMotion(v);
+    else if (a === 'fx') { st.fx = st.fx === v ? '' : v; st.focus = st.fx || 'cycle'; setFxLoop(); if (st.fx) setTimeout(() => playFx(st.fx), 60); }
+    else if (a === 'fxloop') { st.fxLoop = !st.fxLoop; setFxLoop(); }
     else if (a === 'focus') st.focus = v;
     else if (a === 'stat') { const n = st.notes[st.focus] || (st.notes[st.focus] = {}); n.s = n.s === v ? '' : v; save(); }
     else if (a === 'export') { showExport(); return; }
