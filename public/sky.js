@@ -59,7 +59,7 @@ window.Sky = (() => {
       for (let i = 0; i < n; i++) {
         const t = 0.15 + rnd() * 0.7, left = rnd() < 0.5;
         const x = left ? a + (c - a) * t : c + (e - c) * t, y = left ? b + (d - b) * t : d + (f - d) * t;
-        dots.push(`<circle class="ab-roof" cx="${x.toFixed(1)}" cy="${(y - 1).toFixed(1)}" r="${(2.2 + rnd() * 1.4).toFixed(1)}" style="animation-delay:${(rnd() * 3.6).toFixed(2)}s;animation-duration:${(2.4 + rnd() * 2).toFixed(2)}s"/>`);
+        dots.push(`<circle class="ab-roof" cx="${x.toFixed(1)}" cy="${(y - 1).toFixed(1)}" r="${(2.2 + rnd() * 1.4).toFixed(1)}" style="animation-delay:${(rnd() * 7.2).toFixed(2)}s;animation-duration:${(4.8 + rnd() * 4).toFixed(2)}s"/>`);
       }
     }
     roofSvg = svg('ab-roofs', dots.join(''));
@@ -76,7 +76,7 @@ window.Sky = (() => {
       stars += `<div class="sk-sg">${g}</div>`;
     }
     const clouds = [[6, 9, 130], [34, 16, 95], [74, 7, 150]].map(([l, t, w]) => `<span class="sk-cloud" style="left:${l}%;top:${t}%;width:${w}px"></span>`).join('');
-    el.innerHTML = `<div class="sk-l sk-day"></div><div class="sk-l sk-dusk"></div><div class="sk-l sk-night"></div><div class="sk-l sk-stars">${stars}</div><div class="sk-l sk-clouds">${clouds}</div><div class="sk-veil"></div><div class="sk-clip"><div class="sk-pos"><div class="sk-orbit"><span class="sk-sun"></span><span class="sk-moon"></span></div></div></div>${village()}`;
+    el.innerHTML = `<div class="sk-l sk-day"></div><div class="sk-l sk-dusk"></div><div class="sk-l sk-night"></div><div class="sk-l sk-stars">${stars}</div><div class="sk-l sk-clouds">${clouds}</div><div class="sk-veil"></div><div class="sk-clip"><div class="sk-pos"><div class="sk-orbit"><span class="sk-sun"></span><span class="sk-moon"><i class="sk-ring"></i><i class="sk-ring"></i><i class="sk-ring"></i></span></div></div></div>${village()}`;
     document.body.insertBefore(el, document.body.firstChild);
     orbit = el.querySelector('.sk-orbit');
     buildAmb();
@@ -97,6 +97,15 @@ window.Sky = (() => {
   }
   // ---- Ambiances des rôles : couches posées une fois, montrées selon data-amb ----
   let amb = '';
+  // Joueur de flûte : une portée dorée ondule dans le ciel et défile lentement, avec des notes posées dessus.
+  function staff() {
+    const W = 3200, P = 800, y = (x) => 60 + 22 * Math.sin((2 * Math.PI * x) / P);
+    const line = (dy) => { let d = ''; for (let x = 0; x <= W; x += 20) d += `${x ? 'L' : 'M'}${x} ${(y(x) + dy).toFixed(1)}`; return `<path d="${d}"/>`; };
+    const glyphs = ['♪', '♫', '♪', '♬'];
+    let notes = '';
+    for (let x = 140, k = 0; x < W; x += 400, k++) notes += `<span class="ab-n" style="left:${((x / W) * 100).toFixed(2)}%;top:${(((y(x) - 26 + (k % 2 ? 8 : -6)) / 120) * 100).toFixed(1)}%;animation-delay:${(k % 4) * 0.4}s">${glyphs[k % 4]}</span>`;
+    return `<div class="ab-staff"><svg viewBox="0 0 ${W} 120" preserveAspectRatio="none" aria-hidden="true">${line(-10)}${line(0)}${line(10)}</svg>${notes}</div>`;
+  }
   function buildAmb() {
     const eyes = (cls, spots) => spots.map(([l, b, d]) => `<span class="sk-eyes ${cls}" style="left:${l}%;bottom:${b}%;animation-delay:${d}s"><i style="animation-delay:${d}s"></i><i style="animation-delay:${d}s"></i></span>`).join('');
     const heart = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s-7.5-4.6-9.5-9.3C1.2 8.4 3.3 5 6.8 5c2 0 3.6 1.1 4.2 2.6C11.6 6.1 13.2 5 15.2 5c3.5 0 5.6 3.4 4.3 6.7C19.5 16.4 12 21 12 21z" fill="#FF8FB1"/></svg>';
@@ -109,7 +118,7 @@ window.Sky = (() => {
       <div class="ab ab-voyante"><div class="ab-aur a1"></div><div class="ab-aur a2"></div>${[[18, 30, 0], [42, 22, 1.2], [66, 36, 2.4], [84, 18, 3.6], [30, 46, 1.8]].map(([l, t, d]) => `<span class="ab-mote" style="left:${l}%;top:${t}%;animation-delay:${d}s"></span>`).join('')}</div>
       <div class="ab ab-sorciere"><div class="ab-vil">${[[7, 0], [19, 2.6], [31, 1.1], [44, 3.9], [56, 0.6], [68, 2.2], [80, 4.6], [92, 1.6]].map(([l, d], k) => `<span class="ab-bub${k % 2 ? ' v' : ''}" style="left:${l}%;animation-delay:${d}s"></span>`).join('')}</div></div>
       <div class="ab ab-voleur">${roofSvg}</div>
-      <div class="ab ab-flute"><div class="ab-vil">${['♪', '♫', '♪', '♬', '♪', '♫', '♪'].map((g, i) => `<span class="ab-note" style="animation-delay:${i * 2}s,${-i * 0.8}s">${g}</span>`).join('')}</div></div>`;
+      <div class="ab ab-flute">${staff()}</div>`;
     el.appendChild(box);
   }
   function setAmb(k) {

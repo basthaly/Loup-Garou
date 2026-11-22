@@ -1269,7 +1269,7 @@ body.calm #sky[data-amb="sorciere"] .sk-moon { animation: none; background: radi
 .ab-bub.v { border-color: rgba(195,150,250,.9); background: radial-gradient(circle at 35% 35%, rgba(255,255,255,.7), rgba(170,110,240,.25) 45%, rgba(170,110,240,.05)); box-shadow: 0 0 10px rgba(170,110,240,.55); }
 @keyframes ab-bub { 0% { opacity: 0; transform: translate(0, 0) scale(.5); } 12% { opacity: 1; } 70% { opacity: .9; transform: translate(10px, -150px) scale(1); } 78% { opacity: .9; transform: translate(8px, -170px) scale(1.5); } 84%, 100% { opacity: 0; transform: translate(8px, -172px) scale(1.9); } }
 /* Voleur : la lune devient une pièce d'or qu'une ombre vient chiper puis rend ; de petits points d'or clignotent sur les toits */
-#sky[data-amb="voleur"] .sk-moon { background: radial-gradient(circle at 38% 38%, #FFF8DC, #E8B84A 70%); animation: ab-steal 9s ease-in-out infinite; }
+#sky[data-amb="voleur"] .sk-moon { background: radial-gradient(circle at 38% 38%, #FFF8DC, #E8B84A 70%); animation: ab-steal 18s ease-in-out infinite; }
 @keyframes ab-steal {
   0%, 18%, 100% { box-shadow: inset 0 0 0 0 rgba(8,10,28,.9), 0 0 60px 20px rgba(246,196,83,.5), 0 0 160px 60px rgba(232,170,60,.22); }
   45%, 60% { box-shadow: inset 46px 0 0 0 rgba(8,10,28,.9), 0 0 40px 12px rgba(246,196,83,.32), 0 0 120px 40px rgba(232,170,60,.14); }
@@ -1278,15 +1278,29 @@ body.calm #sky[data-amb="voleur"] .sk-moon { animation: none; box-shadow: 0 0 60
 .ab-roofs { pointer-events: none; filter: drop-shadow(0 0 4px rgba(255,200,90,.9)); }
 .ab-roof { fill: #FFE08A; opacity: 0; animation: ab-roof 3s ease-in-out infinite; transform-box: fill-box; transform-origin: center; }
 @keyframes ab-roof { 0%, 100% { opacity: .12; transform: scale(.6); } 45% { opacity: .12; transform: scale(.6); } 60% { opacity: 1; transform: scale(1.3); } 75% { opacity: .35; transform: scale(.85); } }
-/* Joueur de flûte : des notes ondulent au-dessus du village */
-.ab-note { position: absolute; bottom: 85%; left: -6%; font: 700 30px serif; color: #F6D58A; text-shadow: 0 0 10px rgba(246,213,138,.8); opacity: 0; animation: ab-notex 14s linear infinite, ab-notey 3.2s ease-in-out infinite alternate; }
-@keyframes ab-notex { 0% { left: -6%; opacity: 0; } 8% { opacity: 1; } 88% { opacity: 1; } 100% { left: 104%; opacity: 0; } }
-@keyframes ab-notey { from { transform: translateY(0) rotate(-10deg); } to { transform: translateY(-36px) rotate(10deg); } }
+/* Joueur de flûte : la lune devient turquoise et émet des ondes de musique, une portée dorée ondule dans le ciel
+   avec ses notes, et les fenêtres du village palpitent au rythme, comme charmées. */
+.sk-ring { display: none; }
+#sky[data-amb="flute"] .sk-moon { background: radial-gradient(circle at 38% 38%, #F0FFFC, #7FE3D6 70%); box-shadow: 0 0 60px 20px rgba(127,227,214,.5), 0 0 160px 60px rgba(90,200,190,.22); }
+#sky[data-amb="flute"] .sk-ring { display: block; position: absolute; inset: 0; border-radius: 50%; border: 2px solid rgba(160,240,230,.75); opacity: 0; animation: ab-wave 3.6s ease-out infinite; }
+#sky[data-amb="flute"] .sk-ring:nth-child(2) { animation-delay: 1.2s; } #sky[data-amb="flute"] .sk-ring:nth-child(3) { animation-delay: 2.4s; }
+@keyframes ab-wave { 0% { opacity: .9; transform: scale(1); } 100% { opacity: 0; transform: scale(3.2); } }
+.ab-staff { position: absolute; left: 0; top: 13vh; width: 200%; height: 120px; animation: ab-staff 40s linear infinite; }
+.ab-staff svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+.ab-staff path { fill: none; stroke: rgba(246,213,138,.55); stroke-width: 1.4; vector-effect: non-scaling-stroke; filter: drop-shadow(0 0 4px rgba(246,213,138,.6)); }
+@keyframes ab-staff { to { transform: translateX(-50%); } }
+.ab-n { position: absolute; font: 700 30px serif; line-height: 1; color: #F6D58A; text-shadow: 0 0 10px rgba(246,213,138,.85); animation: ab-nbob 1.6s ease-in-out infinite alternate; }
+@keyframes ab-nbob { from { transform: translateY(0) rotate(-8deg); } to { transform: translateY(-8px) rotate(8deg); } }
+#sky[data-amb="flute"] .sk-win { animation: ab-charm 3.6s ease-in-out infinite; }
+@keyframes ab-charm { 0%, 100% { opacity: 1; } 50% { opacity: .45; } }
+@media (max-width: 700px) { .ab-staff { top: 10vh; height: 90px; } .ab-n { font-size: 22px; } }
+body.calm #sky[data-amb="flute"] .sk-ring, body.calm #sky[data-amb="flute"] .sk-win { animation: none; }
+body.calm #sky[data-amb="flute"] .sk-ring { display: none; }
 /* Mouvement réduit (réglage du site, ou du téléphone par défaut) */
 body.calm .sk-amb * { animation: none !important; }
 body.calm .sk-eyes { opacity: 1; }
 body.calm .ab-heart, body.calm .ab-mote { opacity: .8; }
-body.calm .ab-streak, body.calm .ab-roofs, body.calm .ab-note, body.calm .ab-bub { display: none; }
+body.calm .ab-streak, body.calm .ab-roofs, body.calm .ab-bub { display: none; }
 
 /* ---------- Petites animations sur les vignettes (fx.js) : seulement pour ceux qui ont le droit de voir ---------- */
 #fx { position: fixed; inset: 0; z-index: 2; pointer-events: none; }
