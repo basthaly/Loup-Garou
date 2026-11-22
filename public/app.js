@@ -167,17 +167,30 @@
         }
         k++;
       }
-      for (const [wx, wy, ww, wh] of wins) out.push(`<rect class="sk-win" style="--wd:${(rnd() * 1.6).toFixed(2)}s" x="${Math.round(wx)}" y="${Math.round(wy)}" width="${ww}" height="${wh}" rx="1.5"/>`);
+      const lit = [];
+      for (const [wx, wy, ww, wh] of wins) {
+        const r = `x="${Math.round(wx)}" y="${Math.round(wy)}" width="${ww}" height="${wh}" rx="1.5"`;
+        out.push(`<rect class="sk-wo" ${r}/>`);
+        const g = `x="${Math.round(wx) - 5}" y="${Math.round(wy) - 5}" width="${ww + 10}" height="${wh + 10}" rx="6"`;
+        lit.push(`<g class="sk-win" style="--wd:${(rnd() * 1.6).toFixed(2)}s"><rect class="sk-glow" ${g}/><rect ${r}/></g>`);
+      }
       out.push(`<rect class="sk-h" x="0" y="${H - 14}" width="${W}" height="14"/>`);
-      return `<svg class="sk-village" viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMax slice" aria-hidden="true">${out.join('')}</svg>`;
+      // Deux silhouettes (jour, nuit) en fondu, et les fenêtres allumées par-dessus : tout bouge en opacité, sans repeindre les couleurs.
+      const svg = (c, body) => `<svg class="sk-village ${c}" viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMax slice" aria-hidden="true">${body}</svg>`;
+      return svg('sk-vd', out.join('')) + svg('sk-vn', out.join('')) + svg('sk-vl', lit.join(''));
     }
     function build() {
       el = document.createElement('div');
       el.id = 'sky'; el.className = 'still'; el.setAttribute('aria-hidden', 'true');
+      // Étoiles en trois groupes qui scintillent chacun à leur rythme (trois calques au lieu d'un par étoile).
       let stars = '';
-      for (let i = 0; i < 90; i++) stars += `<i style="left:${(rnd() * 100).toFixed(1)}%;top:${(rnd() * 60).toFixed(1)}%;--s:${[1, 1, 1.5, 2][Math.floor(rnd() * 4)]}px;animation-delay:${(rnd() * 3).toFixed(1)}s"></i>`;
+      for (let gi = 0; gi < 3; gi++) {
+        let g = '';
+        for (let i = 0; i < 28; i++) g += `<i style="left:${(rnd() * 100).toFixed(1)}%;top:${(rnd() * 60).toFixed(1)}%;--s:${[1, 1, 1.5, 2][Math.floor(rnd() * 4)]}px"></i>`;
+        stars += `<div class="sk-sg">${g}</div>`;
+      }
       const clouds = [[6, 9, 130], [34, 16, 95], [74, 7, 150]].map(([l, t, w]) => `<span class="sk-cloud" style="left:${l}%;top:${t}%;width:${w}px"></span>`).join('');
-      el.innerHTML = `<div class="sk-l sk-day"></div><div class="sk-l sk-dusk"></div><div class="sk-l sk-night"></div><div class="sk-l sk-stars">${stars}</div><div class="sk-l sk-clouds">${clouds}</div><div class="sk-veil"></div><div class="sk-orbit"><span class="sk-sun"></span><span class="sk-moon"></span></div>${village()}`;
+      el.innerHTML = `<div class="sk-l sk-day"></div><div class="sk-l sk-dusk"></div><div class="sk-l sk-night"></div><div class="sk-l sk-stars">${stars}</div><div class="sk-l sk-clouds">${clouds}</div><div class="sk-veil"></div><div class="sk-pos"><div class="sk-orbit"><span class="sk-sun"></span><span class="sk-moon"></span></div></div>${village()}`;
       document.body.insertBefore(el, document.body.firstChild);
       orbit = el.querySelector('.sk-orbit');
     }
@@ -193,7 +206,7 @@
       if (first) { requestAnimationFrame(() => requestAnimationFrame(() => el.classList.remove('still'))); return; }
       el.classList.add('dusk');
       clearTimeout(duskT);
-      duskT = setTimeout(() => el.classList.remove('dusk'), 1700);
+      duskT = setTimeout(() => el.classList.remove('dusk'), 2600);
     }
     function dock(h) { document.body.style.setProperty('--dock-h', `${Math.round(h)}px`); place(); }
     // Où poser le soleil et la lune : on note chaque place possible selon ce qu'on y voit du ciel
