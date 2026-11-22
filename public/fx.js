@@ -5,7 +5,7 @@
 window.FX = (() => {
   let layer = null;
   const live = new Set();
-  const DUR = { claw: 2600, flip: 3000, save: 3200, poison: 3200, shield: 2800, scope: 2600, death: 3600, arrow: 3400 };
+  const DUR = { claw: 2800, ring: 2400, flip: 3000, save: 3200, poison: 3200, shield: 2800, scope: 2600, death: 3600, arrow: 3400 };
   const HEART = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s-7.5-4.6-9.5-9.3C1.2 8.4 3.3 5 6.8 5c2 0 3.6 1.1 4.2 2.6C11.6 6.1 13.2 5 15.2 5c3.5 0 5.6 3.4 4.3 6.7C19.5 16.4 12 21 12 21z" fill="#FF8FB1"/></svg>';
   let tileOf = (id) => document.querySelector(`.stage .tile[data-speak="${CSS.escape(id)}"]`) || document.querySelector(`.tile[data-speak="${CSS.escape(id)}"]`);
   function ensure() {
@@ -19,7 +19,7 @@ window.FX = (() => {
   const esc = (t) => String(t).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
   function inner(kind, o) {
     switch (kind) {
-      case 'claw': return '<svg class="fx-claw" viewBox="0 0 200 150" preserveAspectRatio="none"><path d="M58 28 L108 122"/><path d="M84 22 L134 116"/><path d="M110 18 L160 110"/></svg>';
+      case 'claw': return '<span class="fx-prey"></span><span class="fx-weyes"><i></i><i></i></span>'; // la victime : l'ombre rouge des loups et deux yeux qui s'ouvrent
       case 'flip': return `<div class="fx-card"><div class="fx-in"><div class="fx-f"></div><div class="fx-b">${o.src ? `<img src="${esc(o.src)}" alt="">` : ''}</div></div></div><span class="fx-shine"></span>${[0, 1, 2, 3].map((i) => `<i class="fx-spark s${i}"></i>`).join('')}`;
       case 'save': return `<span class="fx-glow"></span>${[0, 1, 2, 3, 4, 5].map((i) => `<i class="fx-bub b${i}"></i>`).join('')}`;
       case 'poison': return `<span class="fx-dim"></span>${[0, 1, 2, 3].map((i) => `<i class="fx-smoke k${i}"></i>`).join('')}`;
@@ -38,7 +38,6 @@ window.FX = (() => {
     Object.assign(el.style, { left: `${r.left}px`, top: `${r.top}px`, width: `${r.width}px`, height: `${r.height}px`, borderRadius: getComputedStyle(t).borderRadius });
     return true;
   }
-  function center(id) { const t = tileOf(id); if (!t) return null; const r = t.getBoundingClientRect(); return r.width ? [r.left + r.width / 2, r.top + r.height / 2] : null; }
   function add(el, ms) {
     ensure().appendChild(el);
     live.add(el);
@@ -68,18 +67,8 @@ window.FX = (() => {
       add(el, DUR[kind] || 3000);
     }
   }
-  // Cupidon : une flèche dorée vole d'un amoureux à l'autre, puis des cœurs s'envolent des deux vignettes.
-  function arrow(ids) {
-    const a = center(ids[0]), b = center(ids[1]);
-    if (!a || !b) return;
-    const mx = (a[0] + b[0]) / 2, my = Math.max(16, Math.min(a[1], b[1]) - Math.max(60, Math.abs(a[0] - b[0]) * 0.25));
-    const d = `M ${a[0]} ${a[1]} Q ${mx} ${my} ${b[0]} ${b[1]}`;
-    const el = document.createElement('div');
-    el.className = 'fx fx-arrow-box';
-    el.innerHTML = `<svg class="fx-trail" width="100%" height="100%"><path d="${d}"/></svg><svg class="fx-arrow" viewBox="0 0 34 12" style="offset-path:path('${d}')"><path d="M0 6 H26" stroke="#F6C453" stroke-width="2.5"/><path d="M24 1 L33 6 L24 11 Z" fill="#F6C453"/><path d="M0 2 L5 6 L0 10" stroke="#FF8FB1" stroke-width="2" fill="none"/></svg>`;
-    add(el, DUR.arrow);
-    setTimeout(() => play('ring', { ids }), 1100);
-  }
+  // Cupidon : des cœurs s'envolent des deux vignettes, qui s'entourent d'un liseré rose (sans flèche).
+  function arrow(ids) { play('ring', { ids }); }
   // Après chaque rendu : les animations suivent leur vignette si la grille a bougé.
   function sync() {
     if (!layer) return;

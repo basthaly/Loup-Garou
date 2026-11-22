@@ -6,7 +6,7 @@
     ['sorciere', 'Sorcière'], ['voleur', 'Voleur'], ['flute', 'Joueur de flûte'],
   ];
   // Petites animations sur les vignettes (vues seulement par ceux qui ont le droit) : on les joue sur des vignettes d'exemple.
-  const FXS = [['fx-claw', 'Loups : griffures'], ['fx-arrow', 'Cupidon : flèche'], ['fx-flip', 'Voyante : carte'], ['fx-save', 'Sorcière : vie'],
+  const FXS = [['fx-claw', 'Loups : la victime'], ['fx-arrow', 'Cupidon : cœurs'], ['fx-flip', 'Voyante : carte'], ['fx-save', 'Sorcière : vie'],
     ['fx-poison', 'Sorcière : poison'], ['fx-shield', 'Salvateur'], ['fx-scope', 'Chasseur : tir'], ['fx-death', 'Mort au matin']];
   const ITEMS = [['cycle', 'Passage jour ↔ nuit'], ...AMBS.filter(([k]) => k), ...FXS];
   const DEMO = [['d1', 'Inès', '#7FD1AE'], ['d2', 'Marc', '#C9A7F5'], ['d3', 'Hugo', '#F2B05E'], ['d4', 'Léa', '#8AB4F8']];

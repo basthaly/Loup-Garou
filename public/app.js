@@ -389,7 +389,7 @@
       if (cur && cur.type === 'dawn') play(`${n}|dawn|${newlyDead.join(',')}`, () => newlyDead.forEach((id) => { const p = P(id); FX.play('death', { ids: [id], src: src(p && p.role), ghosts }); }));
       else if ((cur && cur.type === 'hunter') || (fxPrev && fxPrev.type === 'hunter')) play(`${n}|hunter|${newlyDead.join(',')}`, () => FX.play('scope', { ids: newlyDead, ghosts }));
     }
-    // Cupidon et les amoureux : la flèche, la première fois que le couple est connu.
+    // Cupidon et les amoureux : les cœurs, la première fois que le couple est connu.
     if (lovers.length >= 2 && lovers.join(',') !== fxLovers) {
       if (fxPrimed && !fxLovers) FX.play('arrow', { ids: me.lover && lovers.includes(me.id) ? [me.id, me.lover] : lovers.slice(0, 2) });
       fxLovers = lovers.join(',');
