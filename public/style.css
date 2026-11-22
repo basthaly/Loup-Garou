@@ -1180,7 +1180,7 @@ table.hist td.hit span { display: inline-flex; align-items: center; gap: 4px; pa
 #sky[data-sky="night"] .sk-night, #sky[data-sky="night"] .sk-stars { opacity: 1; }
 .sk-veil { background: linear-gradient(180deg, color-mix(in srgb, var(--bg) var(--sv), transparent) 0%, color-mix(in srgb, var(--bg) calc(var(--sv) - 18%), transparent) 55%, color-mix(in srgb, var(--bg) 12%, transparent) 100%); }
 /* Placement (glisse en douceur) puis rotation (le soleil et la lune aux deux bouts du même cercle) : uniquement des transformations, calculées par la carte graphique. */
-.sk-pos { position: absolute; left: 0; top: 0; width: 0; height: 0; transform: translate(var(--px, 76vw), calc(var(--py, 26vh) + var(--r))); transition: transform 1.8s cubic-bezier(.4, 0, .2, 1); will-change: transform; }
+.sk-pos { position: absolute; left: 0; top: 0; width: 0; height: 0; transform: translate(var(--px, 76vw), calc(var(--py, 26vh) + var(--r))); transition: transform 2.4s cubic-bezier(.4, 0, .2, 1); will-change: transform; }
 .sk-orbit { position: absolute; width: 0; height: 0; transition: transform 5.2s var(--ease); will-change: transform; }
 .sk-sun, .sk-moon { position: absolute; left: 0; width: 84px; height: 84px; margin: -42px; border-radius: 50%; }
 .sk-sun { top: calc(var(--r) * -1); background: radial-gradient(circle at 40% 40%, #FFF6C8, #FFC94D 55%, #F79A2E); box-shadow: 0 0 60px 20px rgba(255,196,77,.5), 0 0 160px 60px rgba(255,170,60,.22); transition: opacity .8s ease; }

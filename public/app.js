@@ -250,7 +250,7 @@
     // Où poser le soleil et la lune : on note chaque place possible selon ce qu'on y voit du ciel
     // (1 = ciel libre, 0,5 = derrière le verre dépoli d'une barre, 0 = vignette, panneau, texte, bouton),
     // puis on garde la place actuelle si elle reste bonne, sinon la meilleure, au plus près du coin haut-droit.
-    let px = null, py = null, placeT = null, lastScan = 0;
+    let px = null, py = null, placeT = null, lastScan = 0, zoneKey = '', zx = 0, zy = 0;
     let opq = new WeakMap();
     const SOLID = new Set(['IMG', 'VIDEO', 'CANVAS', 'svg', 'BUTTON', 'INPUT', 'SELECT', 'TEXTAREA', 'LABEL', 'A']);
     function look(e) { // 0 transparent, 1 verre dépoli, 2 opaque
@@ -292,19 +292,35 @@
         const memo = new Map();
         const at = (x, y) => { const k = x + ',' + y; if (!memo.has(k)) memo.set(k, seen(x, y)); return memo.get(k); };
         const score = (x, y) => 2 * at(x, y) + at(x - s, y) + at(x + s, y) + at(x, y - s) + at(x, y + s);
-        const tx = W * 0.76, ty = H * 0.26;
-        let best = null, bs = -1, bd = Infinity;
+        const snap = (v, o) => o + Math.round((v - o) / s) * s;
+        // Une zone fixe par écran (accueil, salon, partie) et par taille de fenêtre : on la choisit une fois,
+        // puis l'astre ne fait que de petits déplacements autour, s'il est vraiment caché.
+        const scr = document.body.dataset.screen || '';
+        const zkey = `${scr}|${W}|${H}`;
+        const fresh = zkey !== zoneKey;
+        const R = W <= 700 ? 70 : 130;
+        let tx, ty;
+        if (fresh) {
+          // Sur grand écran, la bande au-dessus des toits reste toujours libre (accueil, salon, partie) : même zone partout,
+          // à droite, juste au-dessus des maisons. Sur téléphone, en haut à droite.
+          if (W > 700) { tx = W * 0.78; ty = y1 - rad * 0.5; } else { tx = W * 0.76; ty = H * 0.3; }
+        } else {
+          if (px !== null && score(snap(px, x0), snap(py, y0)) >= 4) return; // encore bien visible : on ne bouge pas
+          tx = zx; ty = zy;
+        }
+        // La place bien dégagée la plus proche du but ; à défaut, la moins cachée la plus proche.
+        let good = null, gd = Infinity, fair = null, fd = Infinity;
         for (let y = y0; y <= y1; y += s) for (let x = x0; x <= x1; x += s) {
+          if (!fresh && (Math.abs(x - zx) > R || Math.abs(y - zy) > R)) continue;
           const sc = score(x, y);
           if (sc < 3.5) continue;
           const d = Math.hypot(x - tx, (y - ty) * 1.4);
-          if (sc > bs + 0.01 || (Math.abs(sc - bs) < 0.01 && d < bd)) { bs = sc; bd = d; best = [x, y]; }
+          if (sc >= 5 && d < gd) { gd = d; good = [x, y]; }
+          if (d < fd) { fd = d; fair = [x, y]; }
         }
-        if (px !== null) { // on ne bouge pas pour rien : la place actuelle reste si elle est presque aussi bonne
-          const cx = x0 + Math.round((px - x0) / s) * s, cy = y0 + Math.round((py - y0) / s) * s;
-          if (cy <= y1 && cx <= x1 && score(cx, cy) >= Math.max(5, bs - 0.5)) return;
-        }
+        const best = good || fair;
         if (!best) return; // aucune place : on garde la position
+        if (fresh) { zoneKey = zkey; [zx, zy] = best; }
         if (px === null) { el.classList.add('still'); requestAnimationFrame(() => requestAnimationFrame(() => el.classList.remove('still'))); }
         [px, py] = best;
         el.style.setProperty('--px', `${px}px`);
