@@ -1169,10 +1169,10 @@ table.hist td.hit span { display: inline-flex; align-items: center; gap: 4px; pa
 [data-appearance="light"] #sky { --d-hill2: #A9C0CB; --d-hill1: #86A1AC; --d-house: #5D7480; --d-win: #6F8590;
   --n-hill2: #8C93C2; --n-hill1: #6E76AA; --n-house: #3E4672; --n-win: #4E5682; --sv: 30%; }
 .sk-l, .sk-veil { position: absolute; inset: 0; }
-.sk-l { transition: opacity 4s var(--ease); }
+.sk-l { transition: opacity 2s var(--ease); }
 .sk-day { background: linear-gradient(180deg, #8DBCE3 0%, #C9DFEC 48%, #F4DDB8 100%); }
-.sk-dusk { background: linear-gradient(180deg, #353A74 0%, #C2648A 50%, #F2A15F 100%); opacity: 0; transition: opacity 2.4s var(--ease); }
-#sky.dusk .sk-dusk { opacity: 1; transition-duration: 1.8s; }
+.sk-dusk { background: linear-gradient(180deg, #353A74 0%, #C2648A 50%, #F2A15F 100%); opacity: 0; transition: opacity 1.2s var(--ease); }
+#sky.dusk .sk-dusk { opacity: 1; transition-duration: .9s; }
 .sk-night { background: linear-gradient(180deg, #060A1B 0%, #121A42 55%, #273066 100%); opacity: 0; }
 .sk-stars { opacity: 0; }
 .sk-sg { position: absolute; inset: 0; animation: sk-tw 3.6s ease-in-out infinite; }
@@ -1187,23 +1187,24 @@ table.hist td.hit span { display: inline-flex; align-items: center; gap: 4px; pa
 #sky[data-sky="night"] .sk-night, #sky[data-sky="night"] .sk-stars { opacity: 1; }
 .sk-veil { background: linear-gradient(180deg, color-mix(in srgb, var(--bg) var(--sv), transparent) 0%, color-mix(in srgb, var(--bg) calc(var(--sv) - 18%), transparent) 55%, color-mix(in srgb, var(--bg) 12%, transparent) 100%); }
 /* Placement (glisse en douceur) puis rotation (le soleil et la lune aux deux bouts du même cercle) : uniquement des transformations, calculées par la carte graphique. */
+.sk-clip { position: absolute; left: 0; right: 0; top: 0; bottom: var(--dock-h, 0px); overflow: hidden; transition: bottom .4s ease; }
 .sk-pos { position: absolute; left: 0; top: 0; width: 0; height: 0; transform: translate(var(--px, 76vw), calc(var(--py, 26vh) + var(--r))); transition: transform 2.4s cubic-bezier(.4, 0, .2, 1); will-change: transform; }
-.sk-orbit { position: absolute; width: 0; height: 0; transition: transform 5.2s var(--ease); will-change: transform; }
+.sk-orbit { position: absolute; width: 0; height: 0; transition: transform 2.6s var(--ease); will-change: transform; }
 .sk-sun, .sk-moon { position: absolute; left: 0; width: 84px; height: 84px; margin: -42px; border-radius: 50%; }
 .sk-sun { top: calc(var(--r) * -1); background: radial-gradient(circle at 40% 40%, #FFF6C8, #FFC94D 55%, #F79A2E); box-shadow: 0 0 60px 20px rgba(255,196,77,.5), 0 0 160px 60px rgba(255,170,60,.22); transition: opacity .8s ease; }
-.sk-moon { top: var(--r); transform: rotate(180deg); background: radial-gradient(circle at 38% 38%, #FFFDF2, #E9DDB4 70%); box-shadow: 0 0 50px 14px rgba(246,235,200,.32), 0 0 140px 50px rgba(160,180,255,.14); opacity: 0; transition: opacity 1s ease 4.2s; }
+.sk-moon { top: var(--r); transform: rotate(180deg); background: radial-gradient(circle at 38% 38%, #FFFDF2, #E9DDB4 70%); box-shadow: 0 0 50px 14px rgba(246,235,200,.32), 0 0 140px 50px rgba(160,180,255,.14); opacity: 0; transition: opacity .6s ease 2.1s; }
 .sk-moon::after { content: ''; position: absolute; width: 22%; height: 22%; left: 56%; top: 30%; border-radius: 50%; background: rgba(180,170,130,.35); box-shadow: -30px 18px 0 -2px rgba(180,170,130,.25); }
 /* L'astre qui part s'efface une fois sous l'horizon, celui qui arrive apparaît dès le début du mouvement. */
-#sky[data-sky="night"] .sk-sun { opacity: 0; transition: opacity 1s ease 4.2s; }
+#sky[data-sky="night"] .sk-sun { opacity: 0; transition: opacity .6s ease 2.1s; }
 #sky[data-sky="night"] .sk-moon { opacity: 1; transition: opacity .8s ease; }
-.sk-village { position: absolute; left: 0; width: 100%; height: 150px; bottom: var(--dock-h, 0px); transition: bottom .4s ease, opacity 4s var(--ease); }
+.sk-village { position: absolute; left: 0; width: 100%; height: 150px; bottom: var(--dock-h, 0px); transition: bottom .4s ease, opacity 2s var(--ease); }
 .sk-vd .sk-hill2 { fill: var(--d-hill2); } .sk-vd .sk-hill1 { fill: var(--d-hill1); } .sk-vd .sk-h { fill: var(--d-house); } .sk-vd .sk-wo { fill: var(--d-win); }
 .sk-vn .sk-hill2 { fill: var(--n-hill2); } .sk-vn .sk-hill1 { fill: var(--n-hill1); } .sk-vn .sk-h { fill: var(--n-house); } .sk-vn .sk-wo { fill: var(--n-win); }
 .sk-vn { opacity: 0; }
 #sky[data-sky="night"] .sk-vn { opacity: 1; }
 .sk-glow { fill: #FFB347; opacity: .28; }
 .sk-win { fill: #FFCB6B; opacity: 0; transition: opacity .7s ease calc(var(--wd) * .3); }
-#sky[data-sky="night"] .sk-win { opacity: 1; transition: opacity 1.2s ease calc(2.4s + var(--wd)); }
+#sky[data-sky="night"] .sk-win { opacity: 1; transition: opacity .7s ease calc(1.2s + var(--wd) * .5); }
 #sky.still, #sky.still * { transition: none !important; }
 body[data-screen="home"] .sk-village { height: 170px; }
 @media (max-width: 700px) { .sk-village { height: 96px; } .sk-sun, .sk-moon { width: 58px; height: 58px; margin: -29px; } #sky { --sv: 58%; } [data-appearance="light"] #sky { --sv: 40%; } }
@@ -1227,18 +1228,15 @@ body.calm .sk-cloud, body.calm .sk-sg { animation: none !important; }
 .ab-vil { position: absolute; left: 0; right: 0; height: 150px; bottom: var(--dock-h, 0px); }
 @media (max-width: 700px) { .ab-vil { height: 96px; } }
 /* Lune selon le rôle */
-.sk-moon { transition: opacity 1s ease 4.2s, background 1.2s ease, box-shadow 1.2s ease; }
+.sk-moon { transition: opacity .6s ease 2.1s, background 1.2s ease, box-shadow 1.2s ease; }
 #sky[data-sky="night"] .sk-moon { transition: opacity .8s ease, background 1.2s ease, box-shadow 1.2s ease; }
 #sky[data-amb="loups"] .sk-moon { background: radial-gradient(circle at 38% 38%, #FFE3D6, #E8907A 70%); box-shadow: 0 0 70px 24px rgba(220,70,60,.55), 0 0 170px 70px rgba(200,40,40,.25); }
 #sky[data-amb="loupblanc"] .sk-moon { background: radial-gradient(circle at 38% 38%, #FFFFFF, #CFE3F5 70%); box-shadow: 0 0 70px 24px rgba(210,235,255,.6), 0 0 170px 60px rgba(170,210,255,.3); }
 #sky[data-amb="cupidon"] .sk-moon { background: radial-gradient(circle at 38% 38%, #FFF0F5, #F5A3C0 70%); box-shadow: 0 0 60px 20px rgba(255,143,177,.55), 0 0 160px 60px rgba(255,120,170,.25); }
 #sky[data-amb="voyante"] .sk-moon { box-shadow: 0 0 60px 20px rgba(190,140,255,.6), 0 0 150px 60px rgba(140,90,255,.3); }
 /* Loups : bords assombris, yeux entre les maisons */
-.ab-veil { position: absolute; inset: 0; box-shadow: inset 0 0 180px 50px rgba(120,10,20,.5); animation: ab-pulse 5s ease-in-out infinite; }
-.ab-loupblanc .ab-veil { box-shadow: inset 0 0 160px 40px rgba(160,200,255,.32); }
-@keyframes ab-pulse { 0%, 100% { opacity: .6; } 50% { opacity: 1; } }
 .sk-eyes { position: absolute; display: flex; gap: 7px; animation: ab-eyes 6s ease-in-out infinite; opacity: 0; }
-.sk-eyes i { width: 9px; height: 6px; border-radius: 50%; background: #FFD23F; box-shadow: 0 0 8px 2px rgba(255,190,40,.75); animation: ab-blink 6s ease-in-out infinite; }
+.sk-eyes i { width: 9px; height: 6px; border-radius: 50%; background: #FF3B30; box-shadow: 0 0 8px 2px rgba(255,40,30,.75); animation: ab-blink 6s ease-in-out infinite; }
 .sk-eyes.white i { background: #F2F8FF; box-shadow: 0 0 9px 3px rgba(220,240,255,.9); }
 @keyframes ab-eyes { 0%, 8% { opacity: 0; } 16%, 78% { opacity: 1; } 88%, 100% { opacity: 0; } }
 @keyframes ab-blink { 0%, 40% { transform: scaleY(1); } 43% { transform: scaleY(.1); } 46%, 100% { transform: scaleY(1); } }
@@ -1262,12 +1260,12 @@ body.calm .sk-cloud, body.calm .sk-sg { animation: none !important; }
 .ab-puff.v { background: radial-gradient(circle, rgba(170,110,240,.7), rgba(170,110,240,0) 70%); }
 @keyframes ab-puff { 0% { opacity: 0; transform: translate(0,0) scale(.5); } 20% { opacity: 1; } 100% { opacity: 0; transform: translate(70px,-95px) scale(3.4); } }
 /* Voleur : une ombre court sur les toits */
-.ab-thief { position: absolute; bottom: 60%; left: -5%; width: 30px; height: 36px; animation: ab-run 9s linear infinite; }
-.ab-thief svg { width: 100%; height: 100%; display: block; animation: ab-hop .5s ease-in-out infinite alternate; }
+.ab-thief { position: absolute; bottom: 60%; left: -5%; width: 30px; height: 36px; animation: ab-run 18s linear infinite; }
+.ab-thief svg { width: 100%; height: 100%; display: block; animation: ab-hop 1s ease-in-out infinite alternate; }
 @keyframes ab-run { 0% { left: -5%; } 60%, 100% { left: 105%; } }
 @keyframes ab-hop { from { transform: translateY(0); } to { transform: translateY(-9px); } }
 /* Joueur de flûte : des notes ondulent au-dessus du village */
-.ab-note { position: absolute; bottom: 85%; left: -6%; font: 700 30px serif; color: #F6D58A; text-shadow: 0 0 10px rgba(246,213,138,.8); opacity: 0; animation: ab-notex 7s linear infinite, ab-notey 1.6s ease-in-out infinite alternate; }
+.ab-note { position: absolute; bottom: 85%; left: -6%; font: 700 30px serif; color: #F6D58A; text-shadow: 0 0 10px rgba(246,213,138,.8); opacity: 0; animation: ab-notex 14s linear infinite, ab-notey 3.2s ease-in-out infinite alternate; }
 @keyframes ab-notex { 0% { left: -6%; opacity: 0; } 8% { opacity: 1; } 88% { opacity: 1; } 100% { left: 104%; opacity: 0; } }
 @keyframes ab-notey { from { transform: translateY(0) rotate(-10deg); } to { transform: translateY(-36px) rotate(10deg); } }
 /* Mouvement réduit (réglage du site, ou du téléphone par défaut) */

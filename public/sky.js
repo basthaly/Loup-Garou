@@ -63,7 +63,7 @@ window.Sky = (() => {
       stars += `<div class="sk-sg">${g}</div>`;
     }
     const clouds = [[6, 9, 130], [34, 16, 95], [74, 7, 150]].map(([l, t, w]) => `<span class="sk-cloud" style="left:${l}%;top:${t}%;width:${w}px"></span>`).join('');
-    el.innerHTML = `<div class="sk-l sk-day"></div><div class="sk-l sk-dusk"></div><div class="sk-l sk-night"></div><div class="sk-l sk-stars">${stars}</div><div class="sk-l sk-clouds">${clouds}</div><div class="sk-veil"></div><div class="sk-pos"><div class="sk-orbit"><span class="sk-sun"></span><span class="sk-moon"></span></div></div>${village()}`;
+    el.innerHTML = `<div class="sk-l sk-day"></div><div class="sk-l sk-dusk"></div><div class="sk-l sk-night"></div><div class="sk-l sk-stars">${stars}</div><div class="sk-l sk-clouds">${clouds}</div><div class="sk-veil"></div><div class="sk-clip"><div class="sk-pos"><div class="sk-orbit"><span class="sk-sun"></span><span class="sk-moon"></span></div></div></div>${village()}`;
     document.body.insertBefore(el, document.body.firstChild);
     orbit = el.querySelector('.sk-orbit');
     buildAmb();
@@ -80,7 +80,7 @@ window.Sky = (() => {
     if (first) { requestAnimationFrame(() => requestAnimationFrame(() => el.classList.remove('still'))); return; }
     el.classList.add('dusk');
     clearTimeout(duskT);
-    duskT = setTimeout(() => el.classList.remove('dusk'), 2600);
+    duskT = setTimeout(() => el.classList.remove('dusk'), 1300);
   }
   // ---- Ambiances des rôles : couches posées une fois, montrées selon data-amb ----
   let amb = '';
@@ -91,13 +91,13 @@ window.Sky = (() => {
     const box = document.createElement('div');
     box.className = 'sk-amb';
     box.innerHTML = `
-      <div class="ab ab-loups"><div class="ab-veil"></div><div class="ab-vil">${eyes('', [[9, 34, 0], [27, 22, 0.8], [46, 38, 1.6], [64, 26, 2.4], [83, 32, 3.2], [95, 20, 1.2]])}</div></div>
-      <div class="ab ab-loupblanc"><div class="ab-veil"></div><div class="ab-vil">${eyes('white', [[31, 30, 0], [72, 34, 1.8]])}</div></div>
+      <div class="ab ab-loups"><div class="ab-vil">${eyes('', [[9, 34, 0], [27, 22, 0.8], [46, 38, 1.6], [64, 26, 2.4], [83, 32, 3.2], [95, 20, 1.2]])}</div></div>
+      <div class="ab ab-loupblanc"><div class="ab-vil">${eyes('white', [[31, 30, 0], [72, 34, 1.8]])}</div></div>
       <div class="ab ab-cupidon"><div class="ab-vil">${[5, 14, 24, 33, 43, 52, 62, 71, 81, 90].map((l, i) => `<span class="ab-heart" style="left:${l}%;animation-delay:${(i * 0.6).toFixed(1)}s">${heart}</span>`).join('')}</div><span class="ab-streak"></span></div>
       <div class="ab ab-voyante"><div class="ab-aur a1"></div><div class="ab-aur a2"></div>${[[18, 30, 0], [42, 22, 1.2], [66, 36, 2.4], [84, 18, 3.6], [30, 46, 1.8]].map(([l, t, d]) => `<span class="ab-mote" style="left:${l}%;top:${t}%;animation-delay:${d}s"></span>`).join('')}</div>
       <div class="ab ab-sorciere">${[0, 1, 2, 3, 4].map((i) => `<span class="ab-puff${i % 2 ? ' v' : ''}" style="animation-delay:${i * 0.8}s"></span>`).join('')}</div>
       <div class="ab ab-voleur"><div class="ab-vil"><span class="ab-thief">${thief}</span></div></div>
-      <div class="ab ab-flute"><div class="ab-vil">${['♪', '♫', '♪', '♬', '♪', '♫', '♪'].map((g, i) => `<span class="ab-note" style="animation-delay:${i}s,${-i * 0.4}s">${g}</span>`).join('')}</div></div>`;
+      <div class="ab ab-flute"><div class="ab-vil">${['♪', '♫', '♪', '♬', '♪', '♫', '♪'].map((g, i) => `<span class="ab-note" style="animation-delay:${i * 2}s,${-i * 0.8}s">${g}</span>`).join('')}</div></div>`;
     el.appendChild(box);
   }
   function chimney() { // la fumée de la Sorcière sort d'une vraie cheminée, vers le tiers gauche de l'écran
