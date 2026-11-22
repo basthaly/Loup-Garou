@@ -1300,7 +1300,7 @@ body.calm #sky[data-amb="flute"] .sk-ring { display: none; }
 body.calm .sk-amb * { animation: none !important; }
 body.calm .sk-eyes { opacity: 1; }
 body.calm .ab-heart, body.calm .ab-mote { opacity: .8; }
-body.calm .ab-streak, body.calm .ab-roofs, body.calm .ab-bub, body.calm .ab-swap { display: none; }
+body.calm .ab-streak, body.calm .ab-roofs, body.calm .ab-bub { display: none; }
 
 /* ---------- Petites animations sur les vignettes (fx.js) : seulement pour ceux qui ont le droit de voir ---------- */
 #fx { position: fixed; inset: 0; z-index: 2; pointer-events: none; }
@@ -1385,15 +1385,16 @@ body.calm .ab-streak, body.calm .ab-roofs, body.calm .ab-bub, body.calm .ab-swap
 .ab-lamp { position: absolute; width: 10px; height: 10px; border-radius: 50%; background: #FFF4D6; box-shadow: 0 0 12px 5px rgba(255,220,150,.75), 0 0 30px 10px rgba(255,200,120,.3); opacity: .15; animation: ab-lamp 3s ease-in-out infinite; }
 .ab-lamp.b { animation-delay: 1.5s; }
 @keyframes ab-lamp { 0%, 100% { opacity: .15; transform: scale(.7); } 15%, 35% { opacity: 1; transform: scale(1.15); } 50% { opacity: .15; transform: scale(.7); } }
-/* Noiseuse : une étoile d'or et une d'argent échangent leur place (elle échange les cartes de deux autres) */
+/* Noiseuse : deux petites lunes (or et argent) tournent autour de la lune et échangent leur place par à-coups,
+   comme elle échange les cartes de deux autres joueurs */
+.sk-sat { display: none; }
 #sky[data-amb="noiseuse"] .sk-moon { box-shadow: 0 0 60px 18px rgba(255,190,150,.4), 0 0 150px 60px rgba(255,150,110,.18); }
-.ab-swap { position: absolute; animation: ab-swapx 8s ease-in-out infinite; }
-.ab-swap i { display: block; width: 8px; height: 8px; border-radius: 50%; background: #FFF3C4; box-shadow: 0 0 10px 4px rgba(246,196,83,.85), 0 0 26px 8px rgba(246,196,83,.35); animation: ab-swapy 8s ease-in-out infinite; }
-.ab-swap.a { left: 28vw; top: 16vh; --dx: 34vw; --dy: 8vh; }
-.ab-swap.b { left: 62vw; top: 24vh; --dx: -34vw; --dy: -8vh; }
-.ab-swap.b i { width: 9px; height: 9px; background: #EAF2FF; box-shadow: 0 0 10px 4px rgba(150,190,255,.85), 0 0 26px 8px rgba(150,190,255,.35); }
-@keyframes ab-swapx { 0%, 30% { transform: translateX(0); } 50%, 80% { transform: translateX(var(--dx)); } 100% { transform: translateX(0); } }
-@keyframes ab-swapy { 0%, 30% { transform: translateY(0); } 40% { transform: translateY(calc(var(--dy) / 2 - 7vh)); } 50%, 80% { transform: translateY(var(--dy)); } 90% { transform: translateY(calc(var(--dy) / 2 + 7vh)); } 100% { transform: translateY(0); } }
+#sky[data-amb="noiseuse"] .sk-sat { display: block; position: absolute; left: 50%; top: 50%; width: 170%; height: 170%; transform: translate(-50%, -50%); animation: ab-sat 6s cubic-bezier(.65,0,.35,1) infinite; }
+#sky[data-amb="noiseuse"] .sk-sat b { position: absolute; top: 50%; width: 11px; height: 11px; margin-top: -5.5px; border-radius: 50%; background: #FFE9A8; box-shadow: 0 0 10px 4px rgba(246,196,83,.8); }
+#sky[data-amb="noiseuse"] .sk-sat b:first-child { left: -5px; }
+#sky[data-amb="noiseuse"] .sk-sat b:last-child { right: -5px; background: #EAF2FF; box-shadow: 0 0 10px 4px rgba(150,190,255,.8); }
+@keyframes ab-sat { 0%, 30% { transform: translate(-50%, -50%) rotate(0deg); } 50%, 80% { transform: translate(-50%, -50%) rotate(180deg); } 100% { transform: translate(-50%, -50%) rotate(360deg); } }
+body.calm #sky[data-amb="noiseuse"] .sk-sat { animation: none; }
 /* Soûlard : tout tangue doucement — les étoiles, la lune couleur ambre et les maisons */
 #sky[data-amb="soulard"] .sk-moon { background: radial-gradient(circle at 38% 38%, #FFF6E0, #F0B45A 70%); box-shadow: 0 0 60px 20px rgba(240,180,90,.45), 0 0 160px 60px rgba(230,150,60,.2); animation: ab-wob 3.4s ease-in-out infinite; }
 @keyframes ab-wob { 0%, 100% { transform: rotate(180deg) translate(0, 0); } 25% { transform: rotate(180deg) translate(10px, 4px); } 75% { transform: rotate(180deg) translate(-10px, -3px); } }
@@ -1401,9 +1402,10 @@ body.calm .ab-streak, body.calm .ab-roofs, body.calm .ab-bub, body.calm .ab-swap
 @keyframes ab-sway { 0%, 100% { transform: rotate(0); } 25% { transform: rotate(1.6deg); } 75% { transform: rotate(-1.6deg); } }
 #sky[data-amb="soulard"] .sk-vd, #sky[data-amb="soulard"] .sk-vn, #sky[data-amb="soulard"] .sk-vl { animation: ab-tilt 6s ease-in-out infinite; transform-origin: 50% 100%; }
 @keyframes ab-tilt { 0%, 100% { transform: skewX(0); } 25% { transform: skewX(1.4deg); } 75% { transform: skewX(-1.4deg); } }
-/* Insomniaque : le village dort, une seule fenêtre reste allumée et vacille */
-#sky[data-amb="insomniaque"] .sk-win { opacity: .08; transition: opacity 1.2s ease; }
-#sky[data-amb="insomniaque"] .sk-win.insom { opacity: 1; animation: ab-insom 5s ease-in-out infinite; }
-@keyframes ab-insom { 0%, 100% { opacity: 1; } 40% { opacity: .9; } 44% { opacity: .35; } 47% { opacity: 1; } 70% { opacity: .85; } }
+/* Insomniaque : une fenêtre s'illumine d'une lumière pâle et vacille (les autres ne changent pas : la bascule jour/nuit reste intacte) */
+#sky[data-amb="insomniaque"] .sk-win.insom .sk-glow { animation: ab-insom 4.5s ease-in-out infinite; transform-box: fill-box; transform-origin: center; }
+#sky[data-amb="insomniaque"] .sk-win.insom rect:last-child { animation: ab-insomw 4.5s ease-in-out infinite; }
+@keyframes ab-insom { 0%, 100% { fill: #BFD8FF; opacity: .55; transform: scale(1.6); } 40% { opacity: .75; transform: scale(2); } 44% { opacity: .2; transform: scale(1.4); } 48% { opacity: .8; transform: scale(2.1); } 70% { opacity: .6; transform: scale(1.7); } }
+@keyframes ab-insomw { 0%, 100% { fill: #EAF3FF; } 44% { fill: #FFCB6B; } 48% { fill: #F4F8FF; } }
 body.calm #sky[data-amb="double"] .sk-twin, body.calm #sky[data-amb="soulard"] .sk-moon, body.calm #sky[data-amb="soulard"] .sk-stars,
-body.calm #sky[data-amb="soulard"] .sk-vd, body.calm #sky[data-amb="soulard"] .sk-vn, body.calm #sky[data-amb="soulard"] .sk-vl, body.calm #sky[data-amb="insomniaque"] .sk-win.insom { animation: none; }
+body.calm #sky[data-amb="soulard"] .sk-vd, body.calm #sky[data-amb="soulard"] .sk-vn, body.calm #sky[data-amb="soulard"] .sk-vl, body.calm #sky[data-amb="insomniaque"] .sk-win.insom .sk-glow, body.calm #sky[data-amb="insomniaque"] .sk-win.insom rect:last-child { animation: none; }

@@ -63,7 +63,7 @@ window.Sky = (() => {
       }
     }
     roofSvg = svg('ab-roofs', dots.join(''));
-    // L'Insomniaque (Une nuit) : la fenêtre la plus proche du milieu de l'écran reste seule allumée pendant son tour.
+    // L'Insomniaque (Une nuit) : la fenêtre la plus proche du milieu de l'écran s'illumine et vacille pendant son tour.
     let mid = 0;
     lit.forEach(([wx], i) => { if (Math.abs(wx - W * 0.56) < Math.abs(lit[mid][0] - W * 0.56)) mid = i; });
     const litHtml = lit.map(([, h], i) => (i === mid ? h.replace('class="sk-win"', 'class="sk-win insom"') : h)).join('');
@@ -80,7 +80,7 @@ window.Sky = (() => {
       stars += `<div class="sk-sg">${g}</div>`;
     }
     const clouds = [[6, 9, 130], [34, 16, 95], [74, 7, 150]].map(([l, t, w]) => `<span class="sk-cloud" style="left:${l}%;top:${t}%;width:${w}px"></span>`).join('');
-    el.innerHTML = `<div class="sk-l sk-day"></div><div class="sk-l sk-dusk"></div><div class="sk-l sk-night"></div><div class="sk-l sk-stars">${stars}</div><div class="sk-l sk-clouds">${clouds}</div><div class="sk-veil"></div><div class="sk-clip"><div class="sk-pos"><div class="sk-orbit"><span class="sk-sun"></span><span class="sk-moon"><i class="sk-twin"></i><i class="sk-ring"></i><i class="sk-ring"></i><i class="sk-ring"></i></span></div></div></div>${village()}`;
+    el.innerHTML = `<div class="sk-l sk-day"></div><div class="sk-l sk-dusk"></div><div class="sk-l sk-night"></div><div class="sk-l sk-stars">${stars}</div><div class="sk-l sk-clouds">${clouds}</div><div class="sk-veil"></div><div class="sk-clip"><div class="sk-pos"><div class="sk-orbit"><span class="sk-sun"></span><span class="sk-moon"><i class="sk-twin"></i><i class="sk-sat"><b></b><b></b></i><i class="sk-ring"></i><i class="sk-ring"></i><i class="sk-ring"></i></span></div></div></div>${village()}`;
     document.body.insertBefore(el, document.body.firstChild);
     orbit = el.querySelector('.sk-orbit');
     buildAmb();
@@ -125,7 +125,7 @@ window.Sky = (() => {
       <div class="ab ab-flute">${staff()}</div>
         <div class="ab ab-sbire"><div class="ab-vil">${eyes('dim', [[22, 30, 0], [58, 26, 1.4], [84, 34, 2.8]])}</div></div>
         <div class="ab ab-macons"><div class="ab-vil"><span class="ab-lamp a" style="left:29%;bottom:52%"></span><span class="ab-lamp b" style="left:66%;bottom:56%"></span></div></div>
-        <div class="ab ab-noiseuse"><span class="ab-swap a"><i></i></span><span class="ab-swap b"><i></i></span></div>`;
+        <div class="ab ab-noiseuse"></div>`;
     el.appendChild(box);
   }
   function setAmb(k) {
