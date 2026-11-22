@@ -1176,7 +1176,7 @@ table.hist td.hit span { display: inline-flex; align-items: center; gap: 4px; pa
 #sky[data-sky="night"] .sk-night, #sky[data-sky="night"] .sk-stars { opacity: 1; }
 #sky.dusk .sk-dusk { opacity: 1; }
 .sk-veil { background: linear-gradient(180deg, color-mix(in srgb, var(--bg) var(--sv), transparent) 0%, color-mix(in srgb, var(--bg) calc(var(--sv) - 18%), transparent) 55%, color-mix(in srgb, var(--bg) 12%, transparent) 100%); }
-.sk-orbit { position: absolute; left: 50%; top: calc(25vh + var(--r)); width: 0; height: 0; transition: transform 3.4s cubic-bezier(.55, 0, .45, 1); }
+.sk-orbit { position: absolute; left: var(--px, 76%); top: calc(var(--py, 26vh) + var(--r)); width: 0; height: 0; transition: transform 3.4s cubic-bezier(.55, 0, .45, 1), left 1.4s ease, top 1.4s ease; }
 .sk-sun, .sk-moon { position: absolute; left: 0; width: 84px; height: 84px; margin: -42px; border-radius: 50%; }
 .sk-sun { top: calc(var(--r) * -1); background: radial-gradient(circle at 40% 40%, #FFF6C8, #FFC94D 55%, #F79A2E); box-shadow: 0 0 60px 20px rgba(255,196,77,.5), 0 0 160px 60px rgba(255,170,60,.22); transition: opacity .6s ease; }
 .sk-moon { top: var(--r); transform: rotate(180deg); background: radial-gradient(circle at 38% 38%, #FFFDF2, #E9DDB4 70%); box-shadow: 0 0 50px 14px rgba(246,235,200,.32), 0 0 140px 50px rgba(160,180,255,.14); opacity: 0; transition: opacity .8s ease 2.6s; }

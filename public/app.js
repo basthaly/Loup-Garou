@@ -195,8 +195,73 @@
       clearTimeout(duskT);
       duskT = setTimeout(() => el.classList.remove('dusk'), 1700);
     }
-    function dock(h) { document.body.style.setProperty('--dock-h', `${Math.round(h)}px`); }
-    return { set, dock };
+    function dock(h) { document.body.style.setProperty('--dock-h', `${Math.round(h)}px`); place(); }
+    // Où poser le soleil et la lune : on note chaque place possible selon ce qu'on y voit du ciel
+    // (1 = ciel libre, 0,5 = derrière le verre dépoli d'une barre, 0 = vignette, panneau, texte, bouton),
+    // puis on garde la place actuelle si elle reste bonne, sinon la meilleure, au plus près du coin haut-droit.
+    let px = null, py = null, placeT = null, lastScan = 0;
+    let opq = new WeakMap();
+    const SOLID = new Set(['IMG', 'VIDEO', 'CANVAS', 'svg', 'BUTTON', 'INPUT', 'SELECT', 'TEXTAREA', 'LABEL', 'A']);
+    function look(e) { // 0 transparent, 1 verre dépoli, 2 opaque
+      if (opq.has(e)) return opq.get(e);
+      const cs = getComputedStyle(e);
+      const bf = cs.backdropFilter || cs.webkitBackdropFilter;
+      const m = cs.backgroundColor.match(/[\d.]+/g);
+      const a = !m ? 0 : m.length > 3 ? +m[3] : 1;
+      const v = bf && bf !== 'none' ? 1 : (a > 0.3 || cs.backgroundImage !== 'none') ? 2 : 0;
+      opq.set(e, v);
+      return v;
+    }
+    function seen(x, y) {
+      if (x < 0 || y < 0 || x > innerWidth || y > innerHeight) return 0;
+      const el = document.elementFromPoint(x, y);
+      if (!el) return 0;
+      for (const n of el.childNodes) if (n.nodeType === 3 && n.textContent.trim()) return 0;
+      let glass = false;
+      for (let e = el; e && e !== document.body && e !== document.documentElement; e = e.parentElement) {
+        if (SOLID.has(e.tagName)) return 0;
+        const v = look(e);
+        if (v === 2) return 0;
+        if (v === 1) glass = true;
+      }
+      return glass ? 0.5 : 1;
+    }
+    function place(force) {
+      clearTimeout(placeT);
+      const wait = force ? 0 : Math.max(250, 1200 - (Date.now() - lastScan));
+      placeT = setTimeout(() => {
+        if (!el || [...document.querySelectorAll('.drawer.open, .reveal-scrim')].some((e) => e.offsetWidth)) return; // un panneau ouvert cache tout : on ne bouge pas
+        lastScan = Date.now();
+        if (Math.random() < 0.05) opq = new WeakMap();
+        const W = innerWidth, H = innerHeight;
+        const dk = parseFloat(getComputedStyle(document.body).getPropertyValue('--dock-h')) || 0;
+        const vil = W <= 700 ? 96 : 150;
+        const rad = W <= 700 ? 30 : 42, s = rad;
+        const x0 = rad, y0 = rad, x1 = W - rad, y1 = H - dk - vil * 0.45; // jusqu'au faîte des toits : l'astre peut se poser derrière le village
+        const memo = new Map();
+        const at = (x, y) => { const k = x + ',' + y; if (!memo.has(k)) memo.set(k, seen(x, y)); return memo.get(k); };
+        const score = (x, y) => 2 * at(x, y) + at(x - s, y) + at(x + s, y) + at(x, y - s) + at(x, y + s);
+        const tx = W * 0.76, ty = H * 0.26;
+        let best = null, bs = -1, bd = Infinity;
+        for (let y = y0; y <= y1; y += s) for (let x = x0; x <= x1; x += s) {
+          const sc = score(x, y);
+          if (sc < 3.5) continue;
+          const d = Math.hypot(x - tx, (y - ty) * 1.4);
+          if (sc > bs + 0.01 || (Math.abs(sc - bs) < 0.01 && d < bd)) { bs = sc; bd = d; best = [x, y]; }
+        }
+        if (px !== null) { // on ne bouge pas pour rien : la place actuelle reste si elle est presque aussi bonne
+          const cx = x0 + Math.round((px - x0) / s) * s, cy = y0 + Math.round((py - y0) / s) * s;
+          if (cy <= y1 && cx <= x1 && score(cx, cy) >= Math.max(5, bs - 0.5)) return;
+        }
+        if (!best) return; // aucune place : on garde la position
+        if (px === null) { el.classList.add('still'); requestAnimationFrame(() => requestAnimationFrame(() => el.classList.remove('still'))); }
+        [px, py] = best;
+        el.style.setProperty('--px', `${px}px`);
+        el.style.setProperty('--py', `${py}px`);
+      }, wait);
+    }
+    addEventListener('scroll', () => place(), { passive: true });
+    return { set, dock, place };
   })();
 
   fetch('/api/roles').then((r) => r.json()).then((d) => {
@@ -298,8 +363,8 @@
     const dock = document.querySelector('.dock');
     document.body.style.setProperty('--dock-h', `${dock ? dock.offsetHeight : 0}px`);
     const cem = $app.querySelector('.cemetery-row');
-    // On laisse dépasser les toits du village au-dessus de la barre du bas (écrans larges).
-    const H = Math.max(180, window.innerHeight - top - (dock ? dock.offsetHeight : 0) - (cem ? cem.offsetHeight + 18 : 0) - 20 - (window.innerWidth > 700 ? 44 : 0));
+    // On laisse voir le village (et le soleil ou la lune posés dessus) au-dessus de la barre du bas (écrans larges).
+    const H = Math.max(180, window.innerHeight - top - (dock ? dock.offsetHeight : 0) - (cem ? cem.offsetHeight + 18 : 0) - 20 - (window.innerWidth > 700 ? (window.innerHeight > 640 ? 96 : 44) : 0));
     const gap = parseFloat(getComputedStyle(g).columnGap) || 12;
     let best = { w: 0, cols: 1 };
     for (let cols = big ? 2 : 1; cols <= n; cols++) {
