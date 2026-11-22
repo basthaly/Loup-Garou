@@ -292,10 +292,9 @@ button.toggle.off svg { stroke: var(--wolf); }
   .steps li { white-space: nowrap; }
 }
 
-@media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after { animation-duration: .01ms !important; animation-delay: 0s !important; transition-duration: .01ms !important; }
-  button:active:not(:disabled) { transform: none; }
-}
+/* Mouvement réduit (réglage du site, ou du téléphone par défaut) */
+body.calm *, body.calm *::before, body.calm *::after { animation-duration: .01ms !important; animation-delay: 0s !important; transition-duration: .01ms !important; }
+body.calm button:active:not(:disabled) { transform: none; }
 @media (prefers-reduced-transparency: reduce) {
   .band, .narr, .mediabar { background: var(--band); -webkit-backdrop-filter: none; backdrop-filter: none; }
   .mediabar { background: var(--zone); }
@@ -416,7 +415,8 @@ details.card-help ul { padding: 0 14px 12px 34px; }
   .drawer.open.slide { animation-name: slideup; }
   .drawer .roles { grid-template-columns: 1fr; }
 }
-@media (prefers-reduced-motion: reduce) { .drawer.open.slide { animation: fade .2s ease; } }
+/* Mouvement réduit (réglage du site, ou du téléphone par défaut) */
+body.calm .drawer.open.slide { animation: fade .2s ease; }
 @keyframes fade { from { opacity: 0; } to { opacity: 1; } }
 
 /* ---------- Sorcière : potions sur les visages ---------- */
@@ -444,7 +444,8 @@ button.card-pick b { font-family: 'Cormorant Garamond', serif; font-size: 24px; 
 button.card-pick small { font-size: 12px; font-weight: 600; }
 button.card-pick.on { border-color: var(--accent); border-width: 2px; box-shadow: 0 10px 30px rgba(0,0,0,.25); }
 button.card-pick:active { transform: scale(.97); }
-@media (prefers-reduced-motion: reduce) { .tile.danger { animation: none; } }
+/* Mouvement réduit (réglage du site, ou du téléphone par défaut) */
+body.calm .tile.danger { animation: none; }
 
 @media (max-width: 700px) {
   button.potion { min-height: 40px; padding: 0 12px; font-size: 14px; }
@@ -521,9 +522,8 @@ button.wolf.attn:not(:disabled) { animation-name: attnwolf; }
   .dock-hint { padding: 8px 14px 0; font-size: 15px; }
   .alert { bottom: calc(150px + env(safe-area-inset-bottom)); }
 }
-@media (prefers-reduced-motion: reduce) {
-  button.attn:not(:disabled), .pulse-dot, .stage-grid.picking:not(.has-pick) .tile.pickable { animation: none; }
-}
+/* Mouvement réduit (réglage du site, ou du téléphone par défaut) */
+body.calm button.attn:not(:disabled), body.calm .pulse-dot, body.calm .stage-grid.picking:not(.has-pick) .tile.pickable { animation: none; }
 
 /* ---------- Choix du jeu ---------- */
 button.game-pick { display: flex; align-items: center; gap: 14px; width: 100%; text-align: left; padding: 16px; border-radius: 16px; min-height: 76px; background: var(--surface2); transition: transform .12s ease-out, border-color .2s ease; }
@@ -569,7 +569,9 @@ details.night-log ol { margin: 6px 0 0; padding-left: 20px; display: flex; flex-
   .ccard { width: 74px; height: 102px; }
   .ccard.up b { font-size: 15px; }
 }
-@media (prefers-reduced-motion: reduce) { .center-row.picking .ccard.pickable { animation: none; } .ccard.on { transform: none; } }
+/* Mouvement réduit (réglage du site, ou du téléphone par défaut) */
+body.calm .center-row.picking .ccard.pickable { animation: none; }
+body.calm .ccard.on { transform: none; }
 
 /* ---------- Musique d'ambiance ---------- */
 .amb-wrap { position: relative; display: inline-flex; }
@@ -580,7 +582,8 @@ details.night-log ol { margin: 6px 0 0; padding-left: 20px; display: flex; flex-
 .amb-row input[type=range] { flex: 1; accent-color: var(--accent); min-height: 32px; }
 .tile .t-variable, .chip.t-variable { color: #D9C0F0; }
 @media (max-width: 700px) { .amb-pop { left: auto; right: -60px; transform: none; } @keyframes pop { from { opacity: 0; } to { opacity: 1; } } }
-@media (prefers-reduced-motion: reduce) { .amb-pop { animation: none; } }
+/* Mouvement réduit (réglage du site, ou du téléphone par défaut) */
+body.calm .amb-pop { animation: none; }
 
 /* ---------- Panneaux : segment clair/sombre, extensions sur une ligne ---------- */
 .seg { display: inline-flex; padding: 3px; gap: 3px; border-radius: 12px; background: var(--surface2); border: 1px solid var(--border); align-self: flex-start; }
@@ -613,7 +616,8 @@ details.night-log ol { margin: 6px 0 0; padding-left: 20px; display: flex; flex-
 .reveal.anim { animation: cardin .55s cubic-bezier(.2,.8,.2,1); }
 @keyframes cardin { from { opacity: 0; transform: translate(-50%, -46%) scale(.92) rotateX(12deg); } to { opacity: 1; transform: translate(-50%, -50%); } }
 @media (max-width: 700px) { .reveal { padding: 24px 20px 18px; } .reveal .bigrole { font-size: 40px; } }
-@media (prefers-reduced-motion: reduce) { .reveal.anim { animation: fade .2s ease; } }
+/* Mouvement réduit (réglage du site, ou du téléphone par défaut) */
+body.calm .reveal.anim { animation: fade .2s ease; }
 .amb-storm { font-size: 14px; min-height: 32px; }
 
 /* ---------- Page de test ---------- */
@@ -690,7 +694,8 @@ button.game-pick b { font-family: 'Cormorant Garamond', serif; font-size: 22px; 
   .reveal ul.how { text-align: left; }
   .rv-potions { justify-content: center; }
 }
-@media (prefers-reduced-motion: reduce) { .rv-card.flip .rv-face, .rv-card.flip .rv-back { animation: none; } }
+/* Mouvement réduit (réglage du site, ou du téléphone par défaut) */
+body.calm .rv-card.flip .rv-face, body.calm .rv-card.flip .rv-back { animation: none; }
 
 /* Barre du bas : la carte du joueur */
 .dock-role { flex-direction: row; align-items: center; gap: 10px; }
@@ -792,7 +797,8 @@ button.potion.life.on { background: #4CC38A; border-color: #4CC38A; }
   .evbar .ev-text span { font-size: 13px; }
   .evbar .ev-time { font-size: 17px; }
 }
-@media (prefers-reduced-motion: reduce) { .evbar.mine, .evbar.fresh, .evbar.mine.fresh { animation: none; } }
+/* Mouvement réduit (réglage du site, ou du téléphone par défaut) */
+body.calm .evbar.mine, body.calm .evbar.fresh, body.calm .evbar.mine.fresh { animation: none; }
 
 /* Votes révélés : qui vote pour qui */
 .face { display: inline-flex; align-items: center; justify-content: center; flex: none; border-radius: 50%; color: #11131A; font-weight: 700; font-family: Inter, system-ui, sans-serif; line-height: 1; }
@@ -988,7 +994,8 @@ table.hist td.dim { color: var(--muted); }
 }
 @keyframes popin { from { opacity: 0; transform: translate(-50%, -48%) scale(.98); } to { opacity: 1; transform: translate(-50%, -50%); } }
 @media (max-width: 700px) { .drawer-head { flex-wrap: wrap; } .drawer-head .tabs { order: 3; width: 100%; } .tabs button { flex: 1; padding: 6px 8px; font-size: 14px; } }
-@media (prefers-reduced-motion: reduce) { .drawer.open.slide { animation: fade .2s ease; } }
+/* Mouvement réduit (réglage du site, ou du téléphone par défaut) */
+body.calm .drawer.open.slide { animation: fade .2s ease; }
 
 /* Récit Thiercelieux */
 .recit { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 28px; align-items: start; }
@@ -1155,12 +1162,12 @@ table.hist td.hit span { display: inline-flex; align-items: center; gap: 4px; pa
    (un demi-tour = le soleil se couche à droite, la lune se lève à gauche), village posé juste au-dessus de la barre du bas,
    fenêtres allumées la nuit. Un voile de la couleur du fond garde le texte lisible, en clair comme en sombre. */
 #app { position: relative; z-index: 1; }
-#sky { position: fixed; inset: 0; z-index: 0; overflow: hidden; pointer-events: none; --r: min(calc(50vw + 12px), 760px);
+#sky { position: fixed; inset: 0; z-index: 0; overflow: hidden; pointer-events: none; --r: clamp(150px, 26vw, 340px);
   --d-hill2: #6F8C97; --d-hill1: #4E6870; --d-house: #2C383B; --d-win: #3A474B;
-  --n-hill2: #1B2249; --n-hill1: #11173B; --n-house: #080C21; --n-win: #141A33; --sv: 72%;
+  --n-hill2: #1B2249; --n-hill1: #11173B; --n-house: #080C21; --n-win: #141A33; --sv: 50%;
   --ease: cubic-bezier(.37, 0, .63, 1); }
 [data-appearance="light"] #sky { --d-hill2: #A9C0CB; --d-hill1: #86A1AC; --d-house: #5D7480; --d-win: #6F8590;
-  --n-hill2: #8C93C2; --n-hill1: #6E76AA; --n-house: #3E4672; --n-win: #4E5682; --sv: 45%; }
+  --n-hill2: #8C93C2; --n-hill1: #6E76AA; --n-house: #3E4672; --n-win: #4E5682; --sv: 30%; }
 .sk-l, .sk-veil { position: absolute; inset: 0; }
 .sk-l { transition: opacity 4s var(--ease); }
 .sk-day { background: linear-gradient(180deg, #8DBCE3 0%, #C9DFEC 48%, #F4DDB8 100%); }
@@ -1199,14 +1206,13 @@ table.hist td.hit span { display: inline-flex; align-items: center; gap: 4px; pa
 #sky[data-sky="night"] .sk-win { opacity: 1; transition: opacity 1.2s ease calc(2.4s + var(--wd)); }
 #sky.still, #sky.still * { transition: none !important; }
 body[data-screen="home"] .sk-village { height: 170px; }
-@media (max-width: 700px) { .sk-village { height: 96px; } .sk-sun, .sk-moon { width: 58px; height: 58px; margin: -29px; } #sky { --sv: 78%; } [data-appearance="light"] #sky { --sv: 55%; } }
+@media (max-width: 700px) { .sk-village { height: 96px; } .sk-sun, .sk-moon { width: 58px; height: 58px; margin: -29px; } #sky { --sv: 58%; } [data-appearance="light"] #sky { --sv: 40%; } }
 /* Mouvement réduit : simple fondu, sans déplacement ni nuages qui dérivent. */
-@media (prefers-reduced-motion: reduce) {
-  .sk-orbit, .sk-pos { transition: none !important; }
-  .sk-l, .sk-sun, .sk-moon, .sk-village { transition-duration: 1.2s !important; transition-delay: 0s !important; }
-  .sk-win, #sky[data-sky="night"] .sk-win { transition-duration: .8s !important; transition-delay: 0s !important; }
-  .sk-cloud, .sk-sg { animation: none !important; }
-}
+/* Mouvement réduit (réglage du site, ou du téléphone par défaut) */
+body.calm .sk-orbit, body.calm .sk-pos { transition: none !important; }
+body.calm .sk-l, body.calm .sk-sun, body.calm .sk-moon, body.calm .sk-village { transition-duration: 1.2s !important; transition-delay: 0s !important; }
+body.calm .sk-win, body.calm #sky[data-sky="night"] .sk-win { transition-duration: .8s !important; transition-delay: 0s !important; }
+body.calm .sk-cloud, body.calm .sk-sg { animation: none !important; }
 @media (prefers-reduced-transparency: reduce) { .sk-veil { background: color-mix(in srgb, var(--bg) 85%, transparent); } }
 
 /* ---------- Ambiances des rôles (vues par tous, derrière les joueurs) ---------- */
@@ -1264,7 +1270,8 @@ body[data-screen="home"] .sk-village { height: 170px; }
 .ab-note { position: absolute; bottom: 85%; left: -6%; font: 700 30px serif; color: #F6D58A; text-shadow: 0 0 10px rgba(246,213,138,.8); opacity: 0; animation: ab-notex 7s linear infinite, ab-notey 1.6s ease-in-out infinite alternate; }
 @keyframes ab-notex { 0% { left: -6%; opacity: 0; } 8% { opacity: 1; } 88% { opacity: 1; } 100% { left: 104%; opacity: 0; } }
 @keyframes ab-notey { from { transform: translateY(0) rotate(-10deg); } to { transform: translateY(-36px) rotate(10deg); } }
-@media (prefers-reduced-motion: reduce) {
-  .sk-amb * { animation: none !important; }
-  .sk-eyes { opacity: 1; } .ab-heart, .ab-mote { opacity: .8; } .ab-streak, .ab-thief, .ab-note, .ab-puff { display: none; }
-}
+/* Mouvement réduit (réglage du site, ou du téléphone par défaut) */
+body.calm .sk-amb * { animation: none !important; }
+body.calm .sk-eyes { opacity: 1; }
+body.calm .ab-heart, body.calm .ab-mote { opacity: .8; }
+body.calm .ab-streak, body.calm .ab-thief, body.calm .ab-note, body.calm .ab-puff { display: none; }

@@ -241,7 +241,7 @@
     document.body.style.setProperty('--dock-h', `${dock ? dock.offsetHeight : 0}px`);
     const cem = $app.querySelector('.cemetery-row');
     // On laisse voir le village (et le soleil ou la lune posés dessus) au-dessus de la barre du bas (écrans larges).
-    const H = Math.max(180, window.innerHeight - top - (dock ? dock.offsetHeight : 0) - (cem ? cem.offsetHeight + 18 : 0) - 20 - (window.innerWidth > 700 ? (window.innerHeight > 640 ? 96 : 44) : 0));
+    const H = Math.max(180, window.innerHeight - top - (dock ? dock.offsetHeight : 0) - (cem ? cem.offsetHeight + 18 : 0) - 20 - (window.innerWidth > 700 ? (window.innerHeight > 600 ? 136 : 60) : 0));
     const gap = parseFloat(getComputedStyle(g).columnGap) || 12;
     let best = { w: 0, cols: 1 };
     for (let cols = big ? 2 : 1; cols <= n; cols++) {
@@ -1671,6 +1671,7 @@
         <section><h3>Micro et caméra</h3>${deviceSelect('audio')}${deviceSelect('video')}</section>
         <section><h3>Affichage et son</h3>
           <div class="seg" role="group" aria-label="Apparence"><button class="${dark ? '' : 'on'}" data-act="appearance-set" data-v="light" aria-pressed="${!dark}">${icon('sun', 16)} Clair</button><button class="${dark ? 'on' : ''}" data-act="appearance-set" data-v="dark" aria-pressed="${dark}">${icon('moon', 16)} Sombre</button></div>
+          <div class="seg" role="group" aria-label="Animations">${[['full', 'Animations complètes'], ['calm', 'Réduites']].map(([v, l]) => `<button class="${Sky.motion() === v ? 'on' : ''}" data-act="motion-set" data-v="${v}" aria-pressed="${Sky.motion() === v}">${l}</button>`).join('')}</div>
           <label class="check"><input type="checkbox" data-act="sound" ${soundOn() ? 'checked' : ''}> Son et vibration quand c'est à toi</label></section>
         ${players}`;
     }
@@ -1870,6 +1871,10 @@
         break;
       case 'drawer-close':
         drawerOpen = false;
+        render();
+        break;
+      case 'motion-set':
+        Sky.setMotion(el.dataset.v);
         render();
         break;
       case 'appearance-set':

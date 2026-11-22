@@ -7,6 +7,7 @@
   ];
   const ITEMS = [['cycle', 'Passage jour ↔ nuit'], ...AMBS.filter(([k]) => k)];
   const LS = 'lg-anim';
+  // (la barre du bas de cette page prend la place de celle du jeu : le village se pose dessus)
   let saved = {};
   try { saved = JSON.parse(localStorage.getItem(LS) || '{}'); } catch { saved = {}; }
   const st = {
@@ -20,13 +21,10 @@
   const esc = (t) => String(t).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
   const nameOf = (k) => (ITEMS.find(([x]) => x === k) || [k, k])[1];
 
-  const dockH = () => (innerWidth <= 700 ? 190 : 140);
   function apply() {
     document.body.dataset.theme = st.theme;
     Sky.set(st.theme);
     Sky.amb(st.theme === 'night' ? st.amb : '');
-    Sky.dock(st.dock ? dockH() : 0);
-    Sky.place(true);
   }
   // Ralenti : on règle la vitesse de toutes les animations et transitions en cours (elles naissent à chaque changement).
   setInterval(() => { for (const a of document.getAnimations()) if (a.playbackRate !== st.speed) a.playbackRate = st.speed; }, 120);
@@ -52,30 +50,37 @@
   function render() {
     const f = st.focus, n = st.notes[f] || {};
     const sp = [[0.25, '×¼'], [0.5, '×½'], [1, '×1'], [2, '×2']];
+    const calm = Sky.motion() === 'calm';
+    const sel = (a, list, v) => `<select class="an-sel" data-a="${a}" aria-label="Durée">${list.map((x) => `<option value="${x}" ${x === v ? 'selected' : ''}>${x} s</option>`).join('')}</select>`;
     $.innerHTML = `
       <div class="an-now">${st.theme === 'night' ? 'Nuit' : 'Jour'}<small>${st.theme === 'night' && st.amb ? 'Ambiance : ' + esc(nameOf(st.amb)) : 'Sans ambiance'}${st.speed !== 1 ? ' · vitesse ' + sp.find(([v]) => v === st.speed)[1] : ''}</small></div>
-      ${st.dock ? `<div class="an-dock" style="height:${dockH()}px" aria-hidden="true">Place de la barre du bas (en jeu)</div>` : ''}
-      <button class="an-btn an-toggle" data-a="panel" aria-expanded="${st.panel}">${st.panel ? 'Masquer le panneau (H)' : 'Réglages (H)'}</button>
-      <section class="an-panel ${st.panel ? '' : 'hidden'}" aria-label="Réglages des animations">
-        <div class="an-row"><b>Ciel</b><span class="an-seg">
-          <button class="an-btn big ${st.theme === 'day' ? 'on' : ''}" data-a="theme" data-v="day">Jour</button>
-          <button class="an-btn big ${st.theme === 'night' ? 'on' : ''}" data-a="theme" data-v="night">Nuit</button>
-          <button class="an-btn ${st.loop ? 'on' : ''}" data-a="loop" aria-pressed="${st.loop}">${stDot('cycle')}Bascule auto</button></span>
-          <label class="an-hint">toutes les <select class="an-sel" data-a="loopS">${[8, 12, 20, 30, 60].map((s) => `<option value="${s}" ${s === st.loopS ? 'selected' : ''}>${s} s</option>`).join('')}</select></label>
-          <button class="an-btn ${f === 'cycle' ? 'on' : ''}" data-a="focus" data-v="cycle">Noter la bascule</button></div>
-        <div class="an-row"><b>Ambiance</b><span class="an-seg">${AMBS.map(([k, l]) => `<button class="an-btn ${st.amb === k ? 'on' : ''}" data-a="amb" data-v="${k}">${k ? stDot(k) : ''}${esc(l)}</button>`).join('')}</span></div>
-        <div class="an-row"><b>Défilé</b><span class="an-seg"><button class="an-btn" data-a="prev" aria-label="Ambiance précédente">‹ Précédente</button><button class="an-btn" data-a="next" aria-label="Ambiance suivante">Suivante ›</button>
-          <button class="an-btn ${st.tour ? 'on' : ''}" data-a="tour" aria-pressed="${st.tour}">Défilé auto</button></span>
-          <label class="an-hint">chacune <select class="an-sel" data-a="tourS">${[8, 15, 30, 60].map((s) => `<option value="${s}" ${s === st.tourS ? 'selected' : ''}>${s} s</option>`).join('')}</select></label></div>
-        <div class="an-row"><b>Affichage</b><span class="an-seg">${sp.map(([v, l]) => `<button class="an-btn ${st.speed === v ? 'on' : ''}" data-a="speed" data-v="${v}">${l}</button>`).join('')}</span>
+      ${st.panel ? '' : '<button class="an-btn an-show" data-a="panel">Réglages (H)</button>'}
+      <section class="an-bar ${st.panel ? '' : 'hidden'}" aria-label="Réglages des animations"><div class="an-in">
+        ${calm ? `<div class="an-warn"><span>Ton appareil demande des <b>animations réduites</b> : le soleil, la lune et les ambiances ne bougent presque pas.</span><button class="an-btn on" data-a="motion" data-v="full">Voir les animations complètes</button></div>` : ''}
+        <div class="an-row">
+          <span class="an-lab">Ciel</span><span class="an-seg">
+            <button class="an-btn ${st.theme === 'day' ? 'on' : ''}" data-a="theme" data-v="day">Jour</button>
+            <button class="an-btn ${st.theme === 'night' ? 'on' : ''}" data-a="theme" data-v="night">Nuit</button>
+            <button class="an-btn ${st.loop ? 'on' : ''}" data-a="loop" aria-pressed="${st.loop}">${stDot('cycle')}Bascule auto</button></span>${sel('loopS', [8, 12, 20, 30, 60], st.loopS)}
+          <span class="an-sep"></span>
+          <span class="an-lab">Ambiance</span><span class="an-seg">${AMBS.map(([k, l]) => `<button class="an-btn ${st.amb === k ? 'on' : ''}" data-a="amb" data-v="${k}">${k ? stDot(k) : ''}${esc(l)}</button>`).join('')}</span>
+          <span class="an-seg"><button class="an-btn" data-a="prev" aria-label="Ambiance précédente">‹</button><button class="an-btn" data-a="next" aria-label="Ambiance suivante">›</button><button class="an-btn ${st.tour ? 'on' : ''}" data-a="tour" aria-pressed="${st.tour}">Défilé auto</button></span>${sel('tourS', [8, 15, 30, 60], st.tourS)}
+        </div>
+        <div class="an-row">
+          <span class="an-lab">Vitesse</span><span class="an-seg">${sp.map(([v, l]) => `<button class="an-btn ${st.speed === v ? 'on' : ''}" data-a="speed" data-v="${v}">${l}</button>`).join('')}</span>
           <span class="an-seg"><button class="an-btn ${document.body.dataset.appearance === 'dark' ? 'on' : ''}" data-a="app" data-v="dark">Sombre</button><button class="an-btn ${document.body.dataset.appearance === 'light' ? 'on' : ''}" data-a="app" data-v="light">Clair</button></span>
-          <button class="an-btn ${st.dock ? 'on' : ''}" data-a="dock" aria-pressed="${st.dock}">Place de la barre du bas</button></div>
-        <div class="an-fb"><label>Ton avis · ${esc(nameOf(f))}</label><span class="an-seg">
-          ${[['keep', 'Garder'], ['change', 'À changer'], ['drop', 'Retirer']].map(([v, l]) => `<button class="an-btn ${n.s === v ? 'on' : ''}" data-a="stat" data-v="${v}">${l}</button>`).join('')}</span>
-          <textarea data-a="note" placeholder="Ce que tu changerais (couleur, vitesse, taille…)">${esc(n.t || '')}</textarea>
-          <button class="an-btn" data-a="export">Copier mes retours</button></div>
-        <span class="an-hint">Raccourcis : Espace = jour/nuit · flèches gauche/droite = ambiance · H = masquer le panneau. L'ambiance passe la nuit, comme en jeu.</span>
-      </section>`;
+          <span class="an-seg"><button class="an-btn ${calm ? '' : 'on'}" data-a="motion" data-v="full">Animations complètes</button><button class="an-btn ${calm ? 'on' : ''}" data-a="motion" data-v="calm">Réduites</button></span>
+          <span class="an-sep"></span>
+          <span class="an-lab">Avis · ${esc(nameOf(f))}</span><span class="an-seg">
+            ${[['keep', 'Garder'], ['change', 'À changer'], ['drop', 'Retirer']].map(([v, l]) => `<button class="an-btn ${n.s === v ? 'on' : ''}" data-a="stat" data-v="${v}">${l}</button>`).join('')}
+            <button class="an-btn ${f === 'cycle' ? 'on' : ''}" data-a="focus" data-v="cycle" title="Noter la bascule jour/nuit">Bascule</button></span>
+          <input class="an-note" data-a="note" value="${esc(n.t || '')}" placeholder="Ce que tu changerais (couleur, vitesse, taille…)" aria-label="Note">
+          <button class="an-btn" data-a="export">Copier mes retours</button>
+          <button class="an-btn" data-a="panel" title="Masquer la barre (H)">Masquer</button>
+        </div></div></section>`;
+    const bar = $.querySelector('.an-bar');
+    Sky.dock(st.panel && bar ? bar.offsetHeight : 0);
+    Sky.place(true);
   }
   function exportText() {
     const lines = ITEMS.map(([k, l]) => { const n = st.notes[k] || {}; const s = { keep: 'Garder', change: 'À changer', drop: 'Retirer' }[n.s] || '—'; return `- ${l} : ${s}${n.t ? ' — ' + n.t.trim() : ''}`; });
@@ -94,7 +99,7 @@
 
   $.addEventListener('click', (e) => {
     const b = e.target.closest('[data-a]');
-    if (!b || b.tagName === 'SELECT' || b.tagName === 'TEXTAREA') return;
+    if (!b || b.tagName === 'SELECT' || b.tagName === 'TEXTAREA' || b.tagName === 'INPUT') return;
     const a = b.dataset.a, v = b.dataset.v;
     if (a === 'theme') { st.theme = v; st.focus = 'cycle'; }
     else if (a === 'loop') { st.loop = !st.loop; st.focus = 'cycle'; setLoop(); }
@@ -104,7 +109,7 @@
     else if (a === 'tour') { st.tour = !st.tour; if (st.tour && !st.amb) step(1); setTour(); }
     else if (a === 'speed') { st.speed = +v; setLoop(); setTour(); save(); }
     else if (a === 'app') { document.body.dataset.appearance = v; try { localStorage.setItem('lg-appearance', v); } catch { /* */ } }
-    else if (a === 'dock') { st.dock = !st.dock; save(); }
+    else if (a === 'motion') Sky.setMotion(v);
     else if (a === 'focus') st.focus = v;
     else if (a === 'stat') { const n = st.notes[st.focus] || (st.notes[st.focus] = {}); n.s = n.s === v ? '' : v; save(); }
     else if (a === 'export') { showExport(); return; }

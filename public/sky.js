@@ -3,6 +3,13 @@
 'use strict';
 // ---------- Le ciel vivant : soleil et lune sur un même cercle, village en bas dont les fenêtres s'allument la nuit ----------
 window.Sky = (() => {
+  // Animations complètes ou réduites : réglage du site (gardé dans le navigateur), sinon celui du téléphone/ordinateur.
+  const motionQ = matchMedia('(prefers-reduced-motion: reduce)');
+  const motion = () => { let v = null; try { v = localStorage.getItem('lg-motion'); } catch { /* */ } return v === 'full' || v === 'calm' ? v : (motionQ.matches ? 'calm' : 'full'); };
+  const applyMotion = () => document.body.classList.toggle('calm', motion() === 'calm');
+  const setMotion = (v) => { try { localStorage.setItem('lg-motion', v); } catch { /* */ } applyMotion(); };
+  applyMotion();
+  motionQ.addEventListener?.('change', applyMotion);
   let el = null, orbit = null, theme = null, turn = 0, duskT = null;
   const rnd = (() => { let x = 7; return () => ((x = (x * 16807) % 2147483647) / 2147483647); })();
   function village() {
@@ -116,7 +123,7 @@ window.Sky = (() => {
   // Où poser le soleil et la lune : on note chaque place possible selon ce qu'on y voit du ciel
   // (1 = ciel libre, 0,5 = derrière le verre dépoli d'une barre, 0 = vignette, panneau, texte, bouton),
   // puis on garde la place actuelle si elle reste bonne, sinon la meilleure, au plus près du coin haut-droit.
-  let px = null, py = null, placeT = null, lastScan = 0, zoneKey = '', zx = 0, zy = 0;
+  let px = null, py = null, placeT = null, lastScan = 0, zoneKey = '', zx = 0, zoff = 0;
   let opq = new WeakMap();
   const SOLID = new Set(['IMG', 'VIDEO', 'CANVAS', 'svg', 'BUTTON', 'INPUT', 'SELECT', 'TEXTAREA', 'LABEL', 'A']);
   function look(e) { // 0 transparent, 1 verre dépoli, 2 opaque
@@ -157,36 +164,43 @@ window.Sky = (() => {
       const x0 = rad, y0 = rad, x1 = W - rad, y1 = H - dk - vil * 0.45; // jusqu'au faîte des toits : l'astre peut se poser derrière le village
       const memo = new Map();
       const at = (x, y) => { const k = x + ',' + y; if (!memo.has(k)) memo.set(k, seen(x, y)); return memo.get(k); };
-      const score = (x, y) => 2 * at(x, y) + at(x - s, y) + at(x + s, y) + at(x, y - s) + at(x, y + s);
+      // On sonde tout le disque (13 points : centre, deux cercles et diagonales) pour ne pas se croire visible dans l'espace étroit entre deux vignettes.
+      const h = Math.round(s / 2), dg = Math.round(s * 0.7);
+      const OFF = [[0, 0, 2], [-s, 0, 1], [s, 0, 1], [0, -s, 1], [0, s, 1], [-h, 0, 1], [h, 0, 1], [0, -h, 1], [0, h, 1], [-dg, -dg, 1], [dg, -dg, 1], [-dg, dg, 1], [dg, dg, 1]];
+      const score = (x, y) => { let t = 0; for (const [dx, dy, w] of OFF) t += w * at(x + dx, y + dy); return t; }; // sur 14
       const snap = (v, o) => o + Math.round((v - o) / s) * s;
       // Une zone fixe par écran (accueil, salon, partie) et par taille de fenêtre : on la choisit une fois,
       // puis l'astre ne fait que de petits déplacements autour, s'il est vraiment caché.
       const scr = document.body.dataset.screen || '';
       const zkey = `${scr}|${W}|${H}`;
-      const fresh = zkey !== zoneKey;
       const R = W <= 700 ? 70 : 130;
-      let tx, ty;
-      if (fresh) {
-        // Sur grand écran, la bande au-dessus des toits reste toujours libre (accueil, salon, partie) : même zone partout,
-        // à droite, juste au-dessus des maisons. Sur téléphone, en haut à droite.
-        if (W > 700) { tx = W * 0.78; ty = y1 - rad * 0.5; } else { tx = W * 0.76; ty = H * 0.3; }
-      } else {
-        if (px !== null && score(snap(px, x0), snap(py, y0)) >= 4) return; // encore bien visible : on ne bouge pas
-        tx = zx; ty = zy;
+      // Sur grand écran, la bande au-dessus des toits reste toujours libre (accueil, salon, partie) : même zone partout,
+      // à droite, bien au-dessus des toits (il s'y couche derrière les maisons). Sur téléphone, en haut à droite.
+      const home = W > 700 ? [W * 0.78, H - dk - vil * 1.1] : [W * 0.76, H * 0.3];
+      // La place bien dégagée la plus proche du but ; à défaut, la moins cachée la plus proche (dans la zone si on en a une).
+      const search = (tx, ty, zone) => {
+        let good = null, gd = Infinity, fair = null, fd = Infinity;
+        for (let y = y0; y <= y1; y += s) for (let x = x0; x <= x1; x += s) {
+          if (zone && (Math.abs(x - tx) > R || Math.abs(y - ty) > R)) continue;
+          const sc = score(x, y);
+          if (sc < 10.5) continue;
+          const d = Math.hypot(x - tx, (y - ty) * 1.4);
+          if (sc >= 14 && d < gd) { gd = d; good = [x, y]; }
+          if (d < fd) { fd = d; fair = [x, y]; }
+        }
+        return good || fair;
+      };
+      let best = null;
+      if (zkey === zoneKey) {
+        const zy = H - dk - zoff;
+        if (px !== null && Math.abs(py - zy) <= R && Math.abs(px - zx) <= R && score(snap(px, x0), snap(py, y0)) >= 13) return; // encore bien visible et dans sa zone : on ne bouge pas
+        best = search(zx, zy, true);
       }
-      // La place bien dégagée la plus proche du but ; à défaut, la moins cachée la plus proche.
-      let good = null, gd = Infinity, fair = null, fd = Infinity;
-      for (let y = y0; y <= y1; y += s) for (let x = x0; x <= x1; x += s) {
-        if (!fresh && (Math.abs(x - zx) > R || Math.abs(y - zy) > R)) continue;
-        const sc = score(x, y);
-        if (sc < 3.5) continue;
-        const d = Math.hypot(x - tx, (y - ty) * 1.4);
-        if (sc >= 5 && d < gd) { gd = d; good = [x, y]; }
-        if (d < fd) { fd = d; fair = [x, y]; }
+      if (!best) { // pas encore de zone, ou plus aucune place dans la sienne : on en choisit une nouvelle
+        best = search(home[0], home[1], false);
+        if (!best) return; // aucune place : on garde la position
+        zoneKey = zkey; zx = best[0]; zoff = H - dk - best[1]; // la zone suit le village (hauteur au-dessus de la barre du bas)
       }
-      const best = good || fair;
-      if (!best) return; // aucune place : on garde la position
-      if (fresh) { zoneKey = zkey; [zx, zy] = best; }
       if (px === null) { el.classList.add('still'); requestAnimationFrame(() => requestAnimationFrame(() => el.classList.remove('still'))); }
       [px, py] = best;
       el.style.setProperty('--px', `${px}px`);
@@ -194,5 +208,5 @@ window.Sky = (() => {
     }, wait);
   }
   addEventListener('scroll', () => place(), { passive: true });
-  return { set, dock, place, amb: setAmb };
+  return { set, dock, place, amb: setAmb, motion, setMotion };
 })();
