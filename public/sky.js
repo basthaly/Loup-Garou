@@ -87,7 +87,6 @@ window.Sky = (() => {
   function buildAmb() {
     const eyes = (cls, spots) => spots.map(([l, b, d]) => `<span class="sk-eyes ${cls}" style="left:${l}%;bottom:${b}%;animation-delay:${d}s"><i style="animation-delay:${d}s"></i><i style="animation-delay:${d}s"></i></span>`).join('');
     const heart = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s-7.5-4.6-9.5-9.3C1.2 8.4 3.3 5 6.8 5c2 0 3.6 1.1 4.2 2.6C11.6 6.1 13.2 5 15.2 5c3.5 0 5.6 3.4 4.3 6.7C19.5 16.4 12 21 12 21z" fill="#FF8FB1"/></svg>';
-    const thief = '<svg viewBox="0 0 22 26" aria-hidden="true"><path d="M11 1 C6 1 4 5 4 9 L2 25 L9 25 L11 17 L13 25 L20 25 L18 9 C18 5 16 1 11 1 Z" fill="#05070F"/><circle cx="9" cy="9" r="1.2" fill="#FFD23F"/><circle cx="13" cy="9" r="1.2" fill="#FFD23F"/></svg>';
     const box = document.createElement('div');
     box.className = 'sk-amb';
     box.innerHTML = `
@@ -96,7 +95,7 @@ window.Sky = (() => {
       <div class="ab ab-cupidon"><div class="ab-vil">${[5, 14, 24, 33, 43, 52, 62, 71, 81, 90].map((l, i) => `<span class="ab-heart" style="left:${l}%;animation-delay:${(i * 0.6).toFixed(1)}s">${heart}</span>`).join('')}</div><span class="ab-streak"></span></div>
       <div class="ab ab-voyante"><div class="ab-aur a1"></div><div class="ab-aur a2"></div>${[[18, 30, 0], [42, 22, 1.2], [66, 36, 2.4], [84, 18, 3.6], [30, 46, 1.8]].map(([l, t, d]) => `<span class="ab-mote" style="left:${l}%;top:${t}%;animation-delay:${d}s"></span>`).join('')}</div>
       <div class="ab ab-sorciere"><div class="ab-vil">${[[7, 0], [19, 2.6], [31, 1.1], [44, 3.9], [56, 0.6], [68, 2.2], [80, 4.6], [92, 1.6]].map(([l, d], k) => `<span class="ab-bub${k % 2 ? ' v' : ''}" style="left:${l}%;animation-delay:${d}s"></span>`).join('')}</div></div>
-      <div class="ab ab-voleur"><div class="ab-vil"><span class="ab-thief">${thief}</span></div></div>
+      <div class="ab ab-voleur"><span class="ab-swap a"><i></i></span><span class="ab-swap b"><i></i></span>${[[12, 30], [38, 36], [61, 28], [86, 34]].map(([l, b], k) => `<span class="ab-glint" style="left:${l}%;bottom:calc(var(--dock-h, 0px) + ${b}px);animation-delay:${k * 1.3}s"></span>`).join('')}</div>
       <div class="ab ab-flute"><div class="ab-vil">${['♪', '♫', '♪', '♬', '♪', '♫', '♪'].map((g, i) => `<span class="ab-note" style="animation-delay:${i * 2}s,${-i * 0.8}s">${g}</span>`).join('')}</div></div>`;
     el.appendChild(box);
   }
