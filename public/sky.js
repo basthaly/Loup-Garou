@@ -52,8 +52,17 @@ window.Sky = (() => {
     out.push(`<rect class="sk-h" x="0" y="${H - 14}" width="${W}" height="14"/>`);
     // Deux silhouettes (jour, nuit) en fondu, et les fenêtres allumées par-dessus : tout bouge en opacité, sans repeindre les couleurs.
     const svg = (c, body) => `<svg class="sk-village ${c}" viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMax slice" aria-hidden="true">${body}</svg>`;
-    // Pour le Voleur : des reflets d'or qui glissent le long des toits (gardés pour l'ambiance, posés au même endroit que le village).
-    roofSvg = svg('ab-roofs', roofs.map(([a, b, c, d, e, f]) => `<path class="ab-roof" style="animation-delay:${(rnd() * 4.5).toFixed(2)}s" d="M${a} ${b} L${c} ${d} L${e} ${f}"/>`).join(''));
+    // Pour le Voleur : de petits points d'or posés sur les toits, qui clignotent chacun à son rythme.
+    const dots = [];
+    for (const [a, b, c, d, e, f] of roofs) {
+      const n = 1 + (rnd() < 0.45 ? 1 : 0);
+      for (let i = 0; i < n; i++) {
+        const t = 0.15 + rnd() * 0.7, left = rnd() < 0.5;
+        const x = left ? a + (c - a) * t : c + (e - c) * t, y = left ? b + (d - b) * t : d + (f - d) * t;
+        dots.push(`<circle class="ab-roof" cx="${x.toFixed(1)}" cy="${(y - 1).toFixed(1)}" r="${(2.2 + rnd() * 1.4).toFixed(1)}" style="animation-delay:${(rnd() * 3.6).toFixed(2)}s;animation-duration:${(2.4 + rnd() * 2).toFixed(2)}s"/>`);
+      }
+    }
+    roofSvg = svg('ab-roofs', dots.join(''));
     return svg('sk-vd', out.join('')) + svg('sk-vn', out.join('')) + svg('sk-vl', lit.join(''));
   }
   function build() {
