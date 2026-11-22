@@ -1268,22 +1268,16 @@ body.calm #sky[data-amb="sorciere"] .sk-moon { animation: none; background: radi
 .ab-bub { position: absolute; bottom: 55%; width: 16px; height: 16px; border-radius: 50%; border: 2px solid rgba(140,235,170,.9); background: radial-gradient(circle at 35% 35%, rgba(255,255,255,.7), rgba(111,227,160,.25) 45%, rgba(111,227,160,.05)); box-shadow: 0 0 10px rgba(111,227,160,.55); opacity: 0; animation: ab-bub 6s ease-in infinite; }
 .ab-bub.v { border-color: rgba(195,150,250,.9); background: radial-gradient(circle at 35% 35%, rgba(255,255,255,.7), rgba(170,110,240,.25) 45%, rgba(170,110,240,.05)); box-shadow: 0 0 10px rgba(170,110,240,.55); }
 @keyframes ab-bub { 0% { opacity: 0; transform: translate(0, 0) scale(.5); } 12% { opacity: 1; } 70% { opacity: .9; transform: translate(10px, -150px) scale(1); } 78% { opacity: .9; transform: translate(8px, -170px) scale(1.5); } 84%, 100% { opacity: 0; transform: translate(8px, -172px) scale(1.9); } }
-/* Voleur : la lune devient une pièce d'or qu'une ombre vient chiper puis rend ; une étoile d'or et une d'argent échangent leur place ; des éclats d'or brillent sur les toits */
+/* Voleur : la lune devient une pièce d'or qu'une ombre vient chiper puis rend ; des reflets d'or glissent sur les toits */
 #sky[data-amb="voleur"] .sk-moon { background: radial-gradient(circle at 38% 38%, #FFF8DC, #E8B84A 70%); animation: ab-steal 9s ease-in-out infinite; }
 @keyframes ab-steal {
   0%, 18%, 100% { box-shadow: inset 0 0 0 0 rgba(8,10,28,.9), 0 0 60px 20px rgba(246,196,83,.5), 0 0 160px 60px rgba(232,170,60,.22); }
   45%, 60% { box-shadow: inset 46px 0 0 0 rgba(8,10,28,.9), 0 0 40px 12px rgba(246,196,83,.32), 0 0 120px 40px rgba(232,170,60,.14); }
 }
 body.calm #sky[data-amb="voleur"] .sk-moon { animation: none; box-shadow: 0 0 60px 20px rgba(246,196,83,.5); }
-.ab-swap { position: absolute; animation: ab-swapx 8s ease-in-out infinite; }
-.ab-swap i { display: block; width: 7px; height: 7px; border-radius: 50%; background: #FFF3C4; box-shadow: 0 0 10px 4px rgba(246,196,83,.85), 0 0 26px 8px rgba(246,196,83,.35); animation: ab-swapy 8s ease-in-out infinite; }
-.ab-swap.a { left: 28vw; top: 16vh; --dx: 34vw; --dy: 8vh; }
-.ab-swap.b { left: 62vw; top: 24vh; --dx: -34vw; --dy: -8vh; }
-.ab-swap.b i { width: 9px; height: 9px; background: #EAF2FF; box-shadow: 0 0 10px 4px rgba(150,190,255,.85), 0 0 26px 8px rgba(150,190,255,.35); } /* une étoile d'or, une d'argent : on voit l'échange */
-@keyframes ab-swapx { 0%, 30% { transform: translateX(0); } 50%, 80% { transform: translateX(var(--dx)); } 100% { transform: translateX(0); } }
-@keyframes ab-swapy { 0%, 30% { transform: translateY(0); } 40% { transform: translateY(calc(var(--dy) / 2 - 7vh)); } 50%, 80% { transform: translateY(var(--dy)); } 90% { transform: translateY(calc(var(--dy) / 2 + 7vh)); } 100% { transform: translateY(0); } }
-.ab-glint { position: absolute; width: 12px; height: 12px; opacity: 0; background: radial-gradient(circle, #FFF6D0 0 18%, transparent 20%), linear-gradient(0deg, transparent 44%, #FFE7A0 46% 54%, transparent 56%), linear-gradient(90deg, transparent 44%, #FFE7A0 46% 54%, transparent 56%); filter: drop-shadow(0 0 4px #F6C453); animation: ab-glint 5.2s ease-in-out infinite; }
-@keyframes ab-glint { 0%, 60%, 100% { opacity: 0; transform: scale(.3) rotate(0); } 70% { opacity: 1; transform: scale(1.3) rotate(45deg); } 80% { opacity: 0; transform: scale(.4) rotate(90deg); } }
+.ab-roofs { pointer-events: none; filter: drop-shadow(0 0 4px rgba(255,200,90,.9)); }
+.ab-roof { fill: none; stroke: #FFD978; stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; stroke-dasharray: 24 260; stroke-dashoffset: 284; opacity: 0; animation: ab-roof 4.5s ease-in-out infinite; }
+@keyframes ab-roof { 0% { stroke-dashoffset: 284; opacity: 0; } 8% { opacity: 1; } 40% { stroke-dashoffset: 0; opacity: 1; } 48%, 100% { stroke-dashoffset: 0; opacity: 0; } }
 /* Joueur de flûte : des notes ondulent au-dessus du village */
 .ab-note { position: absolute; bottom: 85%; left: -6%; font: 700 30px serif; color: #F6D58A; text-shadow: 0 0 10px rgba(246,213,138,.8); opacity: 0; animation: ab-notex 14s linear infinite, ab-notey 3.2s ease-in-out infinite alternate; }
 @keyframes ab-notex { 0% { left: -6%; opacity: 0; } 8% { opacity: 1; } 88% { opacity: 1; } 100% { left: 104%; opacity: 0; } }
@@ -1292,7 +1286,7 @@ body.calm #sky[data-amb="voleur"] .sk-moon { animation: none; box-shadow: 0 0 60
 body.calm .sk-amb * { animation: none !important; }
 body.calm .sk-eyes { opacity: 1; }
 body.calm .ab-heart, body.calm .ab-mote { opacity: .8; }
-body.calm .ab-streak, body.calm .ab-swap, body.calm .ab-glint, body.calm .ab-note, body.calm .ab-bub { display: none; }
+body.calm .ab-streak, body.calm .ab-roofs, body.calm .ab-note, body.calm .ab-bub { display: none; }
 
 /* ---------- Petites animations sur les vignettes (fx.js) : seulement pour ceux qui ont le droit de voir ---------- */
 #fx { position: fixed; inset: 0; z-index: 2; pointer-events: none; }

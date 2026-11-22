@@ -10,10 +10,10 @@ window.Sky = (() => {
   const setMotion = (v) => { try { localStorage.setItem('lg-motion', v); } catch { /* */ } applyMotion(); };
   applyMotion();
   motionQ.addEventListener?.('change', applyMotion);
-  let el = null, orbit = null, theme = null, turn = 0, duskT = null;
+  let el = null, orbit = null, theme = null, turn = 0, duskT = null, roofSvg = '';
   const rnd = (() => { let x = 7; return () => ((x = (x * 16807) % 2147483647) / 2147483647); })();
   function village() {
-    const W = 1600, H = 170, out = [], wins = [];
+    const W = 1600, H = 170, out = [], wins = [], roofs = [];
     out.push(`<path class="sk-hill2" d="M0 ${H - 70} Q ${W * 0.15} ${H - 120} ${W * 0.32} ${H - 78} T ${W * 0.62} ${H - 86} T ${W} ${H - 74} L ${W} ${H} L 0 ${H} Z"/>`);
     out.push(`<path class="sk-hill1" d="M0 ${H - 40} Q ${W * 0.2} ${H - 70} ${W * 0.45} ${H - 46} T ${W} ${H - 50} L ${W} ${H} L 0 ${H} Z"/>`);
     let x = 6, k = 0;
@@ -27,12 +27,14 @@ window.Sky = (() => {
       } else if (r < 0.27 && k > 3) {
         const w = 60, h = 70, b = H - 12;
         out.push(`<path class="sk-h" d="M${x} ${b} V${b - h} L${x + w / 2} ${b - h - 26} L${x + w} ${b - h} V${b} Z"/>`);
+        roofs.push([x, b - h, x + w / 2, b - h - 26, x + w, b - h], [x + w * 0.38, b - h - 64, x + w / 2, b - h - 84, x + w * 0.62, b - h - 64]);
         out.push(`<path class="sk-h" d="M${x + w * 0.38} ${b - h - 20} V${b - h - 64} L${x + w / 2} ${b - h - 84} L${x + w * 0.62} ${b - h - 64} V${b - h - 20} Z"/>`);
         wins.push([x + w * 0.44, b - h - 52, 7, 12], [x + w * 0.42, b - h + 8, 10, 18]);
         x += w + 14;
       } else {
         const w = R(40, 70), h = R(30, 52), roof = R(14, 26), b = H - 12;
         out.push(`<path class="sk-h" d="M${x} ${b} V${b - h} L${x + w / 2} ${b - h - roof} L${x + w} ${b - h} V${b} Z"/>`);
+        roofs.push([x, b - h, x + w / 2, b - h - roof, x + w, b - h]);
         out.push(`<rect class="sk-h" x="${x + w * 0.7}" y="${b - h - roof + 4}" width="7" height="${roof}"/>`);
         const n = R(1, 2);
         for (let j = 0; j < n; j++) wins.push([n === 1 ? x + w / 2 - 5 : x + 8 + j * (w - 25), b - h + 10, 9, 11]);
@@ -50,6 +52,8 @@ window.Sky = (() => {
     out.push(`<rect class="sk-h" x="0" y="${H - 14}" width="${W}" height="14"/>`);
     // Deux silhouettes (jour, nuit) en fondu, et les fenêtres allumées par-dessus : tout bouge en opacité, sans repeindre les couleurs.
     const svg = (c, body) => `<svg class="sk-village ${c}" viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMax slice" aria-hidden="true">${body}</svg>`;
+    // Pour le Voleur : des reflets d'or qui glissent le long des toits (gardés pour l'ambiance, posés au même endroit que le village).
+    roofSvg = svg('ab-roofs', roofs.map(([a, b, c, d, e, f]) => `<path class="ab-roof" style="animation-delay:${(rnd() * 4.5).toFixed(2)}s" d="M${a} ${b} L${c} ${d} L${e} ${f}"/>`).join(''));
     return svg('sk-vd', out.join('')) + svg('sk-vn', out.join('')) + svg('sk-vl', lit.join(''));
   }
   function build() {
@@ -95,7 +99,7 @@ window.Sky = (() => {
       <div class="ab ab-cupidon"><div class="ab-vil">${[5, 14, 24, 33, 43, 52, 62, 71, 81, 90].map((l, i) => `<span class="ab-heart" style="left:${l}%;animation-delay:${(i * 0.6).toFixed(1)}s">${heart}</span>`).join('')}</div><span class="ab-streak"></span></div>
       <div class="ab ab-voyante"><div class="ab-aur a1"></div><div class="ab-aur a2"></div>${[[18, 30, 0], [42, 22, 1.2], [66, 36, 2.4], [84, 18, 3.6], [30, 46, 1.8]].map(([l, t, d]) => `<span class="ab-mote" style="left:${l}%;top:${t}%;animation-delay:${d}s"></span>`).join('')}</div>
       <div class="ab ab-sorciere"><div class="ab-vil">${[[7, 0], [19, 2.6], [31, 1.1], [44, 3.9], [56, 0.6], [68, 2.2], [80, 4.6], [92, 1.6]].map(([l, d], k) => `<span class="ab-bub${k % 2 ? ' v' : ''}" style="left:${l}%;animation-delay:${d}s"></span>`).join('')}</div></div>
-      <div class="ab ab-voleur"><span class="ab-swap a"><i></i></span><span class="ab-swap b"><i></i></span>${[[12, 30], [38, 36], [61, 28], [86, 34]].map(([l, b], k) => `<span class="ab-glint" style="left:${l}%;bottom:calc(var(--dock-h, 0px) + ${b}px);animation-delay:${k * 1.3}s"></span>`).join('')}</div>
+      <div class="ab ab-voleur">${roofSvg}</div>
       <div class="ab ab-flute"><div class="ab-vil">${['♪', '♫', '♪', '♬', '♪', '♫', '♪'].map((g, i) => `<span class="ab-note" style="animation-delay:${i * 2}s,${-i * 0.8}s">${g}</span>`).join('')}</div></div>`;
     el.appendChild(box);
   }
