@@ -95,28 +95,15 @@ window.Sky = (() => {
       <div class="ab ab-loupblanc"><div class="ab-vil">${eyes('white', [[31, 30, 0], [72, 34, 1.8]])}</div></div>
       <div class="ab ab-cupidon"><div class="ab-vil">${[5, 14, 24, 33, 43, 52, 62, 71, 81, 90].map((l, i) => `<span class="ab-heart" style="left:${l}%;animation-delay:${(i * 0.6).toFixed(1)}s">${heart}</span>`).join('')}</div><span class="ab-streak"></span></div>
       <div class="ab ab-voyante"><div class="ab-aur a1"></div><div class="ab-aur a2"></div>${[[18, 30, 0], [42, 22, 1.2], [66, 36, 2.4], [84, 18, 3.6], [30, 46, 1.8]].map(([l, t, d]) => `<span class="ab-mote" style="left:${l}%;top:${t}%;animation-delay:${d}s"></span>`).join('')}</div>
-      <div class="ab ab-sorciere">${[0, 1, 2, 3, 4].map((i) => `<span class="ab-puff${i % 2 ? ' v' : ''}" style="animation-delay:${i * 0.8}s"></span>`).join('')}</div>
+      <div class="ab ab-sorciere"><div class="ab-vil">${[[7, 0], [19, 2.6], [31, 1.1], [44, 3.9], [56, 0.6], [68, 2.2], [80, 4.6], [92, 1.6]].map(([l, d], k) => `<span class="ab-bub${k % 2 ? ' v' : ''}" style="left:${l}%;animation-delay:${d}s"></span>`).join('')}</div></div>
       <div class="ab ab-voleur"><div class="ab-vil"><span class="ab-thief">${thief}</span></div></div>
       <div class="ab ab-flute"><div class="ab-vil">${['♪', '♫', '♪', '♬', '♪', '♫', '♪'].map((g, i) => `<span class="ab-note" style="animation-delay:${i * 2}s,${-i * 0.8}s">${g}</span>`).join('')}</div></div>`;
     el.appendChild(box);
-  }
-  function chimney() { // la fumée de la Sorcière sort d'une vraie cheminée, vers le tiers gauche de l'écran
-    const W = innerWidth;
-    let best = null, bd = Infinity;
-    el.querySelectorAll('.sk-vd rect.sk-h').forEach((r) => {
-      if (+r.getAttribute('width') !== 7) return;
-      const b = r.getBoundingClientRect();
-      if (b.left < 20 || b.right > W - 20) return;
-      const d = Math.abs(b.left - W * 0.3);
-      if (d < bd) { bd = d; best = b; }
-    });
-    if (best) { el.style.setProperty('--chx', `${Math.round(best.left + best.width / 2)}px`); el.style.setProperty('--chy', `${Math.round(best.top)}px`); }
   }
   function setAmb(k) {
     if (!el) build();
     if (k === amb) return;
     amb = k;
-    if (k === 'sorciere') chimney();
     el.dataset.amb = k;
   }
   function dock(h) { document.body.style.setProperty('--dock-h', `${Math.round(h)}px`); place(); }
