@@ -215,7 +215,8 @@
   const fmt = (ms) => { const s = Math.max(0, Math.ceil(ms / 1000)); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`; };
   // Ambiance du ciel pendant le tour d'un rôle (vue par tous : le rôle appelé est déjà annoncé).
   const STEP_AMB = { loups: 'loups', grandloup: 'loups', infect: 'loups', n_loups: 'loups', loupblanc: 'loupblanc', cupidon: 'cupidon',
-    voyante: 'voyante', n_voyante: 'voyante', sorciere: 'sorciere', voleur: 'voleur', n_voleur: 'voleur', flute: 'flute' };
+    voyante: 'voyante', n_voyante: 'voyante', sorciere: 'sorciere', voleur: 'voleur', n_voleur: 'voleur', flute: 'flute',
+    n_double: 'double', n_sbire: 'sbire', n_macons: 'macons', n_noiseuse: 'noiseuse', n_soulard: 'soulard', n_insomniaque: 'insomniaque' };
   const isDayCtx = () => !!view && view.room.phase !== 'end' && (view.room.phase === 'day' || !!(view.step && DAY_STEPS.includes(view.step.type)));
   // Chaque zone a son icône : on sait d'un coup d'œil où l'on est.
   const zone = (ic, title, body, cls = '', right = '') =>

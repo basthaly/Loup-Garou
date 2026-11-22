@@ -47,7 +47,7 @@ window.Sky = (() => {
       const r = `x="${Math.round(wx)}" y="${Math.round(wy)}" width="${ww}" height="${wh}" rx="1.5"`;
       out.push(`<rect class="sk-wo" ${r}/>`);
       const g = `x="${Math.round(wx) - 5}" y="${Math.round(wy) - 5}" width="${ww + 10}" height="${wh + 10}" rx="6"`;
-      lit.push(`<g class="sk-win" style="--wd:${(rnd() * 1.6).toFixed(2)}s"><rect class="sk-glow" ${g}/><rect ${r}/></g>`);
+      lit.push([wx, `<g class="sk-win" style="--wd:${(rnd() * 1.6).toFixed(2)}s"><rect class="sk-glow" ${g}/><rect ${r}/></g>`]);
     }
     out.push(`<rect class="sk-h" x="0" y="${H - 14}" width="${W}" height="14"/>`);
     // Deux silhouettes (jour, nuit) en fondu, et les fenêtres allumées par-dessus : tout bouge en opacité, sans repeindre les couleurs.
@@ -63,7 +63,11 @@ window.Sky = (() => {
       }
     }
     roofSvg = svg('ab-roofs', dots.join(''));
-    return svg('sk-vd', out.join('')) + svg('sk-vn', out.join('')) + svg('sk-vl', lit.join(''));
+    // L'Insomniaque (Une nuit) : la fenêtre la plus proche du milieu de l'écran reste seule allumée pendant son tour.
+    let mid = 0;
+    lit.forEach(([wx], i) => { if (Math.abs(wx - W * 0.56) < Math.abs(lit[mid][0] - W * 0.56)) mid = i; });
+    const litHtml = lit.map(([, h], i) => (i === mid ? h.replace('class="sk-win"', 'class="sk-win insom"') : h)).join('');
+    return svg('sk-vd', out.join('')) + svg('sk-vn', out.join('')) + svg('sk-vl', litHtml);
   }
   function build() {
     el = document.createElement('div');
@@ -76,7 +80,7 @@ window.Sky = (() => {
       stars += `<div class="sk-sg">${g}</div>`;
     }
     const clouds = [[6, 9, 130], [34, 16, 95], [74, 7, 150]].map(([l, t, w]) => `<span class="sk-cloud" style="left:${l}%;top:${t}%;width:${w}px"></span>`).join('');
-    el.innerHTML = `<div class="sk-l sk-day"></div><div class="sk-l sk-dusk"></div><div class="sk-l sk-night"></div><div class="sk-l sk-stars">${stars}</div><div class="sk-l sk-clouds">${clouds}</div><div class="sk-veil"></div><div class="sk-clip"><div class="sk-pos"><div class="sk-orbit"><span class="sk-sun"></span><span class="sk-moon"><i class="sk-ring"></i><i class="sk-ring"></i><i class="sk-ring"></i></span></div></div></div>${village()}`;
+    el.innerHTML = `<div class="sk-l sk-day"></div><div class="sk-l sk-dusk"></div><div class="sk-l sk-night"></div><div class="sk-l sk-stars">${stars}</div><div class="sk-l sk-clouds">${clouds}</div><div class="sk-veil"></div><div class="sk-clip"><div class="sk-pos"><div class="sk-orbit"><span class="sk-sun"></span><span class="sk-moon"><i class="sk-twin"></i><i class="sk-ring"></i><i class="sk-ring"></i><i class="sk-ring"></i></span></div></div></div>${village()}`;
     document.body.insertBefore(el, document.body.firstChild);
     orbit = el.querySelector('.sk-orbit');
     buildAmb();
@@ -118,7 +122,10 @@ window.Sky = (() => {
       <div class="ab ab-voyante"><div class="ab-aur a1"></div><div class="ab-aur a2"></div>${[[18, 30, 0], [42, 22, 1.2], [66, 36, 2.4], [84, 18, 3.6], [30, 46, 1.8]].map(([l, t, d]) => `<span class="ab-mote" style="left:${l}%;top:${t}%;animation-delay:${d}s"></span>`).join('')}</div>
       <div class="ab ab-sorciere"><div class="ab-vil">${[[7, 0], [19, 2.6], [31, 1.1], [44, 3.9], [56, 0.6], [68, 2.2], [80, 4.6], [92, 1.6]].map(([l, d], k) => `<span class="ab-bub${k % 2 ? ' v' : ''}" style="left:${l}%;animation-delay:${d}s"></span>`).join('')}</div></div>
       <div class="ab ab-voleur">${roofSvg}</div>
-      <div class="ab ab-flute">${staff()}</div>`;
+      <div class="ab ab-flute">${staff()}</div>
+        <div class="ab ab-sbire"><div class="ab-vil">${eyes('dim', [[22, 30, 0], [58, 26, 1.4], [84, 34, 2.8]])}</div></div>
+        <div class="ab ab-macons"><div class="ab-vil"><span class="ab-lamp a" style="left:29%;bottom:52%"></span><span class="ab-lamp b" style="left:66%;bottom:56%"></span></div></div>
+        <div class="ab ab-noiseuse"><span class="ab-swap a"><i></i></span><span class="ab-swap b"><i></i></span></div>`;
     el.appendChild(box);
   }
   function setAmb(k) {

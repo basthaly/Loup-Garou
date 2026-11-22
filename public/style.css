@@ -1223,10 +1223,10 @@ body.calm .sk-cloud, body.calm .sk-sg { animation: none !important; }
 .sk-amb { position: absolute; inset: 0; }
 .ab { position: absolute; inset: 0; opacity: 0; visibility: hidden; transition: opacity 1.2s ease, visibility 0s linear 1.2s; }
 #sky[data-amb="loups"] .ab-loups, #sky[data-amb="loupblanc"] .ab-loupblanc, #sky[data-amb="cupidon"] .ab-cupidon, #sky[data-amb="voyante"] .ab-voyante,
-#sky[data-amb="sorciere"] .ab-sorciere, #sky[data-amb="voleur"] .ab-voleur, #sky[data-amb="flute"] .ab-flute { opacity: 1; visibility: visible; transition: opacity 1.2s ease, visibility 0s; }
+#sky[data-amb="sorciere"] .ab-sorciere, #sky[data-amb="voleur"] .ab-voleur, #sky[data-amb="flute"] .ab-flute, #sky[data-amb="double"] .ab-double, #sky[data-amb="sbire"] .ab-sbire, #sky[data-amb="macons"] .ab-macons, #sky[data-amb="noiseuse"] .ab-noiseuse, #sky[data-amb="soulard"] .ab-soulard, #sky[data-amb="insomniaque"] .ab-insomniaque { opacity: 1; visibility: visible; transition: opacity 1.2s ease, visibility 0s; }
 .ab * { animation-play-state: paused; }
 #sky[data-amb="loups"] .ab-loups *, #sky[data-amb="loupblanc"] .ab-loupblanc *, #sky[data-amb="cupidon"] .ab-cupidon *, #sky[data-amb="voyante"] .ab-voyante *,
-#sky[data-amb="sorciere"] .ab-sorciere *, #sky[data-amb="voleur"] .ab-voleur *, #sky[data-amb="flute"] .ab-flute * { animation-play-state: running; }
+#sky[data-amb="sorciere"] .ab-sorciere *, #sky[data-amb="voleur"] .ab-voleur *, #sky[data-amb="flute"] .ab-flute *, #sky[data-amb="double"] .ab-double *, #sky[data-amb="sbire"] .ab-sbire *, #sky[data-amb="macons"] .ab-macons *, #sky[data-amb="noiseuse"] .ab-noiseuse *, #sky[data-amb="soulard"] .ab-soulard *, #sky[data-amb="insomniaque"] .ab-insomniaque * { animation-play-state: running; }
 /* Bande du village (même place que les maisons) pour les effets posés dessus */
 .ab-vil { position: absolute; left: 0; right: 0; height: max(150px, 10.625vw); bottom: var(--dock-h, 0px); }
 @media (max-width: 700px) { .ab-vil { height: 96px; } }
@@ -1269,7 +1269,7 @@ body.calm #sky[data-amb="sorciere"] .sk-moon { animation: none; background: radi
 .ab-bub.v { border-color: rgba(195,150,250,.9); background: radial-gradient(circle at 35% 35%, rgba(255,255,255,.7), rgba(170,110,240,.25) 45%, rgba(170,110,240,.05)); box-shadow: 0 0 10px rgba(170,110,240,.55); }
 @keyframes ab-bub { 0% { opacity: 0; transform: translate(0, 0) scale(.5); } 12% { opacity: 1; } 70% { opacity: .9; transform: translate(10px, -150px) scale(1); } 78% { opacity: .9; transform: translate(8px, -170px) scale(1.5); } 84%, 100% { opacity: 0; transform: translate(8px, -172px) scale(1.9); } }
 /* Voleur : la lune devient une pièce d'or qu'une ombre vient chiper puis rend ; de petits points d'or clignotent sur les toits */
-#sky[data-amb="voleur"] .sk-moon { background: radial-gradient(circle at 38% 38%, #FFF8DC, #E8B84A 70%); animation: ab-steal 18s ease-in-out infinite; }
+#sky[data-amb="voleur"] .sk-moon { background: radial-gradient(circle at 38% 38%, #FFF8DC, #E8B84A 70%); animation: ab-steal 9s ease-in-out infinite; }
 @keyframes ab-steal {
   0%, 18%, 100% { box-shadow: inset 0 0 0 0 rgba(8,10,28,.9), 0 0 60px 20px rgba(246,196,83,.5), 0 0 160px 60px rgba(232,170,60,.22); }
   45%, 60% { box-shadow: inset 46px 0 0 0 rgba(8,10,28,.9), 0 0 40px 12px rgba(246,196,83,.32), 0 0 120px 40px rgba(232,170,60,.14); }
@@ -1300,7 +1300,7 @@ body.calm #sky[data-amb="flute"] .sk-ring { display: none; }
 body.calm .sk-amb * { animation: none !important; }
 body.calm .sk-eyes { opacity: 1; }
 body.calm .ab-heart, body.calm .ab-mote { opacity: .8; }
-body.calm .ab-streak, body.calm .ab-roofs, body.calm .ab-bub { display: none; }
+body.calm .ab-streak, body.calm .ab-roofs, body.calm .ab-bub, body.calm .ab-swap { display: none; }
 
 /* ---------- Petites animations sur les vignettes (fx.js) : seulement pour ceux qui ont le droit de voir ---------- */
 #fx { position: fixed; inset: 0; z-index: 2; pointer-events: none; }
@@ -1369,3 +1369,41 @@ body.calm .ab-streak, body.calm .ab-roofs, body.calm .ab-bub { display: none; }
 .fx-ghost, .fx-ghost > .tile { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; }
 .fx-ghost > .tile { pointer-events: none; }
 @keyframes fx-ghostout { 0%, 82% { opacity: 1; } 100% { opacity: 0; transform: scale(.96); } }
+
+/* ---------- Ambiances des rôles d'Une nuit ---------- */
+/* Doppelgänger : la lune se dédouble, son reflet s'écarte puis revient se fondre en elle */
+.sk-twin { display: none; }
+#sky[data-amb="double"] .sk-moon { background: radial-gradient(circle at 38% 38%, #F7F4FF, #C9C0E6 70%); box-shadow: 0 0 60px 20px rgba(200,190,240,.45), 0 0 160px 60px rgba(160,150,220,.2); }
+#sky[data-amb="double"] .sk-twin { display: block; position: absolute; inset: 0; border-radius: 50%; background: inherit; box-shadow: 0 0 40px 12px rgba(200,190,240,.35); opacity: .55; animation: ab-twin 7s ease-in-out infinite; }
+@keyframes ab-twin { 0%, 12%, 100% { transform: translate(0, 0); opacity: 0; } 30% { opacity: .6; } 50%, 62% { transform: translate(78px, 10px); opacity: .6; } 88% { opacity: .3; } }
+/* Sbire : il voit les loups — quelques yeux rouges, plus discrets, et un léger halo rouge autour de la lune */
+.sk-eyes.dim { filter: brightness(.8); }
+.sk-eyes.dim i { background: #FF3B30; box-shadow: 0 0 6px 2px rgba(255,40,30,.55); }
+#sky[data-amb="sbire"] .sk-moon { box-shadow: 0 0 60px 18px rgba(246,235,200,.32), 0 0 150px 60px rgba(200,50,50,.22); }
+/* Francs-Maçons : deux lanternes sur les toits se répondent, l'une puis l'autre ; la lune prend un reflet bleu acier */
+#sky[data-amb="macons"] .sk-moon { background: radial-gradient(circle at 38% 38%, #F4F8FF, #A9C2DE 70%); box-shadow: 0 0 60px 20px rgba(170,200,235,.45), 0 0 160px 60px rgba(120,160,210,.2); }
+.ab-lamp { position: absolute; width: 10px; height: 10px; border-radius: 50%; background: #FFF4D6; box-shadow: 0 0 12px 5px rgba(255,220,150,.75), 0 0 30px 10px rgba(255,200,120,.3); opacity: .15; animation: ab-lamp 3s ease-in-out infinite; }
+.ab-lamp.b { animation-delay: 1.5s; }
+@keyframes ab-lamp { 0%, 100% { opacity: .15; transform: scale(.7); } 15%, 35% { opacity: 1; transform: scale(1.15); } 50% { opacity: .15; transform: scale(.7); } }
+/* Noiseuse : une étoile d'or et une d'argent échangent leur place (elle échange les cartes de deux autres) */
+#sky[data-amb="noiseuse"] .sk-moon { box-shadow: 0 0 60px 18px rgba(255,190,150,.4), 0 0 150px 60px rgba(255,150,110,.18); }
+.ab-swap { position: absolute; animation: ab-swapx 8s ease-in-out infinite; }
+.ab-swap i { display: block; width: 8px; height: 8px; border-radius: 50%; background: #FFF3C4; box-shadow: 0 0 10px 4px rgba(246,196,83,.85), 0 0 26px 8px rgba(246,196,83,.35); animation: ab-swapy 8s ease-in-out infinite; }
+.ab-swap.a { left: 28vw; top: 16vh; --dx: 34vw; --dy: 8vh; }
+.ab-swap.b { left: 62vw; top: 24vh; --dx: -34vw; --dy: -8vh; }
+.ab-swap.b i { width: 9px; height: 9px; background: #EAF2FF; box-shadow: 0 0 10px 4px rgba(150,190,255,.85), 0 0 26px 8px rgba(150,190,255,.35); }
+@keyframes ab-swapx { 0%, 30% { transform: translateX(0); } 50%, 80% { transform: translateX(var(--dx)); } 100% { transform: translateX(0); } }
+@keyframes ab-swapy { 0%, 30% { transform: translateY(0); } 40% { transform: translateY(calc(var(--dy) / 2 - 7vh)); } 50%, 80% { transform: translateY(var(--dy)); } 90% { transform: translateY(calc(var(--dy) / 2 + 7vh)); } 100% { transform: translateY(0); } }
+/* Soûlard : tout tangue doucement — les étoiles, la lune couleur ambre et les maisons */
+#sky[data-amb="soulard"] .sk-moon { background: radial-gradient(circle at 38% 38%, #FFF6E0, #F0B45A 70%); box-shadow: 0 0 60px 20px rgba(240,180,90,.45), 0 0 160px 60px rgba(230,150,60,.2); animation: ab-wob 3.4s ease-in-out infinite; }
+@keyframes ab-wob { 0%, 100% { transform: rotate(180deg) translate(0, 0); } 25% { transform: rotate(180deg) translate(10px, 4px); } 75% { transform: rotate(180deg) translate(-10px, -3px); } }
+#sky[data-amb="soulard"] .sk-stars { animation: ab-sway 6s ease-in-out infinite; transform-origin: 50% 120%; }
+@keyframes ab-sway { 0%, 100% { transform: rotate(0); } 25% { transform: rotate(1.6deg); } 75% { transform: rotate(-1.6deg); } }
+#sky[data-amb="soulard"] .sk-vd, #sky[data-amb="soulard"] .sk-vn, #sky[data-amb="soulard"] .sk-vl { animation: ab-tilt 6s ease-in-out infinite; transform-origin: 50% 100%; }
+@keyframes ab-tilt { 0%, 100% { transform: skewX(0); } 25% { transform: skewX(1.4deg); } 75% { transform: skewX(-1.4deg); } }
+/* Insomniaque : le village dort, une seule fenêtre reste allumée et vacille */
+#sky[data-amb="insomniaque"] .sk-win { opacity: .08; transition: opacity 1.2s ease; }
+#sky[data-amb="insomniaque"] .sk-win.insom { opacity: 1; animation: ab-insom 5s ease-in-out infinite; }
+@keyframes ab-insom { 0%, 100% { opacity: 1; } 40% { opacity: .9; } 44% { opacity: .35; } 47% { opacity: 1; } 70% { opacity: .85; } }
+body.calm #sky[data-amb="double"] .sk-twin, body.calm #sky[data-amb="soulard"] .sk-moon, body.calm #sky[data-amb="soulard"] .sk-stars,
+body.calm #sky[data-amb="soulard"] .sk-vd, body.calm #sky[data-amb="soulard"] .sk-vn, body.calm #sky[data-amb="soulard"] .sk-vl, body.calm #sky[data-amb="insomniaque"] .sk-win.insom { animation: none; }

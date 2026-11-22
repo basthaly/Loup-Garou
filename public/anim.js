@@ -4,6 +4,7 @@
   const AMBS = [
     ['', 'Aucune'], ['loups', 'Loups-Garous'], ['loupblanc', 'Loup-Garou Blanc'], ['cupidon', 'Cupidon'], ['voyante', 'Voyante'],
     ['sorciere', 'Sorcière'], ['voleur', 'Voleur'], ['flute', 'Joueur de flûte'],
+    ['double', 'Doppelgänger'], ['sbire', 'Sbire'], ['macons', 'Francs-Maçons'], ['noiseuse', 'Noiseuse'], ['soulard', 'Soûlard'], ['insomniaque', 'Insomniaque'],
   ];
   // Petites animations sur les vignettes (vues seulement par ceux qui ont le droit) : on les joue sur des vignettes d'exemple.
   const FXS = [['fx-claw', 'Loups : la victime'], ['fx-arrow', 'Cupidon : cœurs'], ['fx-flip', 'Voyante : carte'], ['fx-save', 'Sorcière : vie'],
