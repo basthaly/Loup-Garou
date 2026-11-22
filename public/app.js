@@ -241,7 +241,7 @@
     document.body.style.setProperty('--dock-h', `${dock ? dock.offsetHeight : 0}px`);
     const cem = $app.querySelector('.cemetery-row');
     // On laisse voir le village (et le soleil ou la lune posés dessus) au-dessus de la barre du bas (écrans larges).
-    const H = Math.max(180, window.innerHeight - top - (dock ? dock.offsetHeight : 0) - (cem ? cem.offsetHeight + 18 : 0) - 20 - (window.innerWidth > 700 ? (window.innerHeight > 600 ? 136 : 60) : 0));
+    const H = Math.max(180, window.innerHeight - top - (dock ? dock.offsetHeight : 0) - (cem ? cem.offsetHeight + 18 : 0) - 20 - (window.innerWidth > 700 ? (window.innerHeight > 600 ? Math.max(136, Math.round(window.innerWidth * 0.096)) : 60) : 0));
     const gap = parseFloat(getComputedStyle(g).columnGap) || 12;
     let best = { w: 0, cols: 1 };
     for (let cols = big ? 2 : 1; cols <= n; cols++) {
@@ -259,7 +259,7 @@
     let size = Math.floor(Math.min(w, (W - gap * (cols - 1)) / cols));
     // Pas de micro-déplacement d'une étape à l'autre : on garde la taille si l'écart est faible.
     const prev = layoutGrid.last;
-    if (prev && prev.n === n && prev.cols === cols && prev.W === W && Math.abs(prev.size - size) < 40) size = prev.size;
+    if (prev && prev.n === n && prev.cols === cols && prev.W === W && prev.size < size && size - prev.size < 40) size = prev.size; // on garde la plus petite : la grille ne déborde jamais sur le village
     layoutGrid.last = { n, cols, W, size };
     g.style.gridTemplateColumns = `repeat(${cols}, ${size}px)`;
     g.style.setProperty('--tile-w', `${size}px`);

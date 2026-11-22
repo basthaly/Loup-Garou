@@ -767,6 +767,8 @@ button.potion.life.on { background: #4CC38A; border-color: #4CC38A; }
 
 /* ---------- V5 : un seul bandeau d'événement, en bas ---------- */
 .stage { padding-bottom: calc(var(--dock-h, 150px) + 16px); }
+/* Grand écran : quand la page défile, le contenu s'arrête au-dessus des toits (le village et l'astre restent visibles). */
+@media (min-width: 701px) and (min-height: 601px) { .stage { padding-bottom: calc(var(--dock-h, 150px) + max(150px, 10vw)); } }
 .steps li.next { background: transparent; border-style: dashed; opacity: .85; }
 .evbar { max-width: 1440px; box-sizing: border-box; margin: 10px auto 0; width: calc(100% - 48px); display: flex; align-items: center; gap: 14px; padding: 10px 16px; border-radius: 16px; border: 1px solid transparent; }
 .evbar .ev-icon { width: 40px; height: 40px; flex: none; border-radius: 12px; display: inline-flex; align-items: center; justify-content: center; }
@@ -1197,7 +1199,8 @@ table.hist td.hit span { display: inline-flex; align-items: center; gap: 4px; pa
 /* L'astre qui part s'efface une fois sous l'horizon, celui qui arrive apparaît dès le début du mouvement. */
 #sky[data-sky="night"] .sk-sun { opacity: 0; transition: opacity .6s ease 2.1s; }
 #sky[data-sky="night"] .sk-moon { opacity: 1; transition: opacity .8s ease; }
-.sk-village { position: absolute; left: 0; width: 100%; height: 150px; bottom: var(--dock-h, 0px); transition: bottom .4s ease, opacity 2s var(--ease); }
+/* Hauteur proportionnelle à la largeur sur grand écran : le haut des maisons et du clocher n'est jamais coupé. */
+.sk-village { position: absolute; left: 0; width: 100%; height: max(150px, 10.625vw); bottom: var(--dock-h, 0px); transition: bottom .4s ease, opacity 2s var(--ease); }
 .sk-vd .sk-hill2 { fill: var(--d-hill2); } .sk-vd .sk-hill1 { fill: var(--d-hill1); } .sk-vd .sk-h { fill: var(--d-house); } .sk-vd .sk-wo { fill: var(--d-win); }
 .sk-vn .sk-hill2 { fill: var(--n-hill2); } .sk-vn .sk-hill1 { fill: var(--n-hill1); } .sk-vn .sk-h { fill: var(--n-house); } .sk-vn .sk-wo { fill: var(--n-win); }
 .sk-vn { opacity: 0; }
@@ -1206,7 +1209,7 @@ table.hist td.hit span { display: inline-flex; align-items: center; gap: 4px; pa
 .sk-win { fill: #FFCB6B; opacity: 0; transition: opacity .7s ease calc(var(--wd) * .3); }
 #sky[data-sky="night"] .sk-win { opacity: 1; transition: opacity .7s ease calc(1.2s + var(--wd) * .5); }
 #sky.still, #sky.still * { transition: none !important; }
-body[data-screen="home"] .sk-village { height: 170px; }
+body[data-screen="home"] .sk-village { height: max(170px, 10.625vw); }
 @media (max-width: 700px) { .sk-village { height: 96px; } .sk-sun, .sk-moon { width: 58px; height: 58px; margin: -29px; } #sky { --sv: 58%; } [data-appearance="light"] #sky { --sv: 40%; } }
 /* Mouvement réduit : simple fondu, sans déplacement ni nuages qui dérivent. */
 /* Mouvement réduit (réglage du site, ou du téléphone par défaut) */
@@ -1225,7 +1228,7 @@ body.calm .sk-cloud, body.calm .sk-sg { animation: none !important; }
 #sky[data-amb="loups"] .ab-loups *, #sky[data-amb="loupblanc"] .ab-loupblanc *, #sky[data-amb="cupidon"] .ab-cupidon *, #sky[data-amb="voyante"] .ab-voyante *,
 #sky[data-amb="sorciere"] .ab-sorciere *, #sky[data-amb="voleur"] .ab-voleur *, #sky[data-amb="flute"] .ab-flute * { animation-play-state: running; }
 /* Bande du village (même place que les maisons) pour les effets posés dessus */
-.ab-vil { position: absolute; left: 0; right: 0; height: 150px; bottom: var(--dock-h, 0px); }
+.ab-vil { position: absolute; left: 0; right: 0; height: max(150px, 10.625vw); bottom: var(--dock-h, 0px); }
 @media (max-width: 700px) { .ab-vil { height: 96px; } }
 /* Lune selon le rôle */
 .sk-moon { transition: opacity .6s ease 2.1s, background 1.2s ease, box-shadow 1.2s ease; }

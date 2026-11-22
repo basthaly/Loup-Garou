@@ -132,7 +132,7 @@ window.Sky = (() => {
     const bf = cs.backdropFilter || cs.webkitBackdropFilter;
     const m = cs.backgroundColor.match(/[\d.]+/g);
     const a = !m ? 0 : m.length > 3 ? +m[3] : 1;
-    const v = bf && bf !== 'none' ? 1 : (a > 0.3 || cs.backgroundImage !== 'none') ? 2 : 0;
+    const v = bf && bf !== 'none' ? 1 : (a > 0.05 || cs.backgroundImage !== 'none') ? 2 : 0; // même un panneau très transparent (cimetière, meute) cache l'astre
     opq.set(e, v);
     return v;
   }
@@ -159,7 +159,7 @@ window.Sky = (() => {
       if (Math.random() < 0.05) opq = new WeakMap();
       const W = innerWidth, H = innerHeight;
       const dk = parseFloat(getComputedStyle(document.body).getPropertyValue('--dock-h')) || 0;
-      const vil = W <= 700 ? 96 : 150;
+      const vil = W <= 700 ? 96 : Math.max(150, W * 0.10625); // même hauteur que le village (style.css)
       const rad = W <= 700 ? 30 : 42, s = rad;
       const x0 = rad, y0 = rad, x1 = W - rad, y1 = H - dk - vil * 0.45; // jusqu'au faîte des toits : l'astre peut se poser derrière le village
       const memo = new Map();
@@ -176,7 +176,7 @@ window.Sky = (() => {
       const R = W <= 700 ? 70 : 130;
       // Sur grand écran, la bande au-dessus des toits reste toujours libre (accueil, salon, partie) : même zone partout,
       // à droite, bien au-dessus des toits (il s'y couche derrière les maisons). Sur téléphone, en haut à droite.
-      const home = W > 700 ? [W * 0.78, H - dk - vil * 1.1] : [W * 0.76, H * 0.3];
+      const home = W > 700 ? [W * 0.78, H - dk - vil * 0.73] : [W * 0.76, H * 0.3]; // juste au-dessus des toits, sous le contenu
       // La place bien dégagée la plus proche du but ; à défaut, la moins cachée la plus proche (dans la zone si on en a une).
       const search = (tx, ty, zone) => {
         let good = null, gd = Infinity, fair = null, fd = Infinity;
